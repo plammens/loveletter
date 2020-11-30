@@ -1,4 +1,8 @@
 import abc
+import typing
+
+if typing.TYPE_CHECKING:
+    from loveletter.player import Player
 
 
 class Card(metaclass=abc.ABCMeta):
@@ -8,6 +12,11 @@ class Card(metaclass=abc.ABCMeta):
     def name(self):
         """Name of the card"""
         return self.__class__.__name__
+
+    @abc.abstractmethod
+    def play(self, owner: Player, target: Player):
+        """Play this card against another player"""
+        assert owner.game is target.game
 
 
 class Spy(Card):

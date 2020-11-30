@@ -38,47 +38,77 @@ class Spy(Card):
     value = 0
     action_type = Card.ActionType.DISCARD
 
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
+
 
 class Guard(Card):
     value = 1
     action_type = Card.ActionType.TARGET
+
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
 
 
 class Priest(Card):
     value = 2
     action_type = Card.ActionType.TARGET
 
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
+
 
 class Baron(Card):
     value = 3
     action_type = Card.ActionType.TARGET
+
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
 
 
 class Handmaid(Card):
     value = 4
     action_type = Card.ActionType.DISCARD
 
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
+
 
 class Prince(Card):
     value = 5
     action_type = Card.ActionType.TARGET
+
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
 
 
 class Chancellor(Card):
     value = 6
     action_type = Card.ActionType.TARGET
 
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
+
 
 class King(Card):
     value = 7
     action_type = Card.ActionType.TARGET
+
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
 
 
 class Countess(Card):
     value = 8
     action_type = Card.ActionType.DISCARD
 
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass
+
 
 class Princess(Card):
     value = 9
     action_type = Card.ActionType.DISCARD
+
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        pass

@@ -1,2 +1,3 @@
 pytest~=6.1.2
 valid8~=5.1.1
+more_itertools~=8.6.0

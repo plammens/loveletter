@@ -1,7 +1,7 @@
 import pytest
 import valid8
 
-from loveletter.game import Game
+from loveletter.game import Game, GameEnd, GameState, Turn
 
 
 @pytest.mark.parametrize("num_players", [2, 3, 4])
@@ -33,13 +33,16 @@ def test_nextTurn_currentPlayerIsValid(game: Game):
 
 def test_nextTurn_ongoingGame_gameStateIsTurn(game: Game):
     state = game.next_turn()
-    assert state.type == Game.State.Type.TURN
+    assert state.type == GameState.Type.TURN
+    assert isinstance(state, Turn)
 
 
-def test_nextTurn_onlyOnePlayer_gameStateIsEnd(game: Game):
+def test_nextTurn_onlyOnePlayerRemains_gameStateIsEnd(game: Game):
     winner = game.players[-1]
     for player in game.players:
         if player is not winner:
             player.eliminate()
     state = game.next_turn()
-    assert state.type == Game.State.Type.GAME_END
+    assert state.type == GameState.Type.GAME_END
+    assert isinstance(state, GameEnd)
+    assert state.winner is winner

@@ -10,6 +10,7 @@ def test_newGame_validNumPlayers_works(num_players: int):
     assert len(game.players) == num_players
     assert len(set(map(id, game.players))) == num_players
     assert all(player.game is game for player in game.players)
+    assert all(game.players[i].id == i for i in range(num_players))
 
 
 @pytest.mark.parametrize("num_players", ["foo", -1, 0, 1, 5])

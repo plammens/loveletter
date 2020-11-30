@@ -12,4 +12,4 @@ class Game:
         valid8.validate(
             "num_players", num_players, instance_of=int, min_value=2, max_value=4
         )
-        self.players = [Player(self) for _ in range(num_players)]
+        self.players = [Player(self, i) for i in range(num_players)]

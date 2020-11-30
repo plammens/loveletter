@@ -18,8 +18,9 @@ class Player:
     hand: Hand
     cards_played: Sequence[Card]
 
-    def __init__(self, game: "Game"):
+    def __init__(self, game: "Game", player_id: int):
         self.game = game
+        self.id = player_id
         self.alive = True
         self.hand = self.Hand()
         self.cards_played = []

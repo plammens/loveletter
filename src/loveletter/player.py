@@ -8,7 +8,10 @@ if typing.TYPE_CHECKING:
 
 
 class Player:
+    class Hand:
+        card: Card
+
     game: Game
     alive: bool
-    card: Card
+    hand: Hand
     cards_played: Sequence[Card]

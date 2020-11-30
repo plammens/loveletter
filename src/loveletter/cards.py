@@ -84,7 +84,7 @@ class Prince(Card):
 
 class Chancellor(Card):
     value = 6
-    action_type = Card.ActionType.TARGET
+    action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
         pass

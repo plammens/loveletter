@@ -23,7 +23,7 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def play(self, owner: Player, target: Player):
+    def play(self, owner: "Player", target: "Player"):
         """Play this card against another player"""
         assert owner.game is target.game
 

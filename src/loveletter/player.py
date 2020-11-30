@@ -11,7 +11,7 @@ class Player:
     class Hand:
         card: Card
 
-    game: Game
+    game: "Game"
     alive: bool
     hand: Hand
     cards_played: Sequence[Card]

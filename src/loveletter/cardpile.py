@@ -2,7 +2,7 @@ import abc
 import collections
 import itertools as itt
 import random
-from typing import Dict, Iterator, List, Sequence, Type
+from typing import Dict, Iterator, List, Sequence, Type, TypeVar
 
 import more_itertools as mitt
 
@@ -36,7 +36,25 @@ STANDARD_DECK_COUNTS = {
 
 class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     def __init__(self, cards: Sequence[Card]):
-        self._cards: List[cards] = list(cards)
+        self._cards: List[Card] = list(cards)
+
+    # noinspection PyTypeChecker
+    _T = TypeVar("_T", bound="CardPile")
+
+    @classmethod
+    def from_counts(cls: Type[_T], counts: Dict[Type[Card], int] = None) -> _T:
+        if counts is None:
+            counts = STANDARD_DECK_COUNTS
+        cards = list(
+            itt.chain.from_iterable(
+                mitt.repeatfunc(card_class, count)
+                for card_class, count in counts.items()
+            )
+        )
+        random.shuffle(cards)
+        return cls(cards)
+
+    del _T
 
     def __len__(self) -> int:
         return len(self._cards)
@@ -57,19 +75,6 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
 
 
 class Deck(CardPile):
-    @classmethod
-    def from_counts(cls, counts: Dict[Type[Card], int] = None):
-        if counts is None:
-            counts = STANDARD_DECK_COUNTS
-        cards = list(
-            itt.chain.from_iterable(
-                mitt.repeatfunc(card_class, count)
-                for card_class, count in counts.items()
-            )
-        )
-        random.shuffle(cards)
-        return cls(cards)
-
     def take(self) -> Card:
         return super(Deck, self).take()
 

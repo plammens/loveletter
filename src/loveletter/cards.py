@@ -1,7 +1,7 @@
 import abc
 import enum
 import typing
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 if typing.TYPE_CHECKING:
     from loveletter.player import Player
@@ -23,8 +23,14 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def play(self, owner: "Player", target: "Player"):
-        """Play this card against another player"""
+    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+        """
+        Play this card from its owner.
+
+        :param owner: Owner of the card; who is playing it.
+        :param target: Optional target player to play the card against. If None,
+                       denotes the card is just discarded onto the discard pile.
+        """
         assert owner.game is target.game
 
 

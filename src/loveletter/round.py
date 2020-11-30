@@ -65,10 +65,12 @@ class Round:
             return self._finalize_round()
 
         current = self.current_player
+        assert current is not None
         next_player = mitt.first_true(
             itt.islice(itt.cycle(self.players), current.id + 1, None),
             pred=operator.attrgetter("alive"),
         )
+        assert next_player is not None
         self.state = Turn(next_player)
         return self.state
 

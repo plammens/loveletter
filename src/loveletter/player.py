@@ -14,7 +14,6 @@ class Player:
             self.card = None
 
     round: "Round"
-    alive: bool
     hand: Hand
     cards_played: Sequence[Card]
 
@@ -26,7 +25,7 @@ class Player:
         self.cards_played = []
 
     @property
-    def alive(self):
+    def alive(self) -> bool:
         return self._alive
 
     def eliminate(self):

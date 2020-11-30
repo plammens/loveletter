@@ -10,10 +10,10 @@ import valid8
 from loveletter.player import Player
 
 
-class GameState(metaclass=abc.ABCMeta):
+class RoundState(metaclass=abc.ABCMeta):
     class Type(enum.Enum):
         TURN = enum.auto()
-        GAME_END = enum.auto()
+        ROUND_END = enum.auto()
 
     type: Type
     current_player: Optional[Player]
@@ -23,22 +23,22 @@ class GameState(metaclass=abc.ABCMeta):
         self.current_player = current_player
 
 
-class Turn(GameState):
+class Turn(RoundState):
     def __init__(self, current_player: Player):
-        super().__init__(GameState.Type.TURN, current_player)
+        super().__init__(RoundState.Type.TURN, current_player)
 
 
-class GameEnd(GameState):
+class RoundEnd(RoundState):
     winner: Player
 
     def __init__(self, winner: Player):
-        super().__init__(GameState.Type.GAME_END, None)
+        super().__init__(RoundState.Type.ROUND_END, None)
         self.winner = winner
 
 
-class Game:
+class Round:
     players: Sequence[Player]
-    state: GameState
+    state: RoundState
 
     def __init__(self, num_players: int):
         valid8.validate(
@@ -56,10 +56,10 @@ class Game:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
-    def next_turn(self) -> GameState:
+    def next_turn(self) -> RoundState:
         """Advance to the next turn."""
         if self._reached_end():
-            return self._finalize_game()
+            return self._finalize_round()
 
         current = self.current_player
         next_player = mitt.first_true(
@@ -73,6 +73,6 @@ class Game:
         """Whether this round has reached to an end"""
         return len(self.living_players) == 1
 
-    def _finalize_game(self) -> GameEnd:
-        self.state = end = GameEnd(winner=self.living_players[0])
+    def _finalize_round(self) -> RoundEnd:
+        self.state = end = RoundEnd(winner=self.living_players[0])
         return end

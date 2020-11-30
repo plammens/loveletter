@@ -3,7 +3,7 @@ from typing import Optional, Sequence, TYPE_CHECKING
 from loveletter.cards import Card
 
 if TYPE_CHECKING:
-    from loveletter.game import Game
+    from loveletter.round import Round
 
 
 class Player:
@@ -13,13 +13,13 @@ class Player:
         def __init__(self):
             self.card = None
 
-    game: "Game"
+    round: "Round"
     alive: bool
     hand: Hand
     cards_played: Sequence[Card]
 
-    def __init__(self, game: "Game", player_id: int):
-        self.game = game
+    def __init__(self, round: "Round", player_id: int):
+        self.round = round
         self.id = player_id
         self._alive = True
         self.hand = self.Hand()

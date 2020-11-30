@@ -31,7 +31,7 @@ class Card(metaclass=abc.ABCMeta):
         :param target: Optional target player to play the card against. If None,
                        denotes the card is just discarded onto the discard pile.
         """
-        assert owner.game is target.game
+        assert owner.round is target.round
 
 
 class Spy(Card):

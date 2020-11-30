@@ -1,3 +1,4 @@
+import abc
 import enum
 import itertools as itt
 import operator
@@ -9,7 +10,7 @@ import valid8
 from loveletter.player import Player
 
 
-class GameState:
+class GameState(metaclass=abc.ABCMeta):
     class Type(enum.Enum):
         TURN = enum.auto()
         GAME_END = enum.auto()

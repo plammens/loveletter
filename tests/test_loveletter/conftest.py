@@ -6,7 +6,7 @@ from test_loveletter.utils import collect_card_classes
 
 
 @pytest.fixture(params=(nums := (2, 3, 4)), ids=[f"Round({i})" for i in nums])
-def round(request) -> Round:
+def game_round(request) -> Round:
     return Round(num_players=request.param)
 
 

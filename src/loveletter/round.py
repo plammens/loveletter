@@ -7,6 +7,7 @@ from typing import Optional, Sequence
 import more_itertools as mitt
 import valid8
 
+from loveletter.cardpile import Deck
 from loveletter.player import Player
 
 
@@ -38,6 +39,7 @@ class RoundEnd(RoundState):
 
 class Round:
     players: Sequence[Player]
+    deck: Deck
     state: RoundState
 
     def __init__(self, num_players: int):
@@ -45,6 +47,7 @@ class Round:
             "num_players", num_players, instance_of=int, min_value=2, max_value=4
         )
         self.players = [Player(self, i) for i in range(num_players)]
+        self.deck = Deck.from_counts()
         self.state = Turn(self.players[0])
 
     @property

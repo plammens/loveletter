@@ -5,7 +5,7 @@ from loveletter.game import Game
 from test_loveletter.utils import collect_card_classes
 
 
-@pytest.fixture(params=(2, 3, 4))
+@pytest.fixture(params=(nums := (2, 3, 4)), ids=[f"Game({i})" for i in nums])
 def game(request) -> Game:
     return Game(num_players=request.param)
 

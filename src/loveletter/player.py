@@ -15,3 +15,6 @@ class Player:
     alive: bool
     hand: Hand
     cards_played: Sequence[Card]
+
+    def __init__(self, game: "Game"):
+        self.game = game

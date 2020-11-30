@@ -17,3 +17,29 @@ def test_newGame_validNumPlayers_works(num_players: int):
 def test_newGame_invalidNumPlayers_raises(num_players):
     with pytest.raises(valid8.ValidationError):
         Game(num_players)
+
+
+def test_currentPlayer_isValid(game: Game):
+    assert game.current_player.alive
+
+
+def test_nextTurn_currentPlayerIsValid(game: Game):
+    before = game.current_player
+    game.next_turn()
+    after = game.current_player
+    assert after.alive
+    assert after is not before
+
+
+def test_nextTurn_ongoingGame_gameStateIsTurn(game: Game):
+    state = game.next_turn()
+    assert state.type == Game.State.Type.TURN
+
+
+def test_nextTurn_onlyOnePlayer_gameStateIsEnd(game: Game):
+    winner = game.players[-1]
+    for player in game.players:
+        if player is not winner:
+            player.eliminate()
+    state = game.next_turn()
+    assert state.type == Game.State.Type.GAME_END

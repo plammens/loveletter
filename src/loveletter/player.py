@@ -21,6 +21,13 @@ class Player:
     def __init__(self, game: "Game", player_id: int):
         self.game = game
         self.id = player_id
-        self.alive = True
+        self._alive = True
         self.hand = self.Hand()
         self.cards_played = []
+
+    @property
+    def alive(self):
+        return self._alive
+
+    def eliminate(self):
+        self._alive = False

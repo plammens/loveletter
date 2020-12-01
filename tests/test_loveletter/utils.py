@@ -11,7 +11,7 @@ from loveletter.cards import Card
 _T = TypeVar("_T")
 
 
-def collect_subclasses(base_class: Type[_T], module) -> Collection[_T]:
+def collect_subclasses(base_class: Type[_T], module) -> Collection[Type[_T]]:
     def is_strict_subclass(obj):
         return (
             inspect.isclass(obj)
@@ -22,7 +22,7 @@ def collect_subclasses(base_class: Type[_T], module) -> Collection[_T]:
     return list(filter(is_strict_subclass, vars(module).values()))
 
 
-def collect_card_classes() -> Collection[Card]:
+def collect_card_classes() -> Collection[Type[Card]]:
     return collect_subclasses(Card, loveletter.cards)
 
 

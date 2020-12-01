@@ -21,9 +21,6 @@ def test_handCard_isFirstCard(dummy_player: Player):
     assert dummy_player.hand.card is mitt.first(dummy_player.hand, None)
 
 
-@pytest_cases.parametrize_with_cases(
-    "dummy_player", cases, prefix="player_hand_", indirect=True
-)
 def test_playerHand_len_isAtMostTwo(dummy_player: Player):
     assert len(dummy_player.hand) <= 2
 

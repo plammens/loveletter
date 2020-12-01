@@ -31,7 +31,7 @@ def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
 
 def test_start_newRound_setsCorrectGameState(game_round: Round):
     assert game_round.current_player is None
-    game_round.start_round()
+    game_round.start()
     assert game_round.current_player in game_round.players
     assert game_round.started
     assert game_round.state.type == RoundState.Type.TURN

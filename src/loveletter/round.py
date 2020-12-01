@@ -13,6 +13,7 @@ from loveletter.player import Player
 
 class RoundState(metaclass=abc.ABCMeta):
     class Type(enum.Enum):
+        INIT = enum.auto()
         TURN = enum.auto()
         ROUND_END = enum.auto()
 
@@ -22,6 +23,11 @@ class RoundState(metaclass=abc.ABCMeta):
     def __init__(self, type_: Type, current_player: Optional[Player]):
         self.type = type_
         self.current_player = current_player
+
+
+class InitialState(RoundState):
+    def __init__(self):
+        super().__init__(RoundState.Type.INIT, None)
 
 
 class Turn(RoundState):
@@ -48,7 +54,15 @@ class Round:
         )
         self.players = [Player(self, i) for i in range(num_players)]
         self.deck = Deck.from_counts()
-        self.state = Turn(self.players[0])
+        self.state = InitialState()
+
+    @property
+    def started(self):
+        return self.state.type != RoundState.Type.INIT
+
+    @property
+    def ended(self):
+        return self.state.type == RoundState.Type.ROUND_END
 
     @property
     def current_player(self) -> Optional[Player]:
@@ -59,8 +73,18 @@ class Round:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
+    def start(self) -> Turn:
+        """Initialise the round: hand out one card to each player and start a turn."""
+        # TODO: deal cards
+        self.state = turn = Turn(self.players[0])
+        return turn
+
     def next_turn(self) -> RoundState:
         """Advance to the next turn."""
+        if not self.started:
+            raise ValueError(f"Round {self} hasn't started yet")
+        if self.ended:
+            raise StopIteration
         if self._reached_end():
             return self._finalize_round()
 

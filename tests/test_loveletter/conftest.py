@@ -20,7 +20,7 @@ def game_round(num_players) -> Round:
 
 @pytest_cases.fixture()
 def started_round(game_round: Round):
-    game_round.start_round()
+    game_round.start()
     return game_round
 
 

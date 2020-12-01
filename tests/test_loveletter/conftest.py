@@ -19,6 +19,12 @@ def game_round(num_players) -> Round:
 
 
 @pytest_cases.fixture()
+def started_round(game_round: Round):
+    game_round.start_round()
+    return game_round
+
+
+@pytest_cases.fixture()
 @pytest.mark.parametrize("card_class", collect_card_classes())
 def card(card_class) -> Card:
     return card_class()

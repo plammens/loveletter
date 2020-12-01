@@ -13,6 +13,8 @@ def test_newRound_validNumPlayers_works(num_players: int):
     assert len(set(map(id, game_round.players))) == num_players
     assert all(player.round is game_round for player in game_round.players)
     assert all(game_round.players[i].id == i for i in range(num_players))
+    assert not game_round.started
+    assert game_round.state.type == RoundState.Type.INIT
 
 
 @pytest.mark.parametrize("num_players", INVALID_NUM_PLAYERS)
@@ -27,30 +29,39 @@ def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
     assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)
 
 
-def test_currentPlayer_isValid(game_round):
-    assert game_round.current_player.alive
+def test_start_newRound_setsCorrectGameState(game_round: Round):
+    assert game_round.current_player is None
+    game_round.start_round()
+    assert game_round.current_player in game_round.players
+    assert game_round.started
+    assert game_round.state.type == RoundState.Type.TURN
+    assert game_round.state.current_player == game_round.current_player
 
 
-def test_nextTurn_currentPlayerIsValid(game_round):
-    before = game_round.current_player
-    game_round.next_turn()
-    after = game_round.current_player
+def test_currentPlayer_isValid(started_round):
+    assert started_round.current_player.alive
+
+
+def test_nextTurn_currentPlayerIsValid(started_round):
+    before = started_round.current_player
+    started_round.next_turn()
+    after = started_round.current_player
     assert after.alive
     assert after is not before
 
 
-def test_nextTurn_ongoingRound_roundStateIsTurn(game_round):
-    state = game_round.next_turn()
+def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):
+    state = started_round.next_turn()
     assert state.type == RoundState.Type.TURN
     assert isinstance(state, Turn)
 
 
-def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(game_round):
-    winner = game_round.players[-1]
-    for player in game_round.players:
+def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
+    winner = started_round.players[-1]
+    for player in started_round.players:
         if player is not winner:
             player.eliminate()
-    state = game_round.next_turn()
+    state = started_round.next_turn()
     assert state.type == RoundState.Type.ROUND_END
     assert isinstance(state, RoundEnd)
     assert state.winner is winner

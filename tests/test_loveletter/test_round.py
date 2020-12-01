@@ -3,9 +3,10 @@ import valid8
 
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.round import Round, RoundEnd, RoundState, Turn
+from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 
 
-@pytest.mark.parametrize("num_players", [2, 3, 4])
+@pytest.mark.parametrize("num_players", VALID_NUM_PLAYERS)
 def test_newRound_validNumPlayers_works(num_players: int):
     game_round = Round(num_players=num_players)
     assert len(game_round.players) == num_players
@@ -14,13 +15,13 @@ def test_newRound_validNumPlayers_works(num_players: int):
     assert all(game_round.players[i].id == i for i in range(num_players))
 
 
-@pytest.mark.parametrize("num_players", ["foo", -1, 0, 1, 5])
+@pytest.mark.parametrize("num_players", INVALID_NUM_PLAYERS)
 def test_newRound_invalidNumPlayers_raises(num_players):
     with pytest.raises(valid8.ValidationError):
         Round(num_players)
 
 
-@pytest.mark.parametrize("num_players", [2, 3, 4])
+@pytest.mark.parametrize("num_players", VALID_NUM_PLAYERS)
 def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
     game_round = Round(num_players=num_players)
     assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)

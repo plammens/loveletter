@@ -4,10 +4,11 @@ import more_itertools as mitt
 import pytest
 import pytest_cases
 
+import test_loveletter.cases as cases
 from loveletter.cardpile import Deck, DiscardPile, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.round import Round
-from test_loveletter.utils import collect_card_classes, random_card_counts
+from test_loveletter.utils import random_card_counts
 
 random.seed(2020)
 
@@ -28,9 +29,9 @@ game_round = pytest_cases.fixture_union("game_round", [new_round, started_round]
 
 
 @pytest_cases.fixture()
-@pytest.mark.parametrize("card_class", collect_card_classes())
-def card(card_class) -> Card:
-    return card_class()
+@pytest_cases.parametrize_with_cases("card", cases=cases, prefix="card_")
+def card(card) -> Card:
+    return card
 
 
 @pytest_cases.fixture()
@@ -51,3 +52,9 @@ def discard_pile(counts) -> DiscardPile:
 
 
 card_pile = pytest_cases.fixture_union("card_pile", [deck, discard_pile])
+
+
+@pytest_cases.fixture()
+@pytest_cases.parametrize_with_cases("player", cases=cases, prefix="dummy_player_")
+def dummy_player(player):
+    return player

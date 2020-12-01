@@ -27,13 +27,15 @@ def test_playerHand_len_isAtMostTwo(player: Player):
 
 
 @pytest_cases.parametrize_with_cases("player", cases.dummy_player_with_card)
-def test_give_playerWithOneCard_oneCard_works(player: Player, card):
+def test_give_playerWithOneCard_oneCard_works(player: Player):
+    card = player.hand.card
     before = player.hand.card
     player.give(card)
     assert list(player.hand) == [before, card]
 
 
 @pytest_cases.parametrize_with_cases("player", cases.dummy_player_with_two_cards)
-def test_give_playerWithTwoCards_oneCard_raises(player: Player, card):
+def test_give_playerWithTwoCards_oneCard_raises(player: Player):
+    card = player.hand.card
     with pytest.raises(valid8.ValidationError):
         player.give(card)

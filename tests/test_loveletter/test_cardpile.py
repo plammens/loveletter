@@ -5,6 +5,7 @@ import pytest
 
 import loveletter.cardpile
 from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS
+from loveletter.cards import Spy
 from test_loveletter.utils import collect_subclasses, random_card_counts
 
 
@@ -17,6 +18,15 @@ def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     empiric_counts = Counter(map(type, pile))
     assert empiric_counts == counts
     assert empiric_counts == pile.get_counts()
+
+
+def test_pileEq_equivalentToCountEq(card_pile):
+    counts: Counter = card_pile.get_counts()
+    assert card_pile == type(card_pile).from_counts(counts)
+    counts[Spy] += 1
+    assert card_pile != type(card_pile).from_counts(counts)
+    with pytest.raises(TypeError):
+        assert card_pile == counts
 
 
 def test_deckFromCounts_default_isStandardDeck():

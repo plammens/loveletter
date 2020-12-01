@@ -85,7 +85,7 @@ class Round:
         """Deal a card to a player from the deck and return the dealt card."""
         if player.round is not self:
             raise ValueError(f"Can't deal card to outside player")
-        player.hand.card = card = self.deck.take()
+        player.give(card := self.deck.take())
         return card
 
     def start(self) -> Turn:

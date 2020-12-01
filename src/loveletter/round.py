@@ -58,6 +58,10 @@ class Round:
         self.state = InitialState()
 
     @property
+    def num_players(self):
+        return len(self.players)
+
+    @property
     def started(self):
         return self.state.type != RoundState.Type.INIT
 
@@ -74,9 +78,15 @@ class Round:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
+    def deal_card(self, player: Player) -> None:
+        if player.round is not self:
+            raise ValueError(f"Can't deal card to outside player")
+        player.hand.card = self.deck.take()
+
     def start(self) -> Turn:
         """Initialise the round: hand out one card to each player and start a turn."""
-        # TODO: deal cards
+        for player in self.players:
+            self.deal_card(player)
         self.state = turn = Turn(random.choice(self.players))
         return turn
 

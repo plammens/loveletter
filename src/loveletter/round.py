@@ -3,13 +3,16 @@ import enum
 import itertools as itt
 import operator
 import random
-from typing import Optional, Sequence
+from typing import Optional, Sequence, TYPE_CHECKING
 
 import more_itertools as mitt
 import valid8
 
 from loveletter.cardpile import Deck
 from loveletter.player import Player
+
+if TYPE_CHECKING:
+    from loveletter.cards import Card
 
 
 class RoundState(metaclass=abc.ABCMeta):
@@ -78,10 +81,12 @@ class Round:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
-    def deal_card(self, player: Player) -> None:
+    def deal_card(self, player: Player) -> "Card":
+        """Deal a card to a player from the deck and return the dealt card."""
         if player.round is not self:
             raise ValueError(f"Can't deal card to outside player")
-        player.hand.card = self.deck.take()
+        player.hand.card = card = self.deck.take()
+        return card
 
     def start(self) -> Turn:
         """Initialise the round: hand out one card to each player and start a turn."""

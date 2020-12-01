@@ -1,6 +1,7 @@
 import pytest
 import valid8
 
+from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 
 
@@ -17,6 +18,12 @@ def test_newRound_validNumPlayers_works(num_players: int):
 def test_newRound_invalidNumPlayers_raises(num_players):
     with pytest.raises(valid8.ValidationError):
         Round(num_players)
+
+
+@pytest.mark.parametrize("num_players", [2, 3, 4])
+def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
+    game_round = Round(num_players=num_players)
+    assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)
 
 
 def test_currentPlayer_isValid(game_round):

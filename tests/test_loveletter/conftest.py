@@ -14,14 +14,17 @@ random.seed(2020)
 
 @pytest_cases.fixture()
 @pytest.mark.parametrize("num_players", (2, 3, 4), ids=lambda n: f"Round({n})")
-def game_round(num_players) -> Round:
+def new_round(num_players) -> Round:
     return Round(num_players)
 
 
 @pytest_cases.fixture()
-def started_round(game_round: Round):
-    game_round.start()
-    return game_round
+def started_round(new_round: Round):
+    new_round.start()
+    return new_round
+
+
+game_round = pytest_cases.fixture_union("game_round", [new_round, started_round])
 
 
 @pytest_cases.fixture()

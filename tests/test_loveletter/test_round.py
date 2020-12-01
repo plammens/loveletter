@@ -29,12 +29,23 @@ def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
     assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)
 
 
-def test_start_newRound_setsCorrectGameState(game_round: Round):
-    assert game_round.current_player is None
+def test_start_newRound_setsCorrectGameState(new_round: Round):
+    assert new_round.current_player is None
+    new_round.start()
+    assert new_round.current_player in new_round.players
+    assert new_round.started
+    assert new_round.state.type == RoundState.Type.TURN
+    assert new_round.state.current_player == new_round.current_player
+
+
+def test_start_newRound_dealsCardsCorrectly(game_round: Round):
+    init_deck = list(game_round.deck)
+    assert all(player.hand.card is None for player in game_round.players)
     game_round.start()
-    assert game_round.current_player in game_round.players
-    assert game_round.started
-    assert game_round.state.type == RoundState.Type.TURN
+    i = game_round.current_player.id
+    hands = [player.hand.card for player in game_round.players]
+    assert hands[i:] + hands[:i] == init_deck[-game_round.num_players :]
+    assert list(game_round.deck) == init_deck[: -game_round.num_players]
     assert game_round.state.current_player == game_round.current_player
 
 
@@ -65,3 +76,29 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert state.type == RoundState.Type.ROUND_END
     assert isinstance(state, RoundEnd)
     assert state.winner is winner
+
+
+def test_dealCard_newRound_playerInRound_works(new_round: Round):
+    init_deck = list(new_round.deck)
+    player = new_round.players[-1]
+    assert player.hand.card is None
+    card = new_round.deal_card(player)
+    assert player.hand.card is card
+    assert card is init_deck[-1]
+    assert list(new_round.deck) == init_deck[:-1]
+
+
+def test_dealCard_playerNotInRound_works(game_round: Round):
+    other_round = Round(game_round.num_players)
+    for player in other_round.players:
+        with pytest.raises(valid8.ValidationError):
+            game_round.deal_card(player)
+
+
+def test_dealCard_playerInRound_addsToHand(started_round: Round):
+    player = started_round.players[-1]
+    before = set(player.hand)
+    card = started_round.deal_card(player)
+    after = set(player.hand)
+    assert after == before | {card}
+    assert (player.hand.card is card) == (len(before) == 0)

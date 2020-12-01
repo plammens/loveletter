@@ -12,14 +12,16 @@ from test_loveletter.utils import collect_card_classes, random_card_counts
 random.seed(2020)
 
 
-@pytest.fixture(params=(nums := (2, 3, 4)), ids=[f"Round({i})" for i in nums])
-def game_round(request) -> Round:
-    return Round(num_players=request.param)
+@pytest_cases.fixture()
+@pytest.mark.parametrize("num_players", (2, 3, 4), ids=lambda n: f"Round({n})")
+def game_round(num_players) -> Round:
+    return Round(num_players)
 
 
-@pytest.fixture(params=collect_card_classes())
-def card(request) -> Card:
-    return request.param()
+@pytest_cases.fixture()
+@pytest.mark.parametrize("card_class", collect_card_classes())
+def card(card_class) -> Card:
+    return card_class()
 
 
 @pytest_cases.fixture()

@@ -2,6 +2,7 @@ import abc
 import enum
 import itertools as itt
 import operator
+import random
 from typing import Optional, Sequence
 
 import more_itertools as mitt
@@ -76,7 +77,7 @@ class Round:
     def start(self) -> Turn:
         """Initialise the round: hand out one card to each player and start a turn."""
         # TODO: deal cards
-        self.state = turn = Turn(self.players[0])
+        self.state = turn = Turn(random.choice(self.players))
         return turn
 
     def next_turn(self) -> RoundState:

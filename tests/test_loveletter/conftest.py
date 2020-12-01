@@ -1,3 +1,4 @@
+import copy
 import random
 
 import more_itertools as mitt
@@ -5,6 +6,7 @@ import pytest
 import pytest_cases
 
 import test_loveletter.cases as cases
+import test_loveletter.test_player_cases as player_cases
 from loveletter.cardpile import Deck, DiscardPile, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.round import Round
@@ -55,6 +57,9 @@ card_pile = pytest_cases.fixture_union("card_pile", [deck, discard_pile])
 
 
 @pytest_cases.fixture()
-@pytest_cases.parametrize_with_cases("player", cases=cases, prefix="dummy_player_")
+@pytest_cases.parametrize_with_cases(
+    "player", cases=player_cases, prefix="dummy_player_"
+)
 def dummy_player(player):
-    return player
+    # Make a copy of the player to avoid leaking state across test invocations (nodes)
+    return copy.deepcopy(player)

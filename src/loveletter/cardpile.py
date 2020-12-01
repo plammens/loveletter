@@ -2,7 +2,7 @@ import abc
 import collections
 import itertools as itt
 import random
-from typing import Dict, Iterator, List, Sequence, Type, TypeVar
+from typing import Counter, Dict, Iterator, List, Sequence, Type, TypeVar
 
 import more_itertools as mitt
 
@@ -20,18 +20,20 @@ from loveletter.cards import (
     Spy,
 )
 
-STANDARD_DECK_COUNTS = {
-    Spy: 2,
-    Guard: 5,
-    Priest: 2,
-    Baron: 2,
-    Handmaid: 2,
-    Prince: 2,
-    Chancellor: 2,
-    King: 1,
-    Countess: 1,
-    Princess: 1,
-}
+STANDARD_DECK_COUNTS = collections.Counter(
+    {
+        Spy: 2,
+        Guard: 5,
+        Priest: 2,
+        Baron: 2,
+        Handmaid: 2,
+        Prince: 2,
+        Chancellor: 2,
+        King: 1,
+        Countess: 1,
+        Princess: 1,
+    }
+)
 
 
 class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
@@ -65,6 +67,12 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     def __contains__(self, x: object) -> bool:
         return x in self._cards
 
+    def __eq__(self, o: object) -> bool:
+        """Two piles are equal if they contain the same distribution of cards."""
+        if not isinstance(o, self.__class__):
+            raise TypeError(f"{self} and {o} not comparable")
+        return self.get_counts() == o.get_counts()
+
     @abc.abstractmethod
     def place(self, card: Card) -> None:
         self._cards.append(card)
@@ -72,6 +80,11 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def take(self) -> Card:
         return self._cards.pop()
+
+    def get_counts(self) -> Counter[Type[Card]]:
+        """Returns a dictionary of card type to count in the pile."""
+        # noinspection PyTypeChecker
+        return collections.Counter(map(type, self))
 
 
 class Deck(CardPile):

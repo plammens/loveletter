@@ -14,7 +14,9 @@ from test_loveletter.utils import collect_subclasses, random_card_counts
 @pytest.mark.parametrize("counts", mitt.repeatfunc(random_card_counts, 5))
 def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     pile = pile_class.from_counts(counts)
-    assert Counter(map(type, pile)) == counts
+    empiric_counts = Counter(map(type, pile))
+    assert empiric_counts == counts
+    assert empiric_counts == pile.get_counts()
 
 
 def test_deckFromCounts_default_isStandardDeck():

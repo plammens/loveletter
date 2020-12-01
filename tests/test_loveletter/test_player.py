@@ -21,21 +21,27 @@ def test_handCard_isFirstCard(dummy_player: Player):
     assert dummy_player.hand.card is mitt.first(dummy_player.hand, None)
 
 
-@pytest_cases.parametrize_with_cases("player", cases, prefix="dummy_player_")
-def test_playerHand_len_isAtMostTwo(player: Player):
-    assert len(player.hand) <= 2
+@pytest_cases.parametrize_with_cases(
+    "dummy_player", cases, prefix="player_hand_", indirect=True
+)
+def test_playerHand_len_isAtMostTwo(dummy_player: Player):
+    assert len(dummy_player.hand) <= 2
 
 
-@pytest_cases.parametrize_with_cases("player", cases.dummy_player_with_card)
-def test_give_playerWithOneCard_oneCard_works(player: Player):
-    card = player.hand.card
-    before = player.hand.card
-    player.give(card)
-    assert list(player.hand) == [before, card]
+@pytest_cases.parametrize_with_cases(
+    "dummy_player", cases.player_hand_single_card, indirect=True
+)
+def test_give_playerWithOneCard_oneCard_works(dummy_player: Player):
+    card = dummy_player.hand.card
+    before = dummy_player.hand.card
+    dummy_player.give(card)
+    assert list(dummy_player.hand) == [before, card]
 
 
-@pytest_cases.parametrize_with_cases("player", cases.dummy_player_with_two_cards)
-def test_give_playerWithTwoCards_oneCard_raises(player: Player):
-    card = player.hand.card
+@pytest_cases.parametrize_with_cases(
+    "dummy_player", cases.player_hand_two_cards, indirect=True
+)
+def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
+    card = dummy_player.hand.card
     with pytest.raises(valid8.ValidationError):
-        player.give(card)
+        dummy_player.give(card)

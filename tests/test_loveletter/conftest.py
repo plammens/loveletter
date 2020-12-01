@@ -1,12 +1,15 @@
 import random
+from collections import Sequence
 
 import more_itertools as mitt
 import pytest
 import pytest_cases
 
 import test_loveletter.cases as cases
+import test_loveletter.test_player_cases as player_cases
 from loveletter.cardpile import Deck, DiscardPile, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
+from loveletter.player import Player
 from loveletter.round import Round
 from test_loveletter.utils import random_card_counts
 
@@ -55,6 +58,10 @@ card_pile = pytest_cases.fixture_union("card_pile", [deck, discard_pile])
 
 
 @pytest_cases.fixture()
-@pytest_cases.parametrize_with_cases("player", cases=cases, prefix="dummy_player_")
-def dummy_player(player):
+@pytest_cases.parametrize_with_cases("hand", cases=player_cases, prefix="player_hand_")
+def dummy_player(hand: Sequence[Card]):
+    # noinspection PyTypeChecker
+    player = Player(None, 0)
+    for card in hand:
+        player.give(card)
     return player

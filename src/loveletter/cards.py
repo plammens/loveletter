@@ -3,6 +3,8 @@ import enum
 import typing
 from typing import ClassVar, Optional
 
+import valid8
+
 if typing.TYPE_CHECKING:
     from loveletter.player import Player
 
@@ -31,8 +33,20 @@ class Card(metaclass=abc.ABCMeta):
         :param target: Optional target player to play the card against. If None,
                        denotes the card is just discarded onto the discard pile.
         """
-        if target is not None:
-            assert owner.round is target.round
+        self._validate_move(owner, target)
+
+    def _validate_move(self, owner: "Player", target: Optional["Player"]) -> None:
+        assert target is None or owner.round is target.round
+        should_be_none = self.action_type == Card.ActionType.DISCARD
+        valid8.validate(
+            "target",
+            target,
+            custom=lambda t: (t is None) == should_be_none,
+            help_msg=(
+                f"Target player should{'' if should_be_none else ' not'} be None "
+                f"for card of action type {self.action_type}"
+            ),
+        )
 
 
 class Spy(Card):
@@ -40,7 +54,7 @@ class Spy(Card):
     action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Guard(Card):
@@ -48,7 +62,7 @@ class Guard(Card):
     action_type = Card.ActionType.TARGET
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Priest(Card):
@@ -56,7 +70,7 @@ class Priest(Card):
     action_type = Card.ActionType.TARGET
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Baron(Card):
@@ -64,7 +78,7 @@ class Baron(Card):
     action_type = Card.ActionType.TARGET
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Handmaid(Card):
@@ -72,7 +86,7 @@ class Handmaid(Card):
     action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Prince(Card):
@@ -80,7 +94,7 @@ class Prince(Card):
     action_type = Card.ActionType.TARGET
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Chancellor(Card):
@@ -88,7 +102,7 @@ class Chancellor(Card):
     action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class King(Card):
@@ -96,7 +110,7 @@ class King(Card):
     action_type = Card.ActionType.TARGET
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Countess(Card):
@@ -104,7 +118,7 @@ class Countess(Card):
     action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)
 
 
 class Princess(Card):
@@ -112,4 +126,4 @@ class Princess(Card):
     action_type = Card.ActionType.DISCARD
 
     def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        pass
+        super().play(owner, target)

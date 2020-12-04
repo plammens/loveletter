@@ -1,7 +1,10 @@
 import pytest
+import pytest_cases
 import valid8
 
+import test_loveletter.test_cards_cases as card_cases
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
+from loveletter.cards import Card
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 
@@ -104,4 +107,10 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
     assert (player.hand.card is card) == (len(before) == 0)
 
 
-# TODO: test that can't move on to next turn if there is a pending move
+@pytest_cases.parametrize_with_cases("card", card_cases.CardCases().case_multistep_card)
+def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
+    player = started_round.current_player
+    player.give(card)
+    player.play_card("right")
+    with pytest.raises(valid8.ValidationError):
+        started_round.next_turn()

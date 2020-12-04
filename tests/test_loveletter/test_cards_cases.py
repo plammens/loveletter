@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
-import more_itertools as mitt
 import pytest_cases
 
 import loveletter.cards as cards
+import loveletter.move as move
 from loveletter.cards import Card
 
 
@@ -26,6 +26,10 @@ class CardCases:
 class CardMockCases:
     @pytest_cases.case()
     def case_generic(self) -> MagicMock:
+        def play(owner):
+            yield MagicMock()
+            yield move.DONE
+
         mock = MagicMock(spec=Card)
-        mock.play.return_value = mitt.repeatfunc(MagicMock)
+        mock.play.side_effect = play
         return mock

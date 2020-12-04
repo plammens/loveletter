@@ -1,5 +1,5 @@
 import collections
-from typing import Generator, Iterator, Optional, Sequence, TYPE_CHECKING
+from typing import Generator, Iterator, List, Optional, TYPE_CHECKING
 
 import valid8
 
@@ -31,7 +31,7 @@ class Player:
 
     round: "Round"
     hand: Hand
-    cards_played: Sequence[Card]
+    cards_played: List[Card]
 
     def __init__(self, round: "Round", player_id: int):
         self.round = round
@@ -73,6 +73,9 @@ class Player:
         card: Card = self.hand._cards.pop(idx)
         # TODO: add support for cancelling move
         yield from card.play(self)
+        # Move completed successfully; finish cleaning up and commiting the move:
+        self.round.discard_pile.place(card)
+        self.cards_played.append(card)
 
     def eliminate(self):
         self._alive = False

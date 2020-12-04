@@ -1,5 +1,5 @@
 import random
-from collections import Sequence
+from typing import Sequence
 
 import more_itertools as mitt
 import pytest

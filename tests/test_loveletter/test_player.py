@@ -3,7 +3,8 @@ import pytest
 import pytest_cases
 import valid8
 
-import test_loveletter.test_player_cases as cases
+import test_loveletter.cases as cases
+import test_loveletter.test_player_cases as player_cases
 from loveletter.player import Player
 
 
@@ -26,7 +27,7 @@ def test_playerHand_len_isAtMostTwo(dummy_player: Player):
 
 
 @pytest_cases.parametrize_with_cases(
-    "dummy_player", cases.player_hand_single_card, indirect=True
+    "dummy_player", player_cases.player_hand_single_card, indirect=True
 )
 def test_give_playerWithOneCard_oneCard_works(dummy_player: Player):
     card = dummy_player.hand.card
@@ -36,9 +37,41 @@ def test_give_playerWithOneCard_oneCard_works(dummy_player: Player):
 
 
 @pytest_cases.parametrize_with_cases(
-    "dummy_player", cases.player_hand_two_cards, indirect=True
+    "dummy_player", player_cases.player_hand_two_cards, indirect=True
 )
 def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
     card = dummy_player.hand.card
     with pytest.raises(valid8.ValidationError):
         dummy_player.give(card)
+
+
+@pytest_cases.parametrize_with_cases("right", cases=cases.card_mock)
+@pytest_cases.parametrize_with_cases("left", cases=cases.card_mock)
+@pytest_cases.parametrize_with_cases(
+    "dummy_player", player_cases.player_hand_no_cards, indirect=True
+)
+def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
+    dummy_player.give(left)
+    dummy_player.give(right)
+    steps = dummy_player.play_card("left")
+    next(steps)
+    left.play.assert_called_once_with(dummy_player)
+    right.play.assert_not_called()
+    assert dummy_player.hand.card is right
+    assert left not in dummy_player.hand
+
+
+@pytest_cases.parametrize_with_cases("right", cases=cases.card_mock)
+@pytest_cases.parametrize_with_cases("left", cases=cases.card_mock)
+@pytest_cases.parametrize_with_cases(
+    "dummy_player", player_cases.player_hand_no_cards, indirect=True
+)
+def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
+    dummy_player.give(left)
+    dummy_player.give(right)
+    steps = dummy_player.play_card("right")
+    next(steps)
+    right.play.assert_called_once_with(dummy_player)
+    left.play.assert_not_called()
+    assert dummy_player.hand.card is left
+    assert right not in dummy_player.hand

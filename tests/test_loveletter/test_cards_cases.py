@@ -2,24 +2,21 @@ from unittest.mock import MagicMock
 
 import pytest_cases
 
-import loveletter.cards as cards
-from loveletter.cards import Card
+from loveletter.cards import Card, CardType
+
+DISCARD_TYPES = {CardType.SPY, CardType.HANDMAID, CardType.COUNTESS, CardType.PRINCESS}
 
 
 class CardCases:
     @pytest_cases.case()
-    @pytest_cases.parametrize(
-        "card_cls", [cards.Spy, cards.Handmaid, cards.Countess, cards.Princess]
-    )
-    def case_discard_card(self, card_cls):
-        return card_cls()
+    @pytest_cases.parametrize(card_type=DISCARD_TYPES)
+    def case_discard_card(self, card_type: CardType):
+        return card_type.card_class()
 
     @pytest_cases.case()
-    @pytest_cases.parametrize(
-        "card_cls", [cards.Guard, cards.Priest, cards.Baron, cards.Prince, cards.King]
-    )
-    def case_target_card(self, card_cls):
-        return card_cls()
+    @pytest_cases.parametrize(card_type=set(CardType) - DISCARD_TYPES)
+    def case_multistep_card(self, card_type: CardType):
+        return card_type.card_class()
 
 
 class CardMockCases:

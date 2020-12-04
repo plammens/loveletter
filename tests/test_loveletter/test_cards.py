@@ -3,13 +3,12 @@ import valid8
 
 import loveletter.cards as cards
 from loveletter.round import Round
-from test_loveletter.utils import autofill_moves, collect_card_classes, send_gracious
+from test_loveletter.utils import autofill_moves, send_gracious
 
 
 def test_cards_have_unique_nonnegative_value():
-    classes = collect_card_classes()
-    values = {cls.value for cls in classes}
-    assert len(values) == len(classes)
+    values = {t.value for t in cards.CardType}
+    assert len(values) == len(cards.CardType)
     assert all(type(v) is int for v in values)
     assert all(v >= 0 for v in values)
 

@@ -73,8 +73,8 @@ class PlayerChoice(ChoiceStep):
 class OpponentChoice(PlayerChoice):
     """Make the player choose an opponent (any player but themselves)"""
 
-    def __init__(self, game_round, player):
-        super().__init__(game_round)
+    def __init__(self, player: "Player"):
+        super().__init__(player.round)
         self.player: "Player" = player
 
     @PlayerChoice.choice.setter

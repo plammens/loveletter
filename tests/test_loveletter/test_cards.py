@@ -21,11 +21,11 @@ def test_cards_have_unique_nonnegative_value():
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.card_discard)
 def test_play_discardCard_targetNotNone_raises(card: cards.Card, player1, player2):
     with pytest.raises(valid8.ValidationError):
-        card.play(player1, player2)
+        card.play(player1)
 
 
 @pytest_cases.parametrize_with_cases("player", cases=cases.player_any)
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.card_target)
 def test_play_targetCard_targetNone_raises(card: cards.Card, player):
     with pytest.raises(valid8.ValidationError):
-        card.play(player, None)
+        card.play(player)

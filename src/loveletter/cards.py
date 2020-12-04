@@ -1,23 +1,17 @@
 import abc
-import enum
 import typing
-from typing import ClassVar, Optional
+from typing import ClassVar, Generator
 
 import valid8
+
+from loveletter.move import MoveStep
 
 if typing.TYPE_CHECKING:
     from loveletter.player import Player
 
 
 class Card(metaclass=abc.ABCMeta):
-    class ActionType(enum.Enum):
-        """How can this card be played"""
-
-        DISCARD = enum.auto()  # discard it onto the pile without targeting
-        TARGET = enum.auto()  # target a player
-
     value: ClassVar[int]
-    action_type: ClassVar[ActionType]
 
     @property
     def name(self):
@@ -25,105 +19,88 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
         """
         Play this card from its owner.
 
         :param owner: Owner of the card; who is playing it.
-        :param target: Optional target player to play the card against. If None,
-                       denotes the card is just discarded onto the discard pile.
+        :returns: A generator that stops at every step in the move at which some
+                  additional input is needed from the player. An instance of MoveStep
+                  is yielded, indicating what information it needs; once that gets
+                  "filled in" the same object should be sent back to the generator.
         """
-        self._validate_move(owner, target)
+        pass
 
-    def _validate_move(self, owner: "Player", target: Optional["Player"]) -> None:
-        assert target is None or owner.round is target.round
-        should_be_none = self.action_type == Card.ActionType.DISCARD
-        valid8.validate(
-            "target",
-            target,
-            custom=lambda t: (t is None) == should_be_none,
-            help_msg=(
-                f"Target player should{'' if should_be_none else ' not'} be None "
-                f"for card of action type {self.action_type}"
-            ),
-        )
+    # noinspection PyMethodMayBeStatic
+    def _validate_move(self, owner: "Player") -> None:
+        valid8.validate("owner", owner)
 
 
 class Spy(Card):
     value = 0
-    action_type = Card.ActionType.DISCARD
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Guard(Card):
     value = 1
-    action_type = Card.ActionType.TARGET
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Priest(Card):
     value = 2
-    action_type = Card.ActionType.TARGET
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Baron(Card):
     value = 3
-    action_type = Card.ActionType.TARGET
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Handmaid(Card):
     value = 4
-    action_type = Card.ActionType.DISCARD
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Prince(Card):
     value = 5
-    action_type = Card.ActionType.TARGET
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Chancellor(Card):
     value = 6
-    action_type = Card.ActionType.DISCARD
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class King(Card):
     value = 7
-    action_type = Card.ActionType.TARGET
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Countess(Card):
     value = 8
-    action_type = Card.ActionType.DISCARD
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)
 
 
 class Princess(Card):
     value = 9
-    action_type = Card.ActionType.DISCARD
 
-    def play(self, owner: "Player", target: Optional["Player"]) -> None:
-        super().play(owner, target)
+    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+        self._validate_move(owner)

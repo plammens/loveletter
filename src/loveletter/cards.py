@@ -176,6 +176,9 @@ class CardType(enum.Enum):
     def __eq__(self, other):
         return super().__eq__(CardType(self._get_value(other)))
 
+    def __hash__(self):
+        return self.value
+
     def __lt__(self, other):
         return self.value < self._get_value(other)
 

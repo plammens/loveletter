@@ -48,6 +48,7 @@ class Player:
         """Give this player a card; alias for hand.add"""
         self.hand.add(card)
 
+    @valid8.validate_arg("which", valid8.validation_lib.is_in(("left", "right")))
     def play_card(self, which: str) -> Generator[MoveStep, MoveStep, None]:
         """
         Play a card from this player's hand.
@@ -55,8 +56,18 @@ class Player:
         :param which: Which card to play; either "left" or "right".
         :returns: Same as :meth:`Card.play`.
         """
-        valid8.validate("hand", self.hand, length=2)
-        valid8.validate("which", which, is_in=["left", "right"])
+        valid8.validate(
+            "turn",
+            self.round.state.current_player,
+            custom=lambda p: p is self,
+            help_msg=f"It's not {self}'s turn",
+        )
+        valid8.validate(
+            "hand",
+            self.hand,
+            length=2,
+            help_msg="Can't discard play a card with only one card in hand",
+        )
         idx = 0 if which == "left" else 1
         # noinspection PyProtectedMember
         card: Card = self.hand._cards.pop(idx)

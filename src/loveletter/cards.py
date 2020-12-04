@@ -6,7 +6,7 @@ from typing import ClassVar, Dict, Generator
 import valid8
 
 import loveletter.move as move
-from loveletter.move import MoveStep
+from loveletter.move import CardGuess, MoveStep, OpponentChoice
 
 if typing.TYPE_CHECKING:
     from loveletter.player import Player
@@ -51,6 +51,20 @@ class Card(metaclass=abc.ABCMeta):
     def _validate_move(self, owner: "Player") -> None:
         valid8.validate("owner", owner)
 
+    @staticmethod
+    def _yield_step(step):
+        completed = yield step
+        valid8.validate(
+            "completed_step",
+            completed,
+            custom=lambda s: s is step,
+            help_msg=(
+                f"Did not receive the same MoveStep that was yielded: "
+                f"expected {step}, got {completed}"
+            ),
+        )
+        return completed
+
 
 class Spy(Card):
     value = 0
@@ -74,6 +88,10 @@ class Guard(Card):
 
     def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
         self._validate_move(owner)
+        opponent = (yield from self._yield_step(OpponentChoice(owner))).choice
+        guess = (yield from self._yield_step(CardGuess())).choice
+        if type(opponent.hand.card) == guess:
+            opponent.eliminate()
 
 
 class Priest(Card):

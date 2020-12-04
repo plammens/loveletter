@@ -2,17 +2,20 @@ from collections import Counter
 
 import more_itertools as mitt
 import pytest
+import pytest_cases
 
 import loveletter.cardpile
+import test_loveletter.test_cardpile_cases as cardpile_cases
+import test_loveletter.test_cards_cases as card_cases
 from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Spy
 from test_loveletter.utils import collect_subclasses, random_card_counts
 
 
-@pytest.mark.parametrize(
-    "pile_class", collect_subclasses(CardPile, loveletter.cardpile)
+@pytest_cases.parametrize(
+    counts=mitt.repeatfunc(random_card_counts, 5),
+    pile_class=collect_subclasses(CardPile, loveletter.cardpile),
 )
-@pytest.mark.parametrize("counts", mitt.repeatfunc(random_card_counts, 5))
 def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     pile = pile_class.from_counts(counts)
     empiric_counts = Counter(map(type, pile))
@@ -20,6 +23,7 @@ def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     assert empiric_counts == pile.get_counts()
 
 
+@pytest_cases.parametrize_with_cases("card_pile")
 def test_pileEq_equivalentToCountEq(card_pile):
     counts: Counter = card_pile.get_counts()
     assert card_pile == type(card_pile).from_counts(counts)
@@ -34,11 +38,16 @@ def test_deckFromCounts_default_isStandardDeck():
     assert Counter(map(type, deck)) == STANDARD_DECK_COUNTS
 
 
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
+@pytest_cases.parametrize_with_cases("deck", cases=cardpile_cases.DeckCases)
 def test_deckPlace_card_raises(deck, card):
     with pytest.raises(TypeError):
         deck.place(card)
 
 
-def test_discardPileTake_raises(discard_pile, card):
+@pytest_cases.parametrize_with_cases(
+    "discard_pile", cases=cardpile_cases.DiscardPileCases
+)
+def test_discardPileTake_raises(discard_pile):
     with pytest.raises(TypeError):
         discard_pile.take()

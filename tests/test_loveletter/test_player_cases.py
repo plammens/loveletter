@@ -1,4 +1,5 @@
 from typing import Sequence
+from unittest.mock import MagicMock
 
 import pytest_cases
 
@@ -28,8 +29,9 @@ class PlayerHandCases:
 class DummyPlayerCases:
     @staticmethod
     def __make_player(hand: Sequence[Card]) -> Player:
-        # noinspection PyTypeChecker
-        player = Player(None, 0)
+        round_mock = MagicMock()
+        player = Player(round_mock, 0)
+        round_mock.current_player = round_mock.state.current_player = player
         for card in hand:
             player.give(card)
         return player

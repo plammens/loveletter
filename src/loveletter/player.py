@@ -55,7 +55,7 @@ class Player:
         :param which: Which card to play; either "left" or "right".
         :returns: Same as :meth:`Card.play`.
         """
-        valid8.validate("hand", self, length=2)
+        valid8.validate("hand", self.hand, length=2)
         valid8.validate("which", which, is_in=["left", "right"])
         idx = 0 if which == "left" else 1
         # noinspection PyProtectedMember

@@ -52,6 +52,9 @@ class PlayerChoice(ChoiceStep):
 
     @ChoiceStep.choice.setter
     def choice(self, value):
+        from loveletter.round import Player
+
+        valid8.validate("value", value, instance_of=Player)
         valid8.validate(
             "value",
             value,

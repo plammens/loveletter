@@ -152,6 +152,14 @@ class Princess(Card):
 
 
 class CardType(enum.Enum):
+    def __new__(cls, card_class):
+        obj = object.__new__(cls)
+        obj._value_ = card_class.value
+        return obj
+
+    def __init__(self, card_class):
+        self.card_class = card_class
+
     SPY = Spy
     GUARD = Guard
     PRIEST = Priest
@@ -164,4 +172,10 @@ class CardType(enum.Enum):
     PRINCESS = Princess
 
     def __eq__(self, other):
-        return super().__eq__(CardType(other))
+        value = other
+        try:
+            if issubclass(other, Card):
+                value = other.value
+        except TypeError:
+            pass
+        return super().__eq__(CardType(value))

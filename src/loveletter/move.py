@@ -58,7 +58,7 @@ class PlayerChoice(ChoiceStep):
             is_in=self.game_round.players,
             help_msg="Cannot choose a player from outside the round",
         )
-        super(CardGuess, type(self)).choice.fset(self, value)
+        super(PlayerChoice, type(self)).choice.fset(self, value)
 
 
 class OpponentChoice(PlayerChoice):
@@ -76,4 +76,4 @@ class OpponentChoice(PlayerChoice):
             custom=lambda v: v is not self.player,
             help_msg="You can't choose yourself",
         )
-        super(CardGuess, type(self)).choice.fset(self, value)
+        super(OpponentChoice, type(self)).choice.fset(self, value)

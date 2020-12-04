@@ -1,9 +1,10 @@
 import collections
-from typing import Iterator, Optional, Sequence, TYPE_CHECKING
+from typing import Generator, Iterator, Optional, Sequence, TYPE_CHECKING
 
 import valid8
 
 from loveletter.cards import Card
+from loveletter.move import MoveStep
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -46,6 +47,19 @@ class Player:
     def give(self, card: Card):
         """Give this player a card; alias for hand.add"""
         self.hand.add(card)
+
+    def play_card(self, which: str) -> Generator[MoveStep, MoveStep, None]:
+        """
+        Play a card from this player's hand.
+
+        :param which: Which card to play; either "left" or "right".
+        :returns: Same as :meth:`Card.play`.
+        """
+        valid8.validate("hand", self, length=2)
+        valid8.validate("which", which, is_in=["left", "right"])
+        # noinspection PyProtectedMember
+        card: Card = self.hand._cards[0 if which == "left" else 1]
+        yield from card.play(self)
 
     def eliminate(self):
         self._alive = False

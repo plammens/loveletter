@@ -38,14 +38,14 @@ def test_start_newRound_setsCorrectGameState(new_round: Round):
     assert new_round.state.current_player == new_round.current_player
 
 
-def test_start_newRound_dealsCardsCorrectly(game_round: Round):
-    init_deck = list(game_round.deck)
-    assert all(player.hand.card is None for player in game_round.players)
-    game_round.start()
-    hands = [player.hand.card for player in game_round.players]
-    assert set(hands) == set(init_deck[-game_round.num_players :])
-    assert list(game_round.deck) == init_deck[: -game_round.num_players]
-    assert game_round.state.current_player == game_round.current_player
+def test_start_newRound_dealsCardsCorrectly(new_round: Round):
+    init_deck = list(new_round.deck)
+    assert all(player.hand.card is None for player in new_round.players)
+    new_round.start()
+    hands = [player.hand.card for player in new_round.players]
+    assert set(hands) == set(init_deck[-new_round.num_players :])
+    assert list(new_round.deck) == init_deck[: -new_round.num_players]
+    assert new_round.state.current_player == new_round.current_player
 
 
 def test_currentPlayer_isValid(started_round):

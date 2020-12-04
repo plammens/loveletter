@@ -3,9 +3,8 @@ import inspect
 import random
 from typing import Collection, Counter, Type, TypeVar
 
-import loveletter.cards
 from loveletter.cardpile import STANDARD_DECK_COUNTS
-from loveletter.cards import Card
+from loveletter.cards import Card, CardType
 
 
 _T = TypeVar("_T")
@@ -23,7 +22,7 @@ def collect_subclasses(base_class: Type[_T], module) -> Collection[Type[_T]]:
 
 
 def collect_card_classes() -> Collection[Type[Card]]:
-    return collect_subclasses(Card, loveletter.cards)
+    return [t.value for t in CardType]
 
 
 def random_card_counts() -> Counter[Type[Card]]:

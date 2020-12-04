@@ -1,4 +1,5 @@
 import abc
+import enum
 import typing
 from typing import ClassVar, Generator
 
@@ -104,3 +105,19 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
         self._validate_move(owner)
+
+
+class CardType(enum.Enum):
+    SPY = Spy
+    GUARD = Guard
+    PRIEST = Priest
+    BARON = Baron
+    HANDMAID = Handmaid
+    PRINCE = Prince
+    CHANCELLOR = Chancellor
+    KING = King
+    COUNTESS = Countess
+    PRINCESS = Princess
+
+    def __eq__(self, other):
+        return super().__eq__(CardType(other))

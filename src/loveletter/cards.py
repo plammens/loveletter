@@ -173,6 +173,10 @@ class CardType(enum.Enum):
     COUNTESS = Countess
     PRINCESS = Princess
 
+    @classmethod
+    def _missing_(cls, card_class):
+        return CardType(card_class.value)
+
     def __eq__(self, other):
         return super().__eq__(CardType(self._get_value(other)))
 

@@ -1,11 +1,11 @@
 import abc
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 import valid8
 
-from loveletter.cards import CardType
-from loveletter.player import Player
-from loveletter.round import Round
+if TYPE_CHECKING:
+    from loveletter.player import Player
+    from loveletter.round import Round
 
 
 class MoveStep(metaclass=abc.ABCMeta):
@@ -15,7 +15,13 @@ class MoveStep(metaclass=abc.ABCMeta):
         return False
 
 
-DONE = MoveStep()  # special flag to indicate the move is done
+class _Done(MoveStep):
+    @property
+    def completed(self) -> bool:
+        return True
+
+
+DONE = _Done()  # special flag to indicate the move is done
 
 
 class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
@@ -41,13 +47,15 @@ class CardGuess(ChoiceStep):
 
     @ChoiceStep.choice.setter
     def choice(self, value):
+        from loveletter.cards import CardType
+
         super().choice = CardType(value)
 
 
 class PlayerChoice(ChoiceStep):
     """Make the player choose a player"""
 
-    def __init__(self, game_round: Round):
+    def __init__(self, game_round: "Round"):
         super().__init__()
         self.game_round = game_round
 
@@ -59,7 +67,7 @@ class PlayerChoice(ChoiceStep):
             is_in=self.game_round.players,
             help_msg="Cannot choose a player from outside the round",
         )
-        super().choice = CardType(value)
+        super().choice = value
 
 
 class OpponentChoice(PlayerChoice):
@@ -67,7 +75,7 @@ class OpponentChoice(PlayerChoice):
 
     def __init__(self, game_round, player):
         super().__init__(game_round)
-        self.player: Player = player
+        self.player: "Player" = player
 
     @PlayerChoice.choice.setter
     def choice(self, value):

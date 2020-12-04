@@ -42,9 +42,8 @@ def test_start_newRound_dealsCardsCorrectly(game_round: Round):
     init_deck = list(game_round.deck)
     assert all(player.hand.card is None for player in game_round.players)
     game_round.start()
-    i = game_round.current_player.id
     hands = [player.hand.card for player in game_round.players]
-    assert hands[i:] + hands[:i] == init_deck[-game_round.num_players :]
+    assert set(hands) == set(init_deck[-game_round.num_players :])
     assert list(game_round.deck) == init_deck[: -game_round.num_players]
     assert game_round.state.current_player == game_round.current_player
 

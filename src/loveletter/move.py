@@ -49,7 +49,7 @@ class CardGuess(ChoiceStep):
     def choice(self, value):
         from loveletter.cards import CardType
 
-        super().choice = CardType(value)
+        super(CardGuess, type(self)).choice.fset(self, CardType(value))
 
 
 class PlayerChoice(ChoiceStep):
@@ -67,7 +67,7 @@ class PlayerChoice(ChoiceStep):
             is_in=self.game_round.players,
             help_msg="Cannot choose a player from outside the round",
         )
-        super().choice = value
+        super(CardGuess, type(self)).choice.fset(self, value)
 
 
 class OpponentChoice(PlayerChoice):
@@ -85,4 +85,4 @@ class OpponentChoice(PlayerChoice):
             custom=lambda v: v is not self.player,
             help_msg="You can't choose yourself",
         )
-        super().choice = value
+        super(CardGuess, type(self)).choice.fset(self, value)

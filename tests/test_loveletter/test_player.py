@@ -83,6 +83,7 @@ def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
     assert dummy_player.cards_played[-1] == right
 
 
+@pytest_cases.parametrize_with_cases("player", cases=player_cases.PlayerCases)
 def test_eliminate_discardsCards(player: Player):
     game_round = player.round
     card = player.hand.card

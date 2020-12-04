@@ -1,10 +1,11 @@
 import abc
 import enum
 import typing
-from typing import ClassVar, Generator
+from typing import ClassVar, Dict, Generator
 
 import valid8
 
+import loveletter.move as move
 from loveletter.move import MoveStep
 
 if typing.TYPE_CHECKING:
@@ -29,6 +30,8 @@ class Card(metaclass=abc.ABCMeta):
                   additional input is needed from the player. An instance of MoveStep
                   is yielded, indicating what information it needs; once that gets
                   "filled in" the same object should be sent back to the generator.
+                  The generator will yield loveletter.move.DONE to signal when the
+                  move has been completed.
         """
         pass
 

@@ -35,6 +35,16 @@ class Card(metaclass=abc.ABCMeta):
         """
         pass
 
+    @classmethod
+    def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
+        """
+        After a round has ended, collect any extra points to award to players.
+
+        This behaviour is defined by each type of card, that's why it's implemented
+        as a classmethod.
+        """
+        return {}
+
     # noinspection PyMethodMayBeStatic
     def _validate_move(self, owner: "Player") -> None:
         valid8.validate("owner", owner)

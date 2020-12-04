@@ -102,3 +102,6 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
     after = set(player.hand)
     assert after == before | {card}
     assert (player.hand.card is card) == (len(before) == 0)
+
+
+# TODO: test that can't move on to next turn if there is a pending move

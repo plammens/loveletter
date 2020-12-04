@@ -1,7 +1,7 @@
 import collections
 import inspect
 import random
-from typing import Collection, Counter, Generator, Type, TypeVar
+from typing import Any, Collection, Counter, Generator, Type, TypeVar
 
 from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
@@ -48,3 +48,10 @@ def autofill_moves(steps: Generator[MoveStep, MoveStep, None]):
         while True: step = steps.send(step)
     except StopIteration: pass
     # fmt: on
+
+
+def send_gracious(gen: Generator, value: Any) -> Any:
+    try:
+        return gen.send(value)
+    except StopIteration as e:
+        return e.value

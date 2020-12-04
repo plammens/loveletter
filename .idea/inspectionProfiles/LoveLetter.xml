@@ -18,6 +18,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="matplotlib.ticker" />
+          <option value="dict.__or__" />
         </list>
       </option>
     </inspection_tool>

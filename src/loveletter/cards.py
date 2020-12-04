@@ -10,6 +10,7 @@ from loveletter.move import MoveStep
 
 if typing.TYPE_CHECKING:
     from loveletter.player import Player
+    from loveletter.round import Round
 
 
 class Card(metaclass=abc.ABCMeta):
@@ -43,6 +44,7 @@ class Card(metaclass=abc.ABCMeta):
         This behaviour is defined by each type of card, that's why it's implemented
         as a classmethod.
         """
+        assert game_round.ended
         return {}
 
     # noinspection PyMethodMayBeStatic
@@ -55,6 +57,16 @@ class Spy(Card):
 
     def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
         self._validate_move(owner)
+        game_round = owner.round
+        game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
+        yield move.DONE
+
+    @classmethod
+    def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
+        points = super().collect_extra_points(game_round)
+        if spy_winner := getattr(game_round, "spy_winner", None):
+            points.update({spy_winner: 1})
+        return points
 
 
 class Guard(Card):

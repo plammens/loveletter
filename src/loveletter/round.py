@@ -83,8 +83,12 @@ class Round:
 
     def deal_card(self, player: Player) -> "Card":
         """Deal a card to a player from the deck and return the dealt card."""
-        if player.round is not self:
-            raise ValueError(f"Can't deal card to outside player")
+        valid8.validate(
+            "player",
+            player,
+            is_in=self.players,
+            help_msg=f"Can't deal card to outside player",
+        )
         player.give(card := self.deck.take())
         return card
 

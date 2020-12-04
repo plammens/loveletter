@@ -57,8 +57,10 @@ class Player:
         """
         valid8.validate("hand", self, length=2)
         valid8.validate("which", which, is_in=["left", "right"])
+        idx = 0 if which == "left" else 1
         # noinspection PyProtectedMember
-        card: Card = self.hand._cards[0 if which == "left" else 1]
+        card: Card = self.hand._cards.pop(idx)
+        # TODO: add support for cancelling move
         yield from card.play(self)
 
     def eliminate(self):

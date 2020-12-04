@@ -1,5 +1,6 @@
 import abc
 import enum
+import functools
 import typing
 from typing import ClassVar, Dict, Generator
 
@@ -151,6 +152,7 @@ class Princess(Card):
         self._validate_move(owner)
 
 
+@functools.total_ordering
 class CardType(enum.Enum):
     def __new__(cls, card_class):
         obj = object.__new__(cls)
@@ -172,10 +174,16 @@ class CardType(enum.Enum):
     PRINCESS = Princess
 
     def __eq__(self, other):
-        value = other
+        return super().__eq__(CardType(self._get_value(other)))
+
+    def __lt__(self, other):
+        return self.value < self._get_value(other)
+
+    @staticmethod
+    def _get_value(other):
         try:
             if issubclass(other, Card):
-                value = other.value
+                return other.value
         except TypeError:
             pass
-        return super().__eq__(CardType(value))
+        return other

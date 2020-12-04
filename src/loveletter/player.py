@@ -70,12 +70,19 @@ class Player:
         )
         idx = 0 if which == "left" else 1
         # noinspection PyProtectedMember
-        card: Card = self.hand._cards.pop(idx)
+        card: Card = self.hand._cards[idx]
         # TODO: add support for cancelling move
         yield from card.play(self)
         # Move completed successfully; finish cleaning up and commiting the move:
-        self.round.discard_pile.place(card)
-        self.cards_played.append(card)
+        self._discard_card(card)
 
     def eliminate(self):
+        assert len(self.hand) == 1
+        self._discard_card(self.hand.card)
         self._alive = False
+
+    def _discard_card(self, card: Card):
+        # noinspection PyProtectedMember
+        self.hand._cards.remove(card)
+        self.round.discard_pile.place(card)
+        self.cards_played.append(card)

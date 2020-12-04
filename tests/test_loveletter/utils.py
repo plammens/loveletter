@@ -3,7 +3,6 @@ import inspect
 import random
 from typing import Collection, Counter, Generator, Type, TypeVar
 
-import loveletter.move as move
 from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.move import MoveStep
@@ -44,5 +43,8 @@ def random_card_counts() -> Counter[Type[Card]]:
 def autofill_moves(steps: Generator[MoveStep, MoveStep, None]):
     # for now just consume generator
     step = None
-    while step is not move.DONE:
-        step = steps.send(step)
+    # fmt: off
+    try:
+        while True: step = steps.send(step)
+    except StopIteration: pass
+    # fmt: on

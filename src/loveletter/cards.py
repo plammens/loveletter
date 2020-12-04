@@ -5,7 +5,6 @@ from typing import ClassVar, Dict, Generator
 
 import valid8
 
-import loveletter.move as move
 from loveletter.move import CardGuess, MoveStep, OpponentChoice
 
 if typing.TYPE_CHECKING:
@@ -73,7 +72,9 @@ class Spy(Card):
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
-        yield move.DONE
+        return
+        # noinspection PyUnreachableCode
+        yield
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:

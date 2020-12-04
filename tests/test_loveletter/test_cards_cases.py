@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 import pytest_cases
 
 import loveletter.cards as cards
-import loveletter.move as move
 from loveletter.cards import Card
 
 
@@ -28,7 +27,6 @@ class CardMockCases:
     def case_generic(self) -> MagicMock:
         def play(owner):
             yield MagicMock()
-            yield move.DONE
 
         mock = MagicMock(spec=Card)
         mock.play.side_effect = play

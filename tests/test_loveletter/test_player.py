@@ -62,6 +62,8 @@ def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
     right.play.assert_not_called()
     assert dummy_player.hand.card is right
     assert left not in dummy_player.hand
+    dummy_player.round.discard_pile.place.assert_called_once_with(left)
+    assert dummy_player.cards_played[-1] == left
 
 
 @pytest_cases.parametrize_with_cases("right", cases=card_cases.CardMockCases)
@@ -77,3 +79,14 @@ def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
     left.play.assert_not_called()
     assert dummy_player.hand.card is left
     assert right not in dummy_player.hand
+    dummy_player.round.discard_pile.place.assert_called_once_with(right)
+    assert dummy_player.cards_played[-1] == right
+
+
+def test_eliminate_discardsCards(player: Player):
+    game_round = player.round
+    card = player.hand.card
+    player.eliminate()
+    assert game_round.discard_pile.top == card
+    assert player.cards_played[-1] == card
+    assert len(player.hand) == 0

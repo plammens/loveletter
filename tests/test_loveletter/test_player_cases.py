@@ -58,9 +58,9 @@ class DummyPlayerCases:
 
 class PlayerCases:
     @pytest_cases.case()
-    def case_first_player(self, game_round: Round):
-        return game_round.players[0]
+    def case_first_player(self, started_round: Round):
+        return started_round.players[0]
 
     @pytest_cases.case()
-    def case_last_player(self, game_round: Round):
-        return game_round.players[-1]
+    def case_last_player(self, started_round: Round):
+        return started_round.players[-1]

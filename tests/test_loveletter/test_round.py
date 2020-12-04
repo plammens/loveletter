@@ -73,6 +73,7 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
             player.eliminate()
     state = started_round.next_turn()
     assert state.type == RoundState.Type.ROUND_END
+    assert started_round.ended
     assert isinstance(state, RoundEnd)
     assert state.winner is winner
 

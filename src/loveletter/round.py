@@ -8,7 +8,7 @@ from typing import Optional, Sequence, TYPE_CHECKING
 import more_itertools as mitt
 import valid8
 
-from loveletter.cardpile import Deck
+from loveletter.cardpile import Deck, DiscardPile
 from loveletter.player import Player
 
 if TYPE_CHECKING:
@@ -50,6 +50,7 @@ class RoundEnd(RoundState):
 class Round:
     players: Sequence[Player]
     deck: Deck
+    discard_pile: DiscardPile
     state: RoundState
 
     def __init__(self, num_players: int):
@@ -58,6 +59,7 @@ class Round:
         )
         self.players = [Player(self, i) for i in range(num_players)]
         self.deck = Deck.from_counts()
+        self.discard_pile = DiscardPile([])
         self.state = InitialState()
 
     @property

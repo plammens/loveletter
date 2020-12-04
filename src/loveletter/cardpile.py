@@ -2,7 +2,7 @@ import abc
 import collections
 import itertools as itt
 import random
-from typing import Counter, Dict, Iterator, List, Sequence, Type, TypeVar
+from typing import Counter, Dict, Iterator, List, Optional, Sequence, Type, TypeVar
 
 import more_itertools as mitt
 
@@ -72,6 +72,10 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
         if not isinstance(o, self.__class__):
             raise TypeError(f"{self} and {o} not comparable")
         return self.get_counts() == o.get_counts()
+
+    @property
+    def top(self) -> Optional[Card]:
+        return self._cards[-1] if len(self._cards) else None
 
     @abc.abstractmethod
     def place(self, card: Card) -> None:

@@ -6,6 +6,7 @@ import valid8
 import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
 from loveletter.player import Player
+from test_loveletter.utils import autofill_moves
 
 
 @pytest.mark.parametrize("id", [0, 1, 2, 3])
@@ -56,8 +57,7 @@ def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
 def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
-    steps = dummy_player.play_card("left")
-    next(steps)
+    autofill_moves(dummy_player.play_card("left"))
     left.play.assert_called_once_with(dummy_player)
     right.play.assert_not_called()
     assert dummy_player.hand.card is right
@@ -72,8 +72,7 @@ def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
 def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
-    steps = dummy_player.play_card("right")
-    next(steps)
+    autofill_moves(dummy_player.play_card("right"))
     right.play.assert_called_once_with(dummy_player)
     left.play.assert_not_called()
     assert dummy_player.hand.card is left

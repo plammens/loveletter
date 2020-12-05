@@ -33,13 +33,18 @@ class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
         return self._choice
 
     @choice.setter
-    @abc.abstractmethod
     def choice(self, value):
+        self._validate_choice(value)
         self._choice = value
 
     @property
     def completed(self) -> bool:
         return self._choice is not None
+
+    @abc.abstractmethod
+    def _validate_choice(self, value):
+        """Subclasses should override this to provide validation for the choice"""
+        pass
 
 
 class CardGuess(ChoiceStep):
@@ -51,6 +56,10 @@ class CardGuess(ChoiceStep):
 
         super(CardGuess, type(self)).choice.fset(self, CardType(value))
 
+    def _validate_choice(self, value):
+        # Validation and setter implemented in one step with CardType.__new__
+        pass
+
 
 class PlayerChoice(ChoiceStep):
     """Make the player choose a player"""
@@ -59,8 +68,7 @@ class PlayerChoice(ChoiceStep):
         super().__init__()
         self.game_round = game_round
 
-    @ChoiceStep.choice.setter
-    def choice(self, value):
+    def _validate_choice(self, value):
         from loveletter.round import Player
 
         valid8.validate("value", value, instance_of=Player)
@@ -70,7 +78,6 @@ class PlayerChoice(ChoiceStep):
             is_in=self.game_round.players,
             help_msg="Cannot choose a player from outside the round",
         )
-        super(PlayerChoice, type(self)).choice.fset(self, value)
 
 
 class OpponentChoice(PlayerChoice):
@@ -80,8 +87,7 @@ class OpponentChoice(PlayerChoice):
         super().__init__(player.round)
         self.player: "Player" = player
 
-    @PlayerChoice.choice.setter
-    def choice(self, value):
+    def _validate_choice(self, value):
         valid8.validate(
             "target",
             value,
@@ -94,8 +100,6 @@ class OpponentChoice(PlayerChoice):
             custom=lambda v: not getattr(v, "immune", False),
             help_msg="Can't target an immune player",
         )
-        # TODO: refactor so only method to override is validation
-        super(OpponentChoice, type(self)).choice.fset(self, value)
 
 
 class CancelMove(Exception):

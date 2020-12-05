@@ -55,7 +55,10 @@ class Turn(RoundState):
         self.stage = Turn.Stage.IN_PROGRESS
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stage = Turn.Stage.COMPLETED if exc_type is None else Turn.Stage.START
+        # A move is completed iff .close() was called, so check for GeneratorExit:
+        self.stage = (
+            Turn.Stage.COMPLETED if exc_type is GeneratorExit else Turn.Stage.START
+        )
 
 
 class RoundEnd(RoundState):

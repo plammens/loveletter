@@ -15,6 +15,15 @@ class MoveStep(metaclass=abc.ABCMeta):
         return False
 
 
+class _Done(MoveStep):
+    @property
+    def completed(self) -> bool:
+        return True
+
+
+DONE = _Done()  # special flag to indicate the move is done
+
+
 class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
     def __init__(self):
         self._choice = None

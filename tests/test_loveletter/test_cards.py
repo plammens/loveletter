@@ -3,6 +3,7 @@ import pytest_cases
 import valid8
 
 import loveletter.cards as cards
+import loveletter.move
 import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
 from loveletter.player import Player
@@ -12,7 +13,6 @@ from test_loveletter.utils import (
     force_next_turn,
     make_mock_move,
     play_card,
-    send_final,
 )
 
 
@@ -33,8 +33,7 @@ def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
     for expected_step_type in card.steps:
         step = move.send(autofill_step(step))
         assert type(step) == expected_step_type
-    with pytest.raises(StopIteration):
-        move.send(autofill_step(step))
+    assert move.send(autofill_step(step)) is loveletter.move.DONE
 
 
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
@@ -94,7 +93,8 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         target_step.choice = other
         guess_step = move.send(target_step)
         guess_step.choice = type(other.hand.card)
-        send_final(move, guess_step)
+        move.send(guess_step)
+        move.close()
         assert not other.alive
         # artificially start new turn with same player
         started_round.state = Turn(player)
@@ -110,7 +110,8 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             target_step.choice = other
             guess_step = move.send(target_step)
             guess_step.choice = wrong_type
-            send_final(move, guess_step)
+            move.send(guess_step)
+            move.close()
             assert other.alive
             # artificially start new turn with same player
             started_round.state = Turn(player)

@@ -5,10 +5,9 @@ import functools
 import inspect
 import random
 import unittest.mock
-from typing import Any, Collection, Counter, Generator, Type, TypeVar, Union
+from typing import Collection, Counter, Generator, Type, TypeVar, Union
 from unittest.mock import Mock, PropertyMock
 
-import pytest
 from multimethod import multimethod
 
 import loveletter.cards as cards
@@ -49,13 +48,10 @@ def random_card_counts() -> Counter[Type[Card]]:
 
 
 def autofill_moves(steps: Generator[move.MoveStep, move.MoveStep, None]):
-    # for now just consume generator
     step = None
-    try:
-        while True:
-            step = steps.send(autofill_step(step))
-    except StopIteration:
-        pass
+    while step is not move.DONE:
+        step = steps.send(autofill_step(step))
+    steps.close()
 
 
 @multimethod
@@ -86,14 +82,6 @@ def autofill_step(step: move.OpponentChoice):
 def autofill_step(step: move.CardGuess):
     step.choice = cards.Guard()
     return step
-
-
-def send_final(gen: Generator, value: Any) -> Any:
-    try:
-        with pytest.raises(StopIteration):
-            return gen.send(value)
-    except StopIteration as e:
-        return e.value
 
 
 def make_mock_move(player):

@@ -54,8 +54,18 @@ class Player:
         """
         Play a card from this player's hand.
 
+        The details of how this generator works are explained in
+        :meth:`loveletter.cards.Card.play`.
+
+        In addition to that, this wrapper also manages updating the state of this
+        player's turn. In particular, when the move is committed (by calling .close()),
+        the card is removed from the player's hand and placed on the discard
+        pile, and the turn is marked as completed. If the generator is exited in any
+        other way (e.g. the move gets cancelled by throwing CancelMove), the turn
+        gets reset to its initial state.
+
         :param card: Which card to play; either "left" or "right".
-        :returns: Same as :meth:`Card.play`.
+        :returns: A generator wrapped around ``card.play(self)``.
         """
         turn = self.round.state
         valid8.validate(
@@ -84,8 +94,13 @@ class Player:
         except CancelMove:
             # Exception was injected to signal cancelling
             return
-        # Move completed successfully; finish cleaning up and committing the move:
-        self._discard_card(card)
+        except GeneratorExit:
+            # Move completed successfully; finish cleaning up and committing the move:
+            self._discard_card(card)
+        else:
+            # Neither cancelled nor committed; something was sent after move.DONE
+            # Raise StopIteration by just "falling off the end"
+            pass
 
     def eliminate(self):
         assert len(self.hand) == 1

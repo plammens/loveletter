@@ -1,7 +1,7 @@
 import abc
 import enum
 import functools
-from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
+from typing import Callable, ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
 
 import valid8
 
@@ -24,18 +24,34 @@ class Card(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         """
-        Play this card from its owner.
+        Play this card on behalf of its owner.
+
+        The returned generator yields at every step in the move in which some
+        additional input is needed from the player. This is encoded as an instance of
+        MoveStep. Different types of input requests are represented as subclasses of
+        MoveStep; how to fulfill each request is defined by the particular subclass.
+
+        Once the MoveStep object gets "filled in" with the appropriate information,
+        it should be sent back to the generator (sending in something else than what
+        was yielded by the generator results in an error).
+
+        When all steps get fulfilled, the generator will yield loveletter.move.DONE
+        to signal this. At this point the effect of the move has not yet been
+        applied; to do that, the caller must .close() the generator, which will
+        commit the move. Only when that happens will the move actually take effect.
+        If .send() is called again after DONE has been yielded, the generator will
+        terminate (thus raising a StopIteration exception) without committing the move.
+
+        At any point during the generator's lifetime (i.e. before .close() is called),
+        the caller can .throw() a CancelMove exception to cancel the move. This will
+        destroy the generator and thus will not apply the effect of the move (which is
+        only done after calling .close()). Once .close() has been called, though, the
+        move cannot be cancelled anymore.
 
         :param owner: Owner of the card; who is playing it.
-        :returns: A generator that stops at every step in the move at which some
-                  additional input is needed from the player. An instance of MoveStep
-                  is yielded, indicating what information it needs; once that gets
-                  "filled in" the same object should be sent back to the generator.
-                  The generator will yield loveletter.move.DONE to signal when the
-                  move has been completed.
+        :returns: A generator as described above.
         """
         pass
-        # TODO: go back to yielding DONE_
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -72,6 +88,15 @@ class Card(metaclass=abc.ABCMeta):
         )
         return completed
 
+    @staticmethod
+    def _yield_done(commit_callback: Callable = lambda: None):
+        try:
+            yield move.DONE
+            # If something gets sent here, the caller should receive a StopIteration
+        except GeneratorExit:
+            # Caller called .close(); commit the move
+            commit_callback()
+
 
 class Spy(Card):
     value = 0
@@ -81,9 +106,7 @@ class Spy(Card):
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
-        return
-        # noinspection PyUnreachableCode
-        yield
+        yield from self._yield_done()
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -101,8 +124,12 @@ class Guard(Card):
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         guess = (yield from self._yield_step(move.CardGuess())).choice
-        if type(opponent.hand.card) == guess:
-            opponent.eliminate()
+
+        def action():
+            if type(opponent.hand.card) == guess:
+                opponent.eliminate()
+
+        yield from self._yield_done(commit_callback=action)
 
 
 class Priest(Card):
@@ -111,8 +138,7 @@ class Priest(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class Baron(Card):
@@ -121,8 +147,7 @@ class Baron(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class Handmaid(Card):
@@ -132,9 +157,7 @@ class Handmaid(Card):
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
         owner.immune = True
-        return
-        # noinspection PyUnreachableCode
-        yield
+        yield from self._yield_done()
 
 
 class Prince(Card):
@@ -143,8 +166,7 @@ class Prince(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class Chancellor(Card):
@@ -153,8 +175,7 @@ class Chancellor(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class King(Card):
@@ -163,8 +184,7 @@ class King(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class Countess(Card):
@@ -173,8 +193,7 @@ class Countess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 class Princess(Card):
@@ -183,8 +202,7 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        return
-        yield
+        yield from self._yield_done()
 
 
 @functools.total_ordering

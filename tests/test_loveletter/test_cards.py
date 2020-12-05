@@ -5,7 +5,7 @@ import valid8
 import loveletter.cards as cards
 import test_loveletter.test_cards_cases as card_cases
 from loveletter.round import Round, Turn
-from test_loveletter.utils import autofill_moves, send_gracious
+from test_loveletter.utils import autofill_moves, make_mock_move, send_gracious
 
 
 def test_cards_have_unique_nonnegative_value():
@@ -126,3 +126,30 @@ def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     with pytest.raises(valid8.ValidationError):
         target_step.choice = immune_player
         move.send(target_step)
+
+
+def test_handmaid_immunityLastsOneFullRotation(started_round: Round):
+    immune_player = started_round.current_player
+    immune_player.give(cards.Handmaid())
+    autofill_moves(immune_player.play_card("right"))
+    started_round.next_turn()
+    while (current := started_round.current_player) is not immune_player:
+        assert immune_player.immune
+        make_mock_move(current)
+        started_round.next_turn()
+    assert not immune_player.immune
+
+
+def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
+    immune_player = started_round.current_player
+    immune_player.give(cards.Handmaid())
+    autofill_moves(immune_player.play_card("right"))
+    started_round.next_turn()
+    killer = started_round.current_player
+    for player in set(started_round.players) - {immune_player, killer}:
+        assert immune_player.immune
+        player.eliminate()
+    started_round.state.stage = Turn.Stage.COMPLETED
+    assert immune_player.immune
+    started_round.next_turn()
+    assert not immune_player.immune

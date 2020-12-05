@@ -1,7 +1,9 @@
 import pytest
+import pytest_cases
 import valid8
 
 import loveletter.cards as cards
+import test_loveletter.test_cards_cases as card_cases
 from loveletter.round import Round, Turn
 from test_loveletter.utils import autofill_moves, send_gracious
 
@@ -100,3 +102,27 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             assert other.alive
             # artificially start new turn with same player
             started_round.state = Turn(player)
+
+
+def test_handmaid_playerBecomesImmune(started_round: Round):
+    immune_player = started_round.current_player
+    immune_player.give(cards.Handmaid())
+    autofill_moves(immune_player.play_card("right"))
+    assert immune_player.immune
+
+
+@pytest_cases.parametrize_with_cases("card", card_cases.case_target_card)
+def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
+    immune_player = started_round.current_player
+    immune_player.give(cards.Handmaid())
+    autofill_moves(immune_player.play_card("right"))
+    # should be immune now
+    started_round.next_turn()
+    opponent = started_round.current_player
+    opponent.give(card)
+    move = opponent.play_card("right")
+    # TODO: extract play_card test util
+    target_step = next(move)
+    with pytest.raises(valid8.ValidationError):
+        target_step.choice = immune_player
+        move.send(target_step)

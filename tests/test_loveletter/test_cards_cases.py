@@ -5,6 +5,13 @@ import pytest_cases
 from loveletter.cards import Card, CardType
 
 DISCARD_TYPES = {CardType.SPY, CardType.HANDMAID, CardType.COUNTESS, CardType.PRINCESS}
+TARGET_TYPES = {
+    CardType.GUARD,
+    CardType.PRIEST,
+    CardType.BARON,
+    CardType.PRINCE,
+    CardType.KING,
+}
 
 
 class CardCases:
@@ -17,6 +24,11 @@ class CardCases:
     @pytest_cases.parametrize(card_type=set(CardType) - DISCARD_TYPES)
     def case_multistep_card(self, card_type: CardType):
         return card_type.card_class()
+
+
+@pytest_cases.parametrize(card_type=TARGET_TYPES)
+def case_target_card(card_type: CardType):
+    return card_type.card_class()
 
 
 class CardMockCases:

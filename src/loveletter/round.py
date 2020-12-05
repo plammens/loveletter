@@ -144,6 +144,7 @@ class Round:
             pred=operator.attrgetter("alive"),
         )
         assert next_player is not None
+        # TODO: deal card to player
         self.state = Turn(next_player)
         return self.state
 

@@ -77,7 +77,7 @@ def play_card(player: Player, card: cards.Card, autofill=None):
         autofill = cards.CardType(card) in DISCARD_TYPES
 
     player.give(card)
-    move = player.play_card("right")
+    move = player.play_card(card)
     if autofill:
         autofill_moves(move)
         return None
@@ -90,10 +90,10 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
     state = game_round.state
     current_player = game_round.current_player
     round_copy = copy.deepcopy(game_round)
-    _players = (
+    maybe_mocked_players = (
         list(map(mock_player, game_round.players)) if with_mock else game_round.players
     )
-    with unittest.mock.patch.object(game_round, "players", new=_players):
+    with unittest.mock.patch.object(game_round, "players", new=maybe_mocked_players):
         try:
             yield
         finally:
@@ -115,9 +115,10 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
 def mock_player(player: Player):
     mock = Mock(spec=player, wraps=player)
     mock.hand = mock_hand(player.hand)
-    type(mock).alive = PropertyMock(
-        side_effect=functools.partial(type(player).alive.fget, player)
-    )
+    type(mock).alive = PropertyMock(side_effect=lambda: player.alive)
+    # Have to make immune a property that tracks the value since bool is immutable
+    type(mock).immune = PropertyMock(side_effect=lambda: player.immune)
+    mock.cards_played = player.cards_played
     return mock
 
 

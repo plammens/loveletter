@@ -56,9 +56,10 @@ class Player:
         :param which: Which card to play; either "left" or "right".
         :returns: Same as :meth:`Card.play`.
         """
+        turn = self.round.state
         valid8.validate(
             "turn",
-            self.round.state.current_player,
+            turn.current_player,
             custom=lambda p: p is self,
             help_msg=f"It's not {self}'s turn",
         )
@@ -68,12 +69,15 @@ class Player:
             length=2,
             help_msg="Can't discard play a card with only one card in hand",
         )
-        idx = 0 if which == "left" else 1
-        # noinspection PyProtectedMember
-        card: Card = self.hand._cards[idx]
-        # TODO: add support for cancelling move
-        yield from card.play(self)
-        # Move completed successfully; finish cleaning up and commiting the move:
+        # The context manager ensures the move is completed before the round moves
+        # on to the next turn
+        with turn:
+            idx = 0 if which == "left" else 1
+            # noinspection PyProtectedMember
+            card: Card = self.hand._cards[idx]
+            # TODO: add support for cancelling move
+            yield from card.play(self)
+        # Move completed successfully; finish cleaning up and committing the move:
         self._discard_card(card)
 
     def eliminate(self):

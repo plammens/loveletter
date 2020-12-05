@@ -35,8 +35,30 @@ class InitialState(RoundState):
 
 
 class Turn(RoundState):
+    """Represents a single turn; acts as a context manager activated during a move"""
+
+    class Stage(enum.Enum):
+        START = enum.auto()
+        IN_PROGRESS = enum.auto()
+        COMPLETED = enum.auto()
+
+    stage: Stage
+
     def __init__(self, current_player: Player):
         super().__init__(RoundState.Type.TURN, current_player)
+        self.stage = Turn.Stage.START
+
+    def __enter__(self):
+        valid8.validate(
+            "turn.stage",
+            self.stage,
+            equals=Turn.Stage.START,
+            help_msg=f"Can't start another move; turn is already {self.stage.name}",
+        )
+        self.stage = Turn.Stage.IN_PROGRESS
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stage = Turn.Stage.COMPLETED if exc_type is None else Turn.Stage.START
 
 
 class RoundEnd(RoundState):
@@ -101,10 +123,15 @@ class Round:
         self.state = turn = Turn(random.choice(self.players))
         return turn
 
+    @valid8.validate_arg("self", started.fget, help_msg="Round hasn't started yet")
     def next_turn(self) -> RoundState:
         """Advance to the next turn."""
-        if not self.started:
-            raise ValueError(f"Round {self} hasn't started yet")
+        valid8.validate(
+            "turn",
+            self.state,
+            custom=lambda t: t.stage == Turn.Stage.COMPLETED,
+            help_msg="Can't start next turn before the previous one is completed",
+        )
         if self.ended:
             raise StopIteration
         if self._reached_end():

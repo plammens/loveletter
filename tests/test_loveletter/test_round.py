@@ -1,4 +1,5 @@
 import itertools
+import unittest.mock
 
 import pytest
 import pytest_cases
@@ -67,6 +68,13 @@ def test_nextTurn_currentPlayerIsValid(started_round):
     after = started_round.current_player
     assert after.alive
     assert after is not before
+
+
+def test_nextTurn_dealsCard(started_round: Round):
+    next_player = started_round.next_player(started_round.current_player)
+    with unittest.mock.patch.object(started_round, "deal_card") as mock:
+        force_next_turn(started_round)
+        mock.assert_called_once_with(next_player)
 
 
 def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):

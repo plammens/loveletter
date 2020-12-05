@@ -7,6 +7,7 @@ from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
+from test_loveletter.utils import make_mock_move
 
 
 @pytest.mark.parametrize("num_players", VALID_NUM_PLAYERS)
@@ -57,6 +58,7 @@ def test_currentPlayer_isValid(started_round):
 
 def test_nextTurn_currentPlayerIsValid(started_round):
     before = started_round.current_player
+    make_mock_move(before)
     started_round.next_turn()
     after = started_round.current_player
     assert after.alive
@@ -64,6 +66,7 @@ def test_nextTurn_currentPlayerIsValid(started_round):
 
 
 def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):
+    make_mock_move(started_round.current_player)
     state = started_round.next_turn()
     assert state.type == RoundState.Type.TURN
     assert isinstance(state, Turn)
@@ -74,6 +77,8 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     for player in started_round.players:
         if player is not winner:
             player.eliminate()
+    # forcefully complete the turn
+    started_round.state.stage = Turn.Stage.COMPLETED
     state = started_round.next_turn()
     assert state.type == RoundState.Type.ROUND_END
     assert started_round.ended

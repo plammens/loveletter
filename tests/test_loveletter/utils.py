@@ -6,6 +6,7 @@ from typing import Any, Collection, Counter, Generator, Type, TypeVar
 from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.move import MoveStep
+from test_loveletter import test_cards_cases as card_cases
 
 
 _T = TypeVar("_T")
@@ -51,3 +52,9 @@ def send_gracious(gen: Generator, value: Any) -> Any:
         return gen.send(value)
     except StopIteration as e:
         return e.value
+
+
+def make_mock_move(player):
+    card_mock = card_cases.CardMockCases().case_generic()
+    player.give(card_mock)
+    autofill_moves(player.play_card("right"))

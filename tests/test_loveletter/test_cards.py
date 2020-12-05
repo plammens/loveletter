@@ -2,7 +2,7 @@ import pytest
 import valid8
 
 import loveletter.cards as cards
-from loveletter.round import Round
+from loveletter.round import Round, Turn
 from test_loveletter.utils import autofill_moves, send_gracious
 
 
@@ -16,6 +16,8 @@ def test_cards_have_unique_nonnegative_value():
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
     for player in started_round.players[1:]:
         player.eliminate()
+    # artificially mark the turn as completed
+    started_round.state.stage = Turn.Stage.COMPLETED
     started_round.next_turn()
     assert cards.Spy.collect_extra_points(started_round) == {}
 
@@ -79,6 +81,8 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         guess_step.choice = type(other.hand.card)
         send_gracious(move, guess_step)
         assert not other.alive
+        # artificially start new turn with same player
+        started_round.state = Turn(player)
 
 
 def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
@@ -94,3 +98,5 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             guess_step.choice = wrong_type
             send_gracious(move, guess_step)
             assert other.alive
+            # artificially start new turn with same player
+            started_round.state = Turn(player)

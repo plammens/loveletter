@@ -17,15 +17,6 @@ class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
     # TODO: add indicator of number of steps needed for play() method
 
-    def __eq__(self, other):
-        # card instances have no state, so just compare the card type
-        if not isinstance(other, Card):
-            raise TypeError(f"Cannot compare Card to non-Card object: {other}")
-        return CardType(self.value) == CardType(other.value)
-
-    def __hash__(self):
-        return hash(CardType(self.value))
-
     @property
     def name(self):
         """Name of the card"""

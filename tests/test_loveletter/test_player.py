@@ -106,4 +106,3 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
 
 
 # TODO: test cancelling move
-# TODO: refactor using current_player fixture

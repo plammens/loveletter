@@ -4,6 +4,7 @@ import valid8
 
 import loveletter.cards as cards
 import test_loveletter.test_cards_cases as card_cases
+from loveletter.player import Player
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
     make_mock_move,
@@ -62,12 +63,11 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     assert cards.Spy.collect_extra_points(started_round) == {}
 
 
-def test_guard_chooseOneSelf_raises(started_round: Round):
-    player = started_round.current_player
-    move = play_card(player, cards.Guard())
-    target_step = move.send(None)
+def test_guard_chooseOneSelf_raises(current_player: Player):
+    move = play_card(current_player, cards.Guard())
+    target_step = next(move)
     with pytest.raises(valid8.ValidationError):
-        target_step.choice = player
+        target_step.choice = current_player
         move.send(target_step)
 
 
@@ -102,10 +102,9 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             started_round.state = Turn(player)
 
 
-def test_handmaid_playerBecomesImmune(started_round: Round):
-    immune_player = started_round.current_player
-    play_card(immune_player, cards.Handmaid())
-    assert immune_player.immune
+def test_handmaid_playerBecomesImmune(current_player: Player):
+    play_card(current_player, cards.Handmaid())
+    assert current_player.immune
 
 
 @pytest_cases.parametrize_with_cases("card", card_cases.case_target_card)

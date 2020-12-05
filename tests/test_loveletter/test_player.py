@@ -8,7 +8,12 @@ import test_loveletter.test_player_cases as player_cases
 from loveletter.cards import Card
 from loveletter.move import CancelMove
 from loveletter.player import Player
-from test_loveletter.utils import assert_state_is_preserved, autofill_move, play_card
+from test_loveletter.utils import (
+    assert_state_is_preserved,
+    autofill_move,
+    give_card,
+    play_card,
+)
 
 
 @pytest.mark.parametrize("id", [0, 1, 2, 3])
@@ -110,7 +115,7 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
     "card", cases=card_cases.CardCases().case_multistep_card
 )
 def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Card):
-    current_player.give(card)
+    give_card(current_player, card)
     with assert_state_is_preserved(current_player.round) as mocked_round:
         player = mocked_round.current_player
         move = player.play_card(card)

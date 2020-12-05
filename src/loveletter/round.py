@@ -142,7 +142,9 @@ class Round:
         """Initialise the round: hand out one card to each player and start a turn."""
         for player in self.players:
             self.deal_card(player)
-        self.state = turn = Turn(random.choice(self.players))
+        first_player = random.choice(self.players)
+        self.deal_card(first_player)
+        self.state = turn = Turn(first_player)
         return turn
 
     @valid8.validate_arg("self", started.fget, help_msg="Round hasn't started yet")
@@ -166,7 +168,7 @@ class Round:
         # Reset immunity if needed:
         if next_player.immune:
             next_player.immune = False
-        # TODO: deal card to player
+        self.deal_card(next_player)
         self.state = Turn(next_player)
         return self.state
 

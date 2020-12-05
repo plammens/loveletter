@@ -96,13 +96,19 @@ def play_card(player: Player, card: cards.Card, autofill=None):
     if autofill is None:
         autofill = cards.CardType(type(card)) in DISCARD_TYPES
 
-    player.give(card)
+    give_card(player, card)
     move = player.play_card(card)
     if autofill:
         autofill_move(move)
         return None
     else:
         return move
+
+
+def give_card(player: Player, card: Card):
+    if len(player.hand) == 2:
+        player.hand._cards.pop()
+    player.give(card)
 
 
 @contextlib.contextmanager

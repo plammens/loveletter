@@ -103,8 +103,8 @@ class Player:
             pass
 
     def eliminate(self):
-        assert len(self.hand) == 1
-        self._discard_card(self.hand.card)
+        for card in self.hand._cards[::-1]:
+            self._discard_card(card)
         self._alive = False
 
     def _discard_card(self, card: Card):

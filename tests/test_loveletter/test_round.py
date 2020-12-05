@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 import pytest_cases
 import valid8
@@ -46,9 +48,11 @@ def test_start_newRound_dealsCardsCorrectly(new_round: Round):
     init_deck = list(new_round.deck)
     assert all(player.hand.card is None for player in new_round.players)
     new_round.start()
-    hands = [player.hand.card for player in new_round.players]
-    assert set(hands) == set(init_deck[-new_round.num_players :])
-    assert list(new_round.deck) == init_deck[: -new_round.num_players]
+    # +1 is for extra card dealt to first player
+    expected_cards_dealt = new_round.num_players + 1
+    hands = list(itertools.chain.from_iterable(p.hand for p in new_round.players))
+    assert set(hands) == set(init_deck[-expected_cards_dealt:])
+    assert list(new_round.deck) == init_deck[:-expected_cards_dealt]
     assert new_round.state.current_player == new_round.current_player
 
 
@@ -102,7 +106,8 @@ def test_dealCard_playerNotInRound_works(game_round: Round):
 
 
 def test_dealCard_playerInRound_addsToHand(started_round: Round):
-    player = started_round.players[-1]
+    # pick non-current player (current player already has 2 cards in hand)
+    player = started_round.next_player(started_round.current_player)
     before = set(player.hand)
     card = started_round.deal_card(player)
     after = set(player.hand)

@@ -3,9 +3,13 @@ import inspect
 import random
 from typing import Any, Collection, Counter, Generator, Type, TypeVar
 
+import pytest
+
+from loveletter import cards as cards
 from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.move import MoveStep
+from loveletter.player import Player
 from test_loveletter import test_cards_cases as card_cases
 
 
@@ -47,9 +51,10 @@ def autofill_moves(steps: Generator[MoveStep, MoveStep, None]):
     # fmt: on
 
 
-def send_gracious(gen: Generator, value: Any) -> Any:
+def send_final(gen: Generator, value: Any) -> Any:
     try:
-        return gen.send(value)
+        with pytest.raises(StopIteration):
+            return gen.send(value)
     except StopIteration as e:
         return e.value
 

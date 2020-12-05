@@ -5,7 +5,11 @@ import valid8
 import loveletter.cards as cards
 import test_loveletter.test_cards_cases as card_cases
 from loveletter.round import Round, Turn
-from test_loveletter.utils import autofill_moves, make_mock_move, send_gracious
+from test_loveletter.utils import (
+    autofill_moves,
+    make_mock_move,
+    send_final,
+)
 
 
 def test_cards_have_unique_nonnegative_value():
@@ -81,7 +85,7 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         target_step.choice = other
         guess_step = move.send(target_step)
         guess_step.choice = type(other.hand.card)
-        send_gracious(move, guess_step)
+        send_final(move, guess_step)
         assert not other.alive
         # artificially start new turn with same player
         started_round.state = Turn(player)

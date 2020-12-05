@@ -5,6 +5,7 @@ import valid8
 
 import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
+from loveletter.cards import Card
 from loveletter.player import Player
 from test_loveletter.utils import autofill_moves
 
@@ -91,3 +92,19 @@ def test_eliminate_discardsCards(player: Player):
     assert game_round.discard_pile.top == card
     assert player.cards_played[-1] == card
     assert len(player.hand) == 0
+
+
+@pytest_cases.parametrize_with_cases(
+    "card", cases=card_cases.CardCases().case_multistep_card
+)
+def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
+    current_player.give(card)
+    move = current_player.play_card("right")
+    step = move.send(None)
+    # we don't complete the step and send it right back
+    with pytest.raises(valid8.ValidationError):
+        move.send(step)
+
+
+# TODO: test cancelling move
+# TODO: refactor using current_player fixture

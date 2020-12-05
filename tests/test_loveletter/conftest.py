@@ -20,4 +20,9 @@ def started_round(new_round: Round):
     return new_round
 
 
+@pytest_cases.fixture()
+def current_player(started_round):
+    return started_round.current_player
+
+
 game_round = pytest_cases.fixture_union("game_round", [new_round, started_round])

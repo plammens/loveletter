@@ -74,7 +74,7 @@ class Player:
             "hand",
             self.hand,
             length=2,
-            help_msg="Can't discard play a card with only one card in hand",
+            help_msg="Can't play a card with only one card in hand",
         )
         try:
             # The context manager ensures the move is completed before the round moves

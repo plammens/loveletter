@@ -4,9 +4,11 @@ import valid8
 
 import loveletter.cards as cards
 import test_loveletter.test_cards_cases as card_cases
+import test_loveletter.test_player_cases as player_cases
 from loveletter.player import Player
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
+    autofill_step,
     force_next_turn,
     make_mock_move,
     play_card,
@@ -19,6 +21,20 @@ def test_cards_have_unique_nonnegative_value():
     assert len(values) == len(cards.CardType)
     assert all(type(v) is int for v in values)
     assert all(v >= 0 for v in values)
+
+
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
+@pytest_cases.parametrize_with_cases(
+    "player", cases=player_cases.DummyPlayerCases().case_single_card
+)
+def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
+    move = play_card(player, card, autofill=False)
+    step = None
+    for expected_step_type in card.steps:
+        step = move.send(autofill_step(step))
+        assert type(step) == expected_step_type
+    with pytest.raises(StopIteration):
+        move.send(autofill_step(step))
 
 
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):

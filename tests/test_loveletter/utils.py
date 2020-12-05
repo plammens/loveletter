@@ -47,11 +47,12 @@ def random_card_counts() -> Counter[Type[Card]]:
     return counts
 
 
-def autofill_moves(steps: Generator[move.MoveStep, move.MoveStep, None]):
+def autofill_move(move_: Generator[move.MoveStep, move.MoveStep, None], commit=True):
     step = None
     while step is not move.DONE:
-        step = steps.send(autofill_step(step))
-    steps.close()
+        step = move_.send(autofill_step(step))
+    if commit:
+        move_.close()
 
 
 @multimethod
@@ -98,7 +99,7 @@ def play_card(player: Player, card: cards.Card, autofill=None):
     player.give(card)
     move = player.play_card(card)
     if autofill:
-        autofill_moves(move)
+        autofill_move(move)
         return None
     else:
         return move
@@ -114,11 +115,13 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
         player_copy.hand._cards = player.hand._cards.copy()
 
     maybe_mocked_players = (
-        list(map(mock_player, game_round.players)) if with_mock else game_round.players
+        [mock_player(p) if p is not current_player else p for p in game_round.players]
+        if with_mock
+        else game_round.players
     )
     with unittest.mock.patch.object(game_round, "players", new=maybe_mocked_players):
         try:
-            yield
+            yield game_round
         finally:
             assert game_round.state is state
             assert game_round.current_player is current_player
@@ -127,7 +130,7 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
                 assert list(after.hand) == list(before.hand)
                 assert after.immune == before.immune
                 assert after.cards_played == before.cards_played
-                if with_mock:
+                if with_mock and after is not current_player:
                     after: Mock
                     after.eliminate.assert_not_called()
                     after.play_card.assert_not_called()

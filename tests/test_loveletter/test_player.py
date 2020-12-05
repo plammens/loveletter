@@ -8,7 +8,7 @@ import test_loveletter.test_player_cases as player_cases
 from loveletter.cards import Card
 from loveletter.move import CancelMove
 from loveletter.player import Player
-from test_loveletter.utils import assert_state_is_preserved, autofill_moves, play_card
+from test_loveletter.utils import assert_state_is_preserved, autofill_move, play_card
 
 
 @pytest.mark.parametrize("id", [0, 1, 2, 3])
@@ -59,7 +59,7 @@ def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
 def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
-    autofill_moves(dummy_player.play_card(left))
+    autofill_move(dummy_player.play_card(left))
     left.play.assert_called_once_with(dummy_player)
     right.play.assert_not_called()
     assert dummy_player.hand.card is right
@@ -76,7 +76,7 @@ def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
 def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
-    autofill_moves(dummy_player.play_card(right))
+    autofill_move(dummy_player.play_card(right))
     right.play.assert_called_once_with(dummy_player)
     left.play.assert_not_called()
     assert dummy_player.hand.card is left
@@ -111,9 +111,9 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
 )
 def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Card):
     current_player.give(card)
-    with assert_state_is_preserved(current_player.round):
-        move = current_player.play_card(card)
-        # TODO: test all the way through by using all move steps
-        next(move)
+    with assert_state_is_preserved(current_player.round) as mocked_round:
+        player = mocked_round.current_player
+        move = player.play_card(card)
+        autofill_move(move, commit=False)
         with pytest.raises(StopIteration):
             move.throw(CancelMove)

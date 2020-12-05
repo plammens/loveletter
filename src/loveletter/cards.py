@@ -111,6 +111,8 @@ class Priest(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class Baron(Card):
@@ -119,6 +121,8 @@ class Baron(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class Handmaid(Card):
@@ -139,6 +143,8 @@ class Prince(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class Chancellor(Card):
@@ -147,6 +153,8 @@ class Chancellor(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class King(Card):
@@ -155,6 +163,8 @@ class King(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class Countess(Card):
@@ -163,6 +173,8 @@ class Countess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 class Princess(Card):
@@ -171,6 +183,8 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
+        return
+        yield
 
 
 @functools.total_ordering

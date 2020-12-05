@@ -17,6 +17,13 @@ class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
     # TODO: add indicator of number of steps needed for play() method
 
+    def __eq__(self, other):
+        # card instances have no state, so just compare the card type
+        return CardType(type(self)) == CardType(type(other))
+
+    def __hash__(self):
+        return hash(CardType(type(self)))
+
     @property
     def name(self):
         """Name of the card"""

@@ -4,7 +4,7 @@ from typing import Generator, Iterator, List, Optional, TYPE_CHECKING
 import valid8
 
 from loveletter.cards import Card
-from loveletter.move import MoveStep
+from loveletter.move import CancelMove, MoveStep
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -69,14 +69,17 @@ class Player:
             length=2,
             help_msg="Can't discard play a card with only one card in hand",
         )
-        # The context manager ensures the move is completed before the round moves
-        # on to the next turn
-        with turn:
-            idx = 0 if which == "left" else 1
-            # noinspection PyProtectedMember
-            card: Card = self.hand._cards[idx]
-            # TODO: add support for cancelling move
-            yield from card.play(self)
+        try:
+            # The context manager ensures the move is completed before the round moves
+            # on to the next turn
+            with turn:
+                idx = 0 if which == "left" else 1
+                # noinspection PyProtectedMember
+                card: Card = self.hand._cards[idx]
+                yield from card.play(self)
+        except CancelMove:
+            # Exception was injected to signal cancelling
+            return
         # Move completed successfully; finish cleaning up and committing the move:
         self._discard_card(card)
 

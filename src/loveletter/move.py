@@ -80,3 +80,7 @@ class OpponentChoice(PlayerChoice):
             help_msg="You can't choose yourself",
         )
         super(OpponentChoice, type(self)).choice.fset(self, value)
+
+
+class CancelMove(Exception):
+    pass

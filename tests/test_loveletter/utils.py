@@ -1,7 +1,12 @@
 import collections
+import contextlib
+import copy
+import functools
 import inspect
 import random
+import unittest.mock
 from typing import Any, Collection, Counter, Generator, Type, TypeVar
+from unittest.mock import Mock, PropertyMock
 
 import pytest
 
@@ -10,6 +15,7 @@ from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.move import MoveStep
 from loveletter.player import Player
+from loveletter.round import Round
 from test_loveletter import test_cards_cases as card_cases
 
 
@@ -77,3 +83,51 @@ def play_card(player: Player, card: cards.Card, autofill=None):
         return None
     else:
         return move
+
+
+@contextlib.contextmanager
+def assert_state_is_preserved(game_round: Round, with_mock=True):
+    state = game_round.state
+    current_player = game_round.current_player
+    round_copy = copy.deepcopy(game_round)
+    _players = (
+        list(map(mock_player, game_round.players)) if with_mock else game_round.players
+    )
+    with unittest.mock.patch.object(game_round, "players", new=_players):
+        try:
+            yield
+        finally:
+            assert game_round.state is state
+            assert game_round.current_player is current_player
+            for before, after in zip(round_copy.players, game_round.players):
+                assert after.alive == before.alive
+                assert list(after.hand) == list(before.hand)
+                assert after.immune == before.immune
+                assert after.cards_played == before.cards_played
+                if with_mock:
+                    after: Mock
+                    after.eliminate.assert_not_called()
+                    after.play_card.assert_not_called()
+                    after.give.assert_not_called()
+                    after.hand.add.assert_not_called()
+
+
+def mock_player(player: Player):
+    mock = Mock(spec=player, wraps=player)
+    mock.hand = mock_hand(player.hand)
+    type(mock).alive = PropertyMock(
+        side_effect=functools.partial(type(player).alive.fget, player)
+    )
+    return mock
+
+
+def mock_hand(hand: Player.Hand):
+    mock = Mock(spec=hand, wraps=hand)
+    type(mock).card = PropertyMock(
+        side_effect=functools.partial(type(hand).card.fget, mock)
+    )
+    mock.__iter__ = lambda self: iter(hand)
+    mock.__len__ = lambda self: len(hand)
+    mock.__contains__ = lambda self, value: value in hand
+    mock._cards = hand._cards
+    return mock

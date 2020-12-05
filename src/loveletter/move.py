@@ -56,7 +56,7 @@ class PlayerChoice(ChoiceStep):
 
         valid8.validate("value", value, instance_of=Player)
         valid8.validate(
-            "value",
+            "target",
             value,
             is_in=self.game_round.players,
             help_msg="Cannot choose a player from outside the round",
@@ -74,11 +74,18 @@ class OpponentChoice(PlayerChoice):
     @PlayerChoice.choice.setter
     def choice(self, value):
         valid8.validate(
-            "value",
+            "target",
             value,
             custom=lambda v: v is not self.player,
             help_msg="You can't choose yourself",
         )
+        valid8.validate(
+            "target",
+            value,
+            custom=lambda v: not getattr(v, "immune", False),
+            help_msg="Can't target an immune player",
+        )
+        # TODO: refactor so only method to override is validation
         super(OpponentChoice, type(self)).choice.fset(self, value)
 
 

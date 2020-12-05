@@ -115,6 +115,10 @@ class Handmaid(Card):
 
     def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
         self._validate_move(owner)
+        owner.immune = True
+        return
+        # noinspection PyUnreachableCode
+        yield
 
 
 class Prince(Card):

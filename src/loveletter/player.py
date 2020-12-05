@@ -32,6 +32,7 @@ class Player:
     round: "Round"
     hand: Hand
     cards_played: List[Card]
+    immune: bool
 
     def __init__(self, round: "Round", player_id: int):
         self.round = round
@@ -39,6 +40,7 @@ class Player:
         self._alive = True
         self.hand = self.Hand()
         self.cards_played = []
+        self.immune = False
 
     @property
     def alive(self) -> bool:

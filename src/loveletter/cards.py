@@ -19,10 +19,12 @@ class Card(metaclass=abc.ABCMeta):
 
     def __eq__(self, other):
         # card instances have no state, so just compare the card type
-        return CardType(type(self)) == CardType(type(other))
+        if not isinstance(other, Card):
+            raise TypeError(f"Cannot compare Card to non-Card object: {other}")
+        return CardType(self.value) == CardType(other.value)
 
     def __hash__(self):
-        return hash(CardType(type(self)))
+        return hash(CardType(self.value))
 
     @property
     def name(self):
@@ -192,10 +194,8 @@ class CardType(enum.Enum):
     PRINCESS = Princess
 
     @classmethod
-    def _missing_(cls, value):
-        if isinstance(value, Card):
-            value = type(value)
-        return CardType(value.value)
+    def _missing_(cls, card_class):
+        return CardType(card_class.value)
 
     def __eq__(self, other):
         return super().__eq__(CardType(self._get_value(other)))

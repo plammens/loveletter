@@ -74,7 +74,7 @@ def play_card(player: Player, card: cards.Card, autofill=None):
     from test_loveletter.test_cards_cases import DISCARD_TYPES
 
     if autofill is None:
-        autofill = cards.CardType(card) in DISCARD_TYPES
+        autofill = cards.CardType(type(card)) in DISCARD_TYPES
 
     player.give(card)
     move = player.play_card(card)

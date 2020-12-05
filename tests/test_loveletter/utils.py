@@ -15,7 +15,7 @@ from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.move import MoveStep
 from loveletter.player import Player
-from loveletter.round import Round
+from loveletter.round import Round, RoundState, Turn
 from test_loveletter import test_cards_cases as card_cases
 
 
@@ -136,3 +136,9 @@ def mock_hand(hand: Player.Hand):
     mock.__contains__ = lambda self, value: value in hand
     mock._cards = hand._cards
     return mock
+
+
+def force_next_turn(game_round: Round):
+    assert game_round.state.type == RoundState.Type.TURN
+    game_round.state.stage = Turn.Stage.COMPLETED
+    return game_round.next_turn()

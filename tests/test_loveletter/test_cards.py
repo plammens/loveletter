@@ -7,6 +7,7 @@ import test_loveletter.test_cards_cases as card_cases
 from loveletter.player import Player
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
+    force_next_turn,
     make_mock_move,
     play_card,
     send_final,
@@ -23,10 +24,7 @@ def test_cards_have_unique_nonnegative_value():
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
     for player in started_round.players[1:]:
         player.eliminate()
-    # artificially mark the turn as completed
-    # TODO: extract force_complete_turn util or validationOff fixture
-    started_round.state.stage = Turn.Stage.COMPLETED
-    started_round.next_turn()
+    force_next_turn(started_round)
     assert cards.Spy.collect_extra_points(started_round) == {}
 
 
@@ -140,7 +138,6 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     for player in set(started_round.players) - {immune_player, killer}:
         assert immune_player.immune
         player.eliminate()
-    started_round.state.stage = Turn.Stage.COMPLETED
     assert immune_player.immune
-    started_round.next_turn()
+    force_next_turn(started_round)
     assert not immune_player.immune

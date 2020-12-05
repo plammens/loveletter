@@ -90,6 +90,10 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
     state = game_round.state
     current_player = game_round.current_player
     round_copy = copy.deepcopy(game_round)
+    # player cards should be a shallow copy:
+    for player, player_copy in zip(game_round.players, round_copy.players):
+        player_copy.hand._cards = player.hand._cards.copy()
+
     maybe_mocked_players = (
         list(map(mock_player, game_round.players)) if with_mock else game_round.players
     )

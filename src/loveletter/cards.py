@@ -63,6 +63,12 @@ class Card(metaclass=abc.ABCMeta):
                 f"expected {step}, got {completed}"
             ),
         )
+        valid8.validate(
+            "completed_step",
+            completed,
+            custom=lambda s: s.completed,
+            help_msg="Received an incomplete move step",
+        )
         return completed
 
 

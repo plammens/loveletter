@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 from typing import Generator, Iterator, List, Optional, TYPE_CHECKING
 
 import valid8

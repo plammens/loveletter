@@ -34,7 +34,7 @@ def test_spy_onePlayed_getsPoint(started_round: Round):
     for player in started_round.players:
         if player is not first:
             player.eliminate()
-    started_round.next_turn()
+    started_round.advance_turn()
     assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
@@ -45,7 +45,7 @@ def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
     for player in started_round.players:
         if player is not second:
             player.eliminate()
-    started_round.next_turn()
+    started_round.advance_turn()
     assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
@@ -53,11 +53,11 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     first = started_round.current_player
     second = started_round.players[(first.id + 1) % started_round.num_players]
     play_card(first, cards.Spy())
-    started_round.next_turn()
+    started_round.advance_turn()
     play_card(second, cards.Spy())
     for player in started_round.players[1:]:
         player.eliminate()
-    started_round.next_turn()
+    started_round.advance_turn()
     assert cards.Spy.collect_extra_points(started_round) == {}
 
 
@@ -110,7 +110,7 @@ def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     immune_player = started_round.current_player
     play_card(immune_player, cards.Handmaid())
     # should be immune now
-    started_round.next_turn()
+    started_round.advance_turn()
     opponent = started_round.current_player
     move = play_card(opponent, card)
     target_step = next(move)
@@ -122,18 +122,18 @@ def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
 def test_handmaid_immunityLastsOneFullRotation(started_round: Round):
     immune_player = started_round.current_player
     play_card(immune_player, cards.Handmaid())
-    started_round.next_turn()
+    started_round.advance_turn()
     while (current := started_round.current_player) is not immune_player:
         assert immune_player.immune
         make_mock_move(current)
-        started_round.next_turn()
+        started_round.advance_turn()
     assert not immune_player.immune
 
 
 def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     immune_player = started_round.current_player
     play_card(immune_player, cards.Handmaid())
-    started_round.next_turn()
+    started_round.advance_turn()
     killer = started_round.current_player
     for player in set(started_round.players) - {immune_player, killer}:
         assert immune_player.immune

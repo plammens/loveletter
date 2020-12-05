@@ -141,4 +141,4 @@ def mock_hand(hand: Player.Hand):
 def force_next_turn(game_round: Round):
     assert game_round.state.type == RoundState.Type.TURN
     game_round.state.stage = Turn.Stage.COMPLETED
-    return game_round.next_turn()
+    return game_round.advance_turn()

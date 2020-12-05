@@ -124,8 +124,8 @@ class Round:
         return turn
 
     @valid8.validate_arg("self", started.fget, help_msg="Round hasn't started yet")
-    def next_turn(self) -> RoundState:
-        """Advance to the next turn."""
+    def advance_turn(self) -> RoundState:
+        """Advance to the next turn (supposing the round is ready to do so)"""
         valid8.validate(
             "turn",
             self.state,

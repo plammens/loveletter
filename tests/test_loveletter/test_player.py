@@ -7,7 +7,7 @@ import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
 from loveletter.cards import Card
 from loveletter.player import Player
-from test_loveletter.utils import autofill_moves
+from test_loveletter.utils import autofill_moves, play_card
 
 
 @pytest.mark.parametrize("id", [0, 1, 2, 3])
@@ -98,9 +98,8 @@ def test_eliminate_discardsCards(player: Player):
     "card", cases=card_cases.CardCases().case_multistep_card
 )
 def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
-    current_player.give(card)
-    move = current_player.play_card("right")
-    step = move.send(None)
+    move = play_card(current_player, card)
+    step = next(move)
     # we don't complete the step and send it right back
     with pytest.raises(valid8.ValidationError):
         move.send(step)

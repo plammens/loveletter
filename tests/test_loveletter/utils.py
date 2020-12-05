@@ -61,5 +61,19 @@ def send_final(gen: Generator, value: Any) -> Any:
 
 def make_mock_move(player):
     card_mock = card_cases.CardMockCases().case_generic()
-    player.give(card_mock)
-    autofill_moves(player.play_card("right"))
+    play_card(player, card_mock, autofill=True)
+
+
+def play_card(player: Player, card: cards.Card, autofill=None):
+    from test_loveletter.test_cards_cases import DISCARD_TYPES
+
+    if autofill is None:
+        autofill = cards.CardType(card) in DISCARD_TYPES
+
+    player.give(card)
+    move = player.play_card("right")
+    if autofill:
+        autofill_moves(move)
+        return None
+    else:
+        return move

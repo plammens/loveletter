@@ -6,8 +6,8 @@ import loveletter.cards as cards
 import test_loveletter.test_cards_cases as card_cases
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
-    autofill_moves,
     make_mock_move,
+    play_card,
     send_final,
 )
 
@@ -23,6 +23,7 @@ def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
     for player in started_round.players[1:]:
         player.eliminate()
     # artificially mark the turn as completed
+    # TODO: extract force_complete_turn util or validationOff fixture
     started_round.state.stage = Turn.Stage.COMPLETED
     started_round.next_turn()
     assert cards.Spy.collect_extra_points(started_round) == {}
@@ -30,8 +31,7 @@ def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
 
 def test_spy_onePlayed_getsPoint(started_round: Round):
     first = started_round.current_player
-    first.give(cards.Spy())
-    autofill_moves(first.play_card("right"))
+    play_card(first, cards.Spy())
     for player in started_round.players:
         if player is not first:
             player.eliminate()
@@ -42,8 +42,7 @@ def test_spy_onePlayed_getsPoint(started_round: Round):
 def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
     first = started_round.current_player
     second = started_round.players[(first.id + 1) % started_round.num_players]
-    first.give(cards.Spy())
-    autofill_moves(first.play_card("right"))
+    play_card(first, cards.Spy())
     for player in started_round.players:
         if player is not second:
             player.eliminate()
@@ -54,11 +53,9 @@ def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
 def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     first = started_round.current_player
     second = started_round.players[(first.id + 1) % started_round.num_players]
-    first.give(cards.Spy())
-    autofill_moves(first.play_card("right"))
+    play_card(first, cards.Spy())
     started_round.next_turn()
-    second.give(cards.Spy())
-    autofill_moves(second.play_card("right"))
+    play_card(second, cards.Spy())
     for player in started_round.players[1:]:
         player.eliminate()
     started_round.next_turn()
@@ -67,8 +64,7 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
 
 def test_guard_chooseOneSelf_raises(started_round: Round):
     player = started_round.current_player
-    player.give(cards.Guard())
-    move = player.play_card("right")
+    move = play_card(player, cards.Guard())
     target_step = move.send(None)
     with pytest.raises(valid8.ValidationError):
         target_step.choice = player
@@ -79,8 +75,7 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
     player = started_round.current_player
     for other in set(started_round.players) - {player}:
         assert other.alive
-        player.give(cards.Guard())
-        move = player.play_card("right")
+        move = play_card(player, cards.Guard())
         target_step = move.send(None)
         target_step.choice = other
         guess_step = move.send(target_step)
@@ -96,13 +91,12 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
     for other in set(started_round.players) - {player}:
         assert other.alive
         for wrong_type in set(cards.CardType) - {cards.CardType(type(other.hand.card))}:
-            player.give(cards.Guard())
-            move = player.play_card("right")
-            target_step = move.send(None)
+            move = play_card(player, cards.Guard())
+            target_step = next(move)
             target_step.choice = other
             guess_step = move.send(target_step)
             guess_step.choice = wrong_type
-            send_gracious(move, guess_step)
+            send_final(move, guess_step)
             assert other.alive
             # artificially start new turn with same player
             started_round.state = Turn(player)
@@ -110,22 +104,18 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
 
 def test_handmaid_playerBecomesImmune(started_round: Round):
     immune_player = started_round.current_player
-    immune_player.give(cards.Handmaid())
-    autofill_moves(immune_player.play_card("right"))
+    play_card(immune_player, cards.Handmaid())
     assert immune_player.immune
 
 
 @pytest_cases.parametrize_with_cases("card", card_cases.case_target_card)
 def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     immune_player = started_round.current_player
-    immune_player.give(cards.Handmaid())
-    autofill_moves(immune_player.play_card("right"))
+    play_card(immune_player, cards.Handmaid())
     # should be immune now
     started_round.next_turn()
     opponent = started_round.current_player
-    opponent.give(card)
-    move = opponent.play_card("right")
-    # TODO: extract play_card test util
+    move = play_card(opponent, card)
     target_step = next(move)
     with pytest.raises(valid8.ValidationError):
         target_step.choice = immune_player
@@ -134,8 +124,7 @@ def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
 
 def test_handmaid_immunityLastsOneFullRotation(started_round: Round):
     immune_player = started_round.current_player
-    immune_player.give(cards.Handmaid())
-    autofill_moves(immune_player.play_card("right"))
+    play_card(immune_player, cards.Handmaid())
     started_round.next_turn()
     while (current := started_round.current_player) is not immune_player:
         assert immune_player.immune
@@ -146,8 +135,7 @@ def test_handmaid_immunityLastsOneFullRotation(started_round: Round):
 
 def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     immune_player = started_round.current_player
-    immune_player.give(cards.Handmaid())
-    autofill_moves(immune_player.play_card("right"))
+    play_card(immune_player, cards.Handmaid())
     started_round.next_turn()
     killer = started_round.current_player
     for player in set(started_round.players) - {immune_player, killer}:

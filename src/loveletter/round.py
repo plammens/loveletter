@@ -144,6 +144,9 @@ class Round:
             pred=operator.attrgetter("alive"),
         )
         assert next_player is not None
+        # Reset immunity if needed:
+        if next_player.immune:
+            next_player.immune = False
         # TODO: deal card to player
         self.state = Turn(next_player)
         return self.state

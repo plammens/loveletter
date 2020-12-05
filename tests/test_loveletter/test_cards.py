@@ -40,7 +40,7 @@ def test_spy_onePlayed_getsPoint(started_round: Round):
 
 def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
     first = started_round.current_player
-    second = started_round.players[(first.id + 1) % started_round.num_players]
+    second = started_round.next_player(first)
     play_card(first, cards.Spy())
     for player in started_round.players:
         if player is not second:
@@ -51,7 +51,7 @@ def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
 
 def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     first = started_round.current_player
-    second = started_round.players[(first.id + 1) % started_round.num_players]
+    second = started_round.next_player(first)
     play_card(first, cards.Spy())
     started_round.advance_turn()
     play_card(second, cards.Spy())

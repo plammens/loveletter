@@ -1,11 +1,8 @@
 import abc
 import enum
-import itertools as itt
-import operator
 import random
 from typing import Optional, Sequence, TYPE_CHECKING
 
-import more_itertools as mitt
 import valid8
 
 from loveletter.cardpile import Deck, DiscardPile
@@ -105,6 +102,28 @@ class Round:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
+    def get_player(self, player: Player, offset: int):
+        """
+        Get the living player that is ``offset`` turns away from a given player.
+
+        :param player: Reference point.
+        :param offset: Offset from given player in number of turns. Can be negative,
+                       in which case this searches for players in reverse turn order.
+        :return: The requested player object.
+        """
+        players = self.living_players
+        valid8.validate("player", player, is_in=players)
+        idx = players.index(player)
+        return players[(idx + offset) % len(players)]
+
+    def next_player(self, player):
+        """Get the next living player in turn order"""
+        return self.get_player(player, 1)
+
+    def previous_player(self, player):
+        """Get the previous living player in turn order"""
+        return self.get_player(player, -1)
+
     def deal_card(self, player: Player) -> "Card":
         """Deal a card to a player from the deck and return the dealt card."""
         valid8.validate(
@@ -139,10 +158,7 @@ class Round:
 
         current = self.current_player
         assert current is not None
-        next_player = mitt.first_true(
-            itt.islice(itt.cycle(self.players), current.id + 1, None),
-            pred=operator.attrgetter("alive"),
-        )
+        next_player = self.next_player(current)
         assert next_player is not None
         # Reset immunity if needed:
         if next_player.immune:

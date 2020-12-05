@@ -61,7 +61,7 @@ def test_currentPlayer_isValid(started_round):
     assert started_round.current_player.alive
 
 
-def test_nextTurn_currentPlayerIsValid(started_round):
+def test_nextTurn_currentPlayerIsValid(started_round: Round):
     before = started_round.current_player
     make_mock_move(before)
     started_round.advance_turn()
@@ -129,3 +129,11 @@ def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
     play_card(player, card, autofill=False)
     with pytest.raises(valid8.ValidationError):
         started_round.advance_turn()
+
+
+def test_nextPrevPlayer_matchesTurnDirection(started_round: Round):
+    before = started_round.current_player
+    force_next_turn(started_round)
+    after = started_round.current_player
+    assert started_round.next_player(before) is after
+    assert started_round.previous_player(after) is before

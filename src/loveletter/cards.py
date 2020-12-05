@@ -1,21 +1,20 @@
 import abc
 import enum
 import functools
-import typing
-from typing import ClassVar, Dict, Generator
+from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
 
 import valid8
 
-from loveletter.move import CardGuess, MoveStep, OpponentChoice
+import loveletter.move as move
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from loveletter.player import Player
     from loveletter.round import Round
 
 
 class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
-    # TODO: add indicator of number of steps needed for play() method
+    steps: ClassVar[Tuple[Type[move.MoveStep]]]  # indicates the steps yielded by play()
 
     @property
     def name(self):
@@ -23,7 +22,7 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         """
         Play this card from its owner.
 
@@ -36,6 +35,7 @@ class Card(metaclass=abc.ABCMeta):
                   move has been completed.
         """
         pass
+        # TODO: go back to yielding DONE_
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -75,8 +75,9 @@ class Card(metaclass=abc.ABCMeta):
 
 class Spy(Card):
     value = 0
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
@@ -94,33 +95,37 @@ class Spy(Card):
 
 class Guard(Card):
     value = 1
+    steps = (move.OpponentChoice, move.CardGuess)
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        opponent = (yield from self._yield_step(OpponentChoice(owner))).choice
-        guess = (yield from self._yield_step(CardGuess())).choice
+        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        guess = (yield from self._yield_step(move.CardGuess())).choice
         if type(opponent.hand.card) == guess:
             opponent.eliminate()
 
 
 class Priest(Card):
     value = 2
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class Baron(Card):
     value = 3
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class Handmaid(Card):
     value = 4
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
         owner.immune = True
         return
@@ -130,36 +135,41 @@ class Handmaid(Card):
 
 class Prince(Card):
     value = 5
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class Chancellor(Card):
     value = 6
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class King(Card):
     value = 7
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class Countess(Card):
     value = 8
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 
 class Princess(Card):
     value = 9
+    steps = ()
 
-    def play(self, owner: "Player") -> Generator[MoveStep, MoveStep, None]:
+    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
 
 

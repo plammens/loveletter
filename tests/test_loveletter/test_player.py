@@ -113,6 +113,7 @@ def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Ca
     current_player.give(card)
     with assert_state_is_preserved(current_player.round):
         move = current_player.play_card(card)
+        # TODO: test all the way through by using all move steps
         next(move)
         with pytest.raises(StopIteration):
             move.throw(CancelMove)

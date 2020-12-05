@@ -2,15 +2,14 @@ from unittest.mock import MagicMock
 
 import pytest_cases
 
+import loveletter.move as move
 from loveletter.cards import Card, CardType
 
-DISCARD_TYPES = {CardType.SPY, CardType.HANDMAID, CardType.COUNTESS, CardType.PRINCESS}
+DISCARD_TYPES = {t for t in CardType if t.card_class.steps == ()}
 TARGET_TYPES = {
-    CardType.GUARD,
-    CardType.PRIEST,
-    CardType.BARON,
-    CardType.PRINCE,
-    CardType.KING,
+    t
+    for t in CardType
+    if (lambda s: len(s) >= 1 and s[0] == move.OpponentChoice)(t.card_class.steps)
 }
 
 

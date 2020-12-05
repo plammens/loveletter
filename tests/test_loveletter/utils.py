@@ -5,15 +5,16 @@ import functools
 import inspect
 import random
 import unittest.mock
-from typing import Any, Collection, Counter, Generator, Type, TypeVar
+from typing import Any, Collection, Counter, Generator, Type, TypeVar, Union
 from unittest.mock import Mock, PropertyMock
 
 import pytest
+from multimethod import multimethod
 
-from loveletter import cards as cards
+import loveletter.cards as cards
+import loveletter.move as move
 from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card
-from loveletter.move import MoveStep
 from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
 from test_loveletter import test_cards_cases as card_cases
@@ -47,14 +48,44 @@ def random_card_counts() -> Counter[Type[Card]]:
     return counts
 
 
-def autofill_moves(steps: Generator[MoveStep, MoveStep, None]):
+def autofill_moves(steps: Generator[move.MoveStep, move.MoveStep, None]):
     # for now just consume generator
     step = None
-    # fmt: off
     try:
-        while True: step = steps.send(step)
-    except StopIteration: pass
-    # fmt: on
+        while True:
+            step = steps.send(autofill_step(step))
+    except StopIteration:
+        pass
+
+
+@multimethod
+def autofill_step(step: move.MoveStep):
+    raise TypeError(f"autofill_step not implemented for {type(step)}")
+
+
+@autofill_step.register
+def autofill_step(step: Union[type(None), Mock]):
+    # special case for None and mock steps
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: move.PlayerChoice):
+    step.choice = step.game_round.players[0]
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: move.OpponentChoice):
+    game_round = step.game_round
+    step.choice = game_round.next_player(step.player)
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: move.CardGuess):
+    step.choice = cards.Guard()
+    return step
 
 
 def send_final(gen: Generator, value: Any) -> Any:

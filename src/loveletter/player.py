@@ -50,12 +50,11 @@ class Player:
         """Give this player a card; alias for hand.add"""
         self.hand.add(card)
 
-    @valid8.validate_arg("which", valid8.validation_lib.is_in(("left", "right")))
-    def play_card(self, which: str) -> Generator[MoveStep, MoveStep, None]:
+    def play_card(self, card: Card) -> Generator[MoveStep, MoveStep, None]:
         """
         Play a card from this player's hand.
 
-        :param which: Which card to play; either "left" or "right".
+        :param card: Which card to play; either "left" or "right".
         :returns: Same as :meth:`Card.play`.
         """
         turn = self.round.state
@@ -64,6 +63,12 @@ class Player:
             turn.current_player,
             custom=lambda p: p is self,
             help_msg=f"It's not {self}'s turn",
+        )
+        valid8.validate(
+            "card",
+            card,
+            is_in=self.hand,
+            help_msg="Can't play a card that is not in the player's hand",
         )
         valid8.validate(
             "hand",
@@ -75,9 +80,6 @@ class Player:
             # The context manager ensures the move is completed before the round moves
             # on to the next turn
             with turn:
-                idx = 0 if which == "left" else 1
-                # noinspection PyProtectedMember
-                card: Card = self.hand._cards[idx]
                 yield from card.play(self)
         except CancelMove:
             # Exception was injected to signal cancelling

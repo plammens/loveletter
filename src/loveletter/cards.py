@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
 
 class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
+    # TODO: add indicator of number of steps needed for play() method
 
     @property
     def name(self):

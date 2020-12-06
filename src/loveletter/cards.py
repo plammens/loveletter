@@ -94,7 +94,10 @@ class Card(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _yield_done(result: move.MoveResult):
-        yield result
+        try:
+            yield result
+        except move.CancelMove as e:
+            raise RuntimeError("Can't cancel already completed move") from e
 
 
 class Spy(Card):

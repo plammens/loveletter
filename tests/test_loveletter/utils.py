@@ -3,6 +3,7 @@ import contextlib
 import copy
 import functools
 import inspect
+import math
 import random
 import unittest.mock
 from typing import Collection, Counter, Generator, Type, TypeVar, Union
@@ -47,12 +48,16 @@ def random_card_counts() -> Counter[Type[Card]]:
     return counts
 
 
-def autofill_move(move_: Generator[move.MoveStep, move.MoveStep, None], commit=True):
-    step = None
-    while step is not move.DONE:
+def autofill_move(
+    move_: Generator[move.MoveStep, move.MoveStep, None], num_steps: int = None
+):
+    max_steps = num_steps if num_steps is not None else math.inf
+    i, step = 0, None
+    while not isinstance(step, move.MoveResult) and i < max_steps:
         step = move_.send(autofill_step(step))
-    if commit:
-        move_.close()
+        i += 1
+    assert num_steps is None or i == num_steps
+    return step
 
 
 @multimethod

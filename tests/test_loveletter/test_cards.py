@@ -33,7 +33,7 @@ def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
     for expected_step_type in card.steps:
         step = move.send(autofill_step(step))
         assert type(step) == expected_step_type
-    assert move.send(autofill_step(step)) is loveletter.move.DONE
+    assert isinstance(move.send(autofill_step(step)), loveletter.move.MoveResult)
 
 
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):

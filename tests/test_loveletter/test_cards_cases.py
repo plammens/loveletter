@@ -35,7 +35,7 @@ class CardMockCases:
     def case_generic(self) -> MagicMock:
         def play(owner):
             yield MagicMock()
-            yield move.DONE
+            yield move.MoveResult(owner, mock)
 
         mock = MagicMock(spec=Card)
         mock.play.side_effect = play

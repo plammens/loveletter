@@ -1,7 +1,7 @@
 import abc
 import enum
 import functools
-from typing import Callable, ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
+from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
 
 import valid8
 
@@ -35,18 +35,17 @@ class Card(metaclass=abc.ABCMeta):
         it should be sent back to the generator (sending in something else than what
         was yielded by the generator results in an error).
 
-        When all steps get fulfilled, the generator will yield loveletter.move.DONE
-        to signal this. At this point the effect of the move has not yet been
-        applied; to do that, the caller must .close() the generator, which will
-        commit the move. Only when that happens will the move actually take effect.
-        If .send() is called again after DONE has been yielded, the generator will
-        terminate (thus raising a StopIteration exception) without committing the move.
+        When all steps get fulfilled, the move will be executed and the generator
+        will yield an instance of :class:`loveletter.move.MoveResult` summarising the
+        result of the move. After this, the only valid thing to do is to .close() the
+        generator, which will clean it up and terminate it gracefully. If .send() is
+        called again after a MoveResult has been yielded, the generator will return,
+        thus raising a StopIteration exception.
 
-        At any point during the generator's lifetime (i.e. before .close() is called),
-        the caller can .throw() a CancelMove exception to cancel the move. This will
-        destroy the generator and thus will not apply the effect of the move (which is
-        only done after calling .close()). Once .close() has been called, though, the
-        move cannot be cancelled anymore.
+        At any point before the move is executed, the caller can .throw() a
+        CancelMove exception to cancel the move. This will destroy the generator and
+        thus will not apply the effect of the move. Once a MoveResult has been
+        yielded, though, the move cannot be cancelled anymore.
 
         :param owner: Owner of the card; who is playing it.
         :returns: A generator as described above.
@@ -89,13 +88,8 @@ class Card(metaclass=abc.ABCMeta):
         return completed
 
     @staticmethod
-    def _yield_done(commit_callback: Callable = lambda: None):
-        try:
-            yield move.DONE
-            # If something gets sent here, the caller should receive a StopIteration
-        except GeneratorExit:
-            # Caller called .close(); commit the move
-            commit_callback()
+    def _yield_done(result: move.MoveResult):
+        yield result
 
 
 class Spy(Card):
@@ -106,7 +100,7 @@ class Spy(Card):
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -125,11 +119,11 @@ class Guard(Card):
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         guess = (yield from self._yield_step(move.CardGuess())).choice
 
-        def action():
-            if type(opponent.hand.card) == guess:
-                opponent.eliminate()
+        # execute move:
+        if type(opponent.hand.card) == guess:
+            opponent.eliminate()
 
-        yield from self._yield_done(commit_callback=action)
+        yield from self._yield_done(move.OpponentEliminated(owner, self, opponent))
 
 
 class Priest(Card):
@@ -138,7 +132,7 @@ class Priest(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Baron(Card):
@@ -147,7 +141,7 @@ class Baron(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Handmaid(Card):
@@ -157,7 +151,7 @@ class Handmaid(Card):
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
         owner.immune = True
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Prince(Card):
@@ -166,7 +160,7 @@ class Prince(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Chancellor(Card):
@@ -175,7 +169,7 @@ class Chancellor(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class King(Card):
@@ -184,7 +178,7 @@ class King(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Countess(Card):
@@ -193,7 +187,7 @@ class Countess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 class Princess(Card):
@@ -202,7 +196,7 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
         self._validate_move(owner)
-        yield from self._yield_done()
+        yield from self._yield_done(move.MoveResult(owner, self))
 
 
 @functools.total_ordering

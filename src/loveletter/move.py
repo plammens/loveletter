@@ -3,9 +3,15 @@ from typing import Any, Optional, TYPE_CHECKING
 
 import valid8
 
+
 if TYPE_CHECKING:
+    from loveletter.cards import Card
     from loveletter.player import Player
     from loveletter.round import Round
+
+
+class CancelMove(Exception):
+    pass
 
 
 class MoveStep(metaclass=abc.ABCMeta):
@@ -13,15 +19,6 @@ class MoveStep(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def completed(self) -> bool:
         return False
-
-
-class _Done(MoveStep):
-    @property
-    def completed(self) -> bool:
-        return True
-
-
-DONE = _Done()  # special flag to indicate the move is done
 
 
 class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
@@ -102,5 +99,13 @@ class OpponentChoice(PlayerChoice):
         )
 
 
-class CancelMove(Exception):
-    pass
+class MoveResult:
+    def __init__(self, player: "Player", card_played: "Card"):
+        self.player = player
+        self.card_played = card_played
+
+
+class OpponentEliminated(MoveResult):
+    def __init__(self, player: "Player", card_played: "Card", opponent: "Player"):
+        super().__init__(player, card_played)
+        self.opponent = opponent

@@ -119,6 +119,6 @@ def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Ca
     with assert_state_is_preserved(current_player.round) as mocked_round:
         player = mocked_round.current_player
         move = player.play_card(card)
-        autofill_move(move, commit=False)
+        autofill_move(move, num_steps=len(card.steps) - 1)
         with pytest.raises(StopIteration):
             move.throw(CancelMove)

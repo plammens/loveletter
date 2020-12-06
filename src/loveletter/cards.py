@@ -136,11 +136,12 @@ class Guard(Card):
 
 class Priest(Card):
     value = 2
-    steps = ()
+    steps = (move.OpponentChoice,)
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        yield from self._yield_done(move.ShowOpponentCard(owner, self, opponent))
 
 
 class Baron(Card):

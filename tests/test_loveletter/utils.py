@@ -105,12 +105,26 @@ def play_card(player: Player, card: cards.Card, autofill=None):
         autofill = cards.CardType(type(card)) in DISCARD_TYPES
 
     give_card(player, card)
-    move = player.play_card(card)
+    move_ = player.play_card(card)
     if autofill:
-        autofill_move(move)
+        autofill_move(move_)
         return None
     else:
-        return move
+        return move_
+
+
+@contextlib.contextmanager
+def play_card_with_cleanup(player: Player, card: cards.Card):
+    move_ = play_card(player, card, autofill=False)
+    try:
+        yield move_
+    finally:
+        try:
+            move_.throw(move.CancelMove)
+        except StopIteration:
+            return
+        except RuntimeError:
+            move_.close()
 
 
 def give_card(player: Player, card: Card):

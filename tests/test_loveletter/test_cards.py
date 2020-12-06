@@ -13,6 +13,7 @@ from test_loveletter.utils import (
     force_next_turn,
     make_mock_move,
     play_card,
+    play_card_with_cleanup,
 )
 
 
@@ -77,11 +78,11 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
 
 
 def test_guard_chooseOneSelf_raises(current_player: Player):
-    move = play_card(current_player, cards.Guard())
-    target_step = next(move)
-    with pytest.raises(valid8.ValidationError):
-        target_step.choice = current_player
-        move.send(target_step)
+    with play_card_with_cleanup(current_player, cards.Guard()) as move:
+        target_step = next(move)
+        with pytest.raises(valid8.ValidationError):
+            target_step.choice = current_player
+            move.send(target_step)
 
 
 def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
@@ -129,11 +130,11 @@ def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     # should be immune now
     started_round.advance_turn()
     opponent = started_round.current_player
-    move = play_card(opponent, card)
-    target_step = next(move)
-    with pytest.raises(valid8.ValidationError):
-        target_step.choice = immune_player
-        move.send(target_step)
+    with play_card_with_cleanup(opponent, card) as move:
+        target_step = next(move)
+        with pytest.raises(valid8.ValidationError):
+            target_step.choice = immune_player
+            move.send(target_step)
 
 
 def test_handmaid_immunityLastsOneFullRotation(started_round: Round):

@@ -158,11 +158,12 @@ class Baron(Card):
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
 
-        value = opponent.hand.card.value
-        if value < self.value:
+        owner_card = next(card for card in owner.hand if card is not self)
+        owner_value, opponent_value = owner_card.value, opponent.hand.card.value
+        if opponent_value < owner_value:
             eliminated = opponent
-        elif value > self.value:
-            eliminated = self
+        elif opponent_value > owner_value:
+            eliminated = owner
         else:
             eliminated = None
 

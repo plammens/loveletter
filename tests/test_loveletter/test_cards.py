@@ -77,14 +77,6 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     assert cards.Spy.collect_extra_points(started_round) == {}
 
 
-def test_guard_chooseOneSelf_raises(current_player: Player):
-    with play_card_with_cleanup(current_player, cards.Guard()) as move:
-        target_step = next(move)
-        with pytest.raises(valid8.ValidationError):
-            target_step.choice = current_player
-            move.send(target_step)
-
-
 def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
     player = started_round.current_player
     for other in set(started_round.players) - {player}:
@@ -130,14 +122,6 @@ def test_priest_validOpponent_showsCard(started_round: Round):
     assert result.opponent is opponent
 
 
-def test_priest_chooseSelf_raises(current_player):
-    with play_card_with_cleanup(current_player, cards.Priest()) as move:
-        target_step = next(move)
-        with pytest.raises(valid8.ValidationError):
-            target_step.choice = current_player
-            move.send(target_step)
-
-
 def test_handmaid_playerBecomesImmune(current_player: Player):
     play_card(current_player, cards.Handmaid())
     assert current_player.immune
@@ -179,3 +163,12 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     assert immune_player.immune
     force_next_turn(started_round)
     assert not immune_player.immune
+
+
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)
+def test_targetCard_chooseSelf_raises(current_player, card):
+    with play_card_with_cleanup(current_player, card) as move:
+        target_step = next(move)
+        with pytest.raises(valid8.ValidationError):
+            target_step.choice = current_player
+            move.send(target_step)

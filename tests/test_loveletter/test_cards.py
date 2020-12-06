@@ -11,6 +11,7 @@ from loveletter.round import Round, Turn
 from test_loveletter.utils import (
     autofill_step,
     force_next_turn,
+    give_card,
     make_mock_move,
     play_card,
     play_card_with_cleanup,
@@ -120,6 +121,61 @@ def test_priest_validOpponent_showsCard(started_round: Round):
     assert isinstance(result, loveletter.move.ShowOpponentCard)
     move.close()
     assert result.opponent is opponent
+
+
+@pytest_cases.parametrize_with_cases(
+    "card1,card2", cases=card_cases.CardPairCases().case_ordered_pair
+)
+def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, card2):
+    player = started_round.current_player
+    opponent = started_round.next_player(player)
+    give_card(player, card2, replace=True)
+    give_card(opponent, card1, replace=True)
+
+    move = play_card(player, cards.Baron())
+    target_step = next(move)
+    target_step.choice = opponent
+    result = move.send(target_step)
+    assert isinstance(result, loveletter.move.CardComparison)
+    move.close()
+    assert result.opponent is opponent
+    assert result.eliminated is opponent
+
+
+@pytest_cases.parametrize_with_cases(
+    "card1,card2", cases=card_cases.CardPairCases().case_ordered_pair
+)
+def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card2):
+    player = started_round.current_player
+    opponent = started_round.next_player(player)
+    give_card(player, card1, replace=True)
+    give_card(opponent, card2, replace=True)
+
+    move = play_card(player, cards.Baron())
+    target_step = next(move)
+    target_step.choice = opponent
+    result = move.send(target_step)
+    assert isinstance(result, loveletter.move.CardComparison)
+    move.close()
+    assert result.opponent is opponent
+    assert result.eliminated is player
+
+
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
+def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
+    player = started_round.current_player
+    opponent = started_round.next_player(player)
+    give_card(player, card, replace=True)
+    give_card(opponent, card, replace=True)
+
+    move = play_card(player, cards.Baron())
+    target_step = next(move)
+    target_step.choice = opponent
+    result = move.send(target_step)
+    assert isinstance(result, loveletter.move.CardComparison)
+    move.close()
+    assert result.opponent is opponent
+    assert result.eliminated is None
 
 
 def test_handmaid_playerBecomesImmune(current_player: Player):

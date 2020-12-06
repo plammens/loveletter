@@ -1,3 +1,4 @@
+import itertools
 from unittest.mock import MagicMock
 
 import pytest_cases
@@ -40,3 +41,10 @@ class CardMockCases:
         mock = MagicMock(spec=Card)
         mock.play.side_effect = play
         return mock
+
+
+class CardPairCases:
+    @pytest_cases.case()
+    @pytest_cases.parametrize("type1,type2", itertools.combinations(CardType, r=2))
+    def case_ordered_pair(self, type1, type2):
+        return type1.card_class(), type2.card_class()

@@ -127,8 +127,10 @@ def play_card_with_cleanup(player: Player, card: cards.Card):
             move_.close()
 
 
-def give_card(player: Player, card: Card):
-    if len(player.hand) == 2:
+def give_card(player: Player, card: Card, replace=False):
+    if replace:
+        player.hand._cards.clear()
+    elif len(player.hand) == 2:
         player.hand._cards.pop()
     player.give(card)
 

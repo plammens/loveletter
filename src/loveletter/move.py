@@ -115,3 +115,16 @@ class ShowOpponentCard(MoveResult):
     def __init__(self, player: "Player", card_played: "Card", opponent: "Player"):
         super().__init__(player, card_played)
         self.opponent = opponent
+
+
+class CardComparison(MoveResult):
+    def __init__(
+        self,
+        player: "Player",
+        card_played: "Card",
+        opponent: "Player",
+        eliminated: Optional["Player"],
+    ):
+        super().__init__(player, card_played)
+        self.opponent = opponent
+        self.eliminated = eliminated

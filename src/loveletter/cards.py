@@ -152,11 +152,23 @@ class Priest(Card):
 
 class Baron(Card):
     value = 3
-    steps = ()
+    steps = (move.OpponentChoice,)
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+
+        value = opponent.hand.card.value
+        if value < self.value:
+            eliminated = opponent
+        elif value > self.value:
+            eliminated = self
+        else:
+            eliminated = None
+
+        yield from self._yield_done(
+            move.CardComparison(owner, self, opponent, eliminated)
+        )
 
 
 class Handmaid(Card):

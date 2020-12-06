@@ -10,7 +10,12 @@ from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
-from test_loveletter.utils import force_next_turn, make_mock_move, play_card
+from test_loveletter.utils import (
+    autofill_move,
+    force_next_turn,
+    make_mock_move,
+    play_card,
+)
 
 
 @pytest.mark.parametrize("num_players", VALID_NUM_PLAYERS)
@@ -126,9 +131,14 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
 @pytest_cases.parametrize_with_cases("card", card_cases.CardCases().case_multistep_card)
 def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
     player = started_round.current_player
-    play_card(player, card, autofill=False)
+    move = play_card(player, card, autofill=False)
     with pytest.raises(valid8.ValidationError):
         started_round.advance_turn()
+    autofill_move(move, close=False)
+    with pytest.raises(valid8.ValidationError):
+        started_round.advance_turn()
+    move.close()
+    started_round.advance_turn()
 
 
 def test_nextPrevPlayer_matchesTurnDirection(started_round: Round):

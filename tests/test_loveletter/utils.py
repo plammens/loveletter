@@ -49,14 +49,17 @@ def random_card_counts() -> Counter[Type[Card]]:
 
 
 def autofill_move(
-    move_: cards.MoveStepGenerator, num_steps: int = None
+    move_: cards.MoveStepGenerator, num_steps: int = None, close=None
 ) -> move.MoveResult:
+    close = close if close is not None else (num_steps is None)
     max_steps = num_steps if num_steps is not None else math.inf
     i, step = 0, None
     while not isinstance(step, move.MoveResult) and i < max_steps:
         step = move_.send(autofill_step(step))
         i += 1
     assert num_steps is None or i == num_steps
+    if close is None:
+        move_.close()
     return step
 
 

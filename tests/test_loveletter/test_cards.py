@@ -118,6 +118,26 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             started_round.state = Turn(player)
 
 
+def test_priest_validOpponent_showsCard(started_round: Round):
+    player = started_round.current_player
+    opponent = started_round.next_player(player)
+    move = play_card(player, cards.Priest())
+    target_step = next(move)
+    target_step.choice = opponent
+    result = move.send(target_step)
+    assert isinstance(result, loveletter.move.ShowOpponentCard)
+    move.close()
+    assert result.opponent is opponent
+
+
+def test_priest_chooseSelf_raises(current_player):
+    with play_card_with_cleanup(current_player, cards.Priest()) as move:
+        target_step = next(move)
+        with pytest.raises(valid8.ValidationError):
+            target_step.choice = current_player
+            move.send(target_step)
+
+
 def test_handmaid_playerBecomesImmune(current_player: Player):
     play_card(current_player, cards.Handmaid())
     assert current_player.immune

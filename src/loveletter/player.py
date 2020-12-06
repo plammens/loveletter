@@ -96,7 +96,7 @@ class Player:
             return
         except GeneratorExit:
             # Move completed successfully; finish cleaning up and committing the move:
-            self._discard_card(card)
+            self.discard_card(card)
         else:
             # Neither cancelled nor committed; something was sent after move.DONE
             # Raise StopIteration by just "falling off the end"
@@ -104,10 +104,11 @@ class Player:
 
     def eliminate(self):
         for card in self.hand._cards[::-1]:
-            self._discard_card(card)
+            self.discard_card(card)
         self._alive = False
 
-    def _discard_card(self, card: Card):
+    def discard_card(self, card: Card):
+        valid8.validate("card", card, is_in=self.hand)
         # noinspection PyProtectedMember
         self.hand._cards.remove(card)
         self.round.discard_pile.place(card)

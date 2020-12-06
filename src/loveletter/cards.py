@@ -184,10 +184,16 @@ class Handmaid(Card):
 
 class Prince(Card):
     value = 5
-    steps = ()
+    steps = (move.PlayerChoice,)
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
+        player = (yield from self._yield_step(move.PlayerChoice(owner.round))).choice
+
+        player.discard_card(next(c for c in player.hand if c is not self))
+        if player.alive:
+            owner.round.deal_card(player)
+
         yield from self._yield_done(move.MoveResult(owner, self))
 
 

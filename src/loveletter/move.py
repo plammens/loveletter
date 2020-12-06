@@ -72,7 +72,7 @@ class PlayerChoice(ChoiceStep):
         valid8.validate(
             "target",
             value,
-            is_in=self.game_round.players,
+            is_in=self.game_round.living_players,
             help_msg="Cannot choose a player from outside the round",
         )
 

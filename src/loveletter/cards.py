@@ -1,7 +1,7 @@
 import abc
 import enum
 import functools
-from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type
+from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type, Union
 
 import valid8
 
@@ -10,6 +10,11 @@ import loveletter.move as move
 if TYPE_CHECKING:
     from loveletter.player import Player
     from loveletter.round import Round
+
+
+MoveStepGenerator = Generator[
+    Union[move.MoveStep, move.MoveResult], move.MoveStep, None
+]
 
 
 class Card(metaclass=abc.ABCMeta):
@@ -22,7 +27,7 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     @abc.abstractmethod
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         """
         Play this card on behalf of its owner.
 
@@ -96,7 +101,7 @@ class Spy(Card):
     value = 0
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
@@ -114,7 +119,7 @@ class Guard(Card):
     value = 1
     steps = (move.OpponentChoice, move.CardGuess)
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         guess = (yield from self._yield_step(move.CardGuess())).choice
@@ -130,7 +135,7 @@ class Priest(Card):
     value = 2
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -139,7 +144,7 @@ class Baron(Card):
     value = 3
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -148,7 +153,7 @@ class Handmaid(Card):
     value = 4
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         owner.immune = True
         yield from self._yield_done(move.MoveResult(owner, self))
@@ -158,7 +163,7 @@ class Prince(Card):
     value = 5
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -167,7 +172,7 @@ class Chancellor(Card):
     value = 6
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -176,7 +181,7 @@ class King(Card):
     value = 7
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -185,7 +190,7 @@ class Countess(Card):
     value = 8
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 
@@ -194,7 +199,7 @@ class Princess(Card):
     value = 9
     steps = ()
 
-    def play(self, owner: "Player") -> Generator[move.MoveStep, move.MoveStep, None]:
+    def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         yield from self._yield_done(move.MoveResult(owner, self))
 

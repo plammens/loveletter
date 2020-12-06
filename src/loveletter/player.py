@@ -1,10 +1,10 @@
 import collections.abc
-from typing import Generator, Iterator, List, Optional, TYPE_CHECKING
+from typing import Iterator, List, Optional, TYPE_CHECKING
 
 import valid8
 
-from loveletter.cards import Card
-from loveletter.move import CancelMove, MoveStep
+from loveletter.cards import Card, MoveStepGenerator
+from loveletter.move import CancelMove
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -50,7 +50,7 @@ class Player:
         """Give this player a card; alias for hand.add"""
         self.hand.add(card)
 
-    def play_card(self, card: Card) -> Generator[MoveStep, MoveStep, None]:
+    def play_card(self, card: Card) -> MoveStepGenerator:
         """
         Play a card from this player's hand.
 

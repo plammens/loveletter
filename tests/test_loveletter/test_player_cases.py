@@ -1,5 +1,5 @@
 from typing import Sequence
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest_cases
 
@@ -36,6 +36,9 @@ class DummyPlayerCases:
         player.round = round_mock
         round_mock.state = Turn(player)
         round_mock.current_player = round_mock.state.current_player = player
+        type(round_mock).living_players = PropertyMock(
+            side_effect=lambda: round_.living_players
+        )
         round_mock.players = round_.players
         player.hand._cards.clear()
         for card in hand:

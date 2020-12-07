@@ -16,14 +16,14 @@ class PlayerHandCases:
 
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
-    def case_single_card(self, card: Card):
-        return [card]
+    def case_single_card(self, card):
+        return [card.valuegetter()]
 
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("card1", cases=card_cases.CardCases)
     @pytest_cases.parametrize_with_cases("card2", cases=card_cases.CardCases)
-    def case_two_cards(self, card1: Card, card2: Card):
-        return [card1, card2]
+    def case_two_cards(self, card1, card2):
+        return [card1.valuegetter(), card2.valuegetter()]
 
 
 class DummyPlayerCases:

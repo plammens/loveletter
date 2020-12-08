@@ -207,12 +207,14 @@ class Prince(Card):
         self._validate_move(owner)
         player = (yield from self._yield_step(move.PlayerChoice(owner.round))).choice
 
+        results = [move.CardDiscarded(owner, self, player)]
         # if player is owner, player.hand.card is guaranteed not to be self
-        player.discard_card(player.hand.card)
+        results.extend(player.discard_card(player.hand.card))
         if player.alive:
             owner.round.deal_card(player)
+            results.append(move.CardDealt(owner, self, player))
 
-        return ()
+        return tuple(results)
 
 
 class Chancellor(Card):

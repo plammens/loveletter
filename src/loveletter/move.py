@@ -124,6 +124,16 @@ class CardComparison(MoveResult):
     opponent: "Player"
 
 
+@dataclass
+class CardDiscarded(MoveResult):
+    target: "Player"
+
+
+@dataclass
+class CardDealt(MoveResult):
+    target: "Player"
+
+
 def is_move_results(obj):
     """Utility to determine whether a value yielded from .play() is the result"""
     return isinstance(obj, tuple) and all(isinstance(r, MoveResult) for r in obj)

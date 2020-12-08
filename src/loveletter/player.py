@@ -119,10 +119,11 @@ class Player:
             # Exception was injected to signal cancelling
             return
 
+    @valid8.validate_arg("self", alive.fget, help_msg="Can't eliminate dead player")
     def eliminate(self):
+        self._alive = False
         for card in self.hand._cards[::-1]:
             self.discard_card(card)
-        self._alive = False
 
     def discard_card(self, card: Card) -> Tuple[loveletter.move.MoveResult, ...]:
         valid8.validate("card", card, is_in=self.hand)
@@ -132,6 +133,6 @@ class Player:
 
     def _discard_actions(self, card: Card) -> Tuple[loveletter.move.MoveResult, ...]:
         self.round.discard_pile.place(card)
-        results = card.discard_effects(self)
         self.cards_played.append(card)
+        results = card.discard_effects(self)
         return results

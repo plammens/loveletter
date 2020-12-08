@@ -261,8 +261,11 @@ class Princess(Card):
         yield
 
     def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
-        owner.eliminate()
-        return (move.PlayerEliminated(owner, self, owner),)
+        if owner.alive:
+            owner.eliminate()
+            return (move.PlayerEliminated(owner, self, owner),)
+        else:
+            return ()
 
 
 @functools.total_ordering

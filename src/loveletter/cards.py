@@ -62,6 +62,10 @@ class Card(metaclass=abc.ABCMeta):
         """
         pass
 
+    def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
+        """Apply the effects of discarding this card from the player's hand"""
+        return ()
+
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
         """
@@ -122,6 +126,7 @@ class Spy(Card):
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
+        # TODO: Award extra point only if alive
         points = super().collect_extra_points(game_round)
         if spy_winner := getattr(game_round, "spy_winner", None):
             points.update({spy_winner: 1})

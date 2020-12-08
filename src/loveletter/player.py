@@ -1,11 +1,11 @@
 import collections.abc
 import contextlib
-from typing import Iterator, List, Optional, TYPE_CHECKING
+from typing import Iterator, List, Optional, TYPE_CHECKING, Tuple
 
 import valid8
 
+import loveletter.move
 from loveletter.cards import Card, MoveStepGenerator
-from loveletter.move import CancelMove
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -113,9 +113,9 @@ class Player:
                 # tentatively remove card from hand; only do if move terminates OK
                 with self.hand._play_card(card):
                     results = yield from card.play(self)
-                self._discard_actions(card)
+                results += self._discard_actions(card)
                 return results
-        except (CancelMove, GeneratorExit):
+        except (loveletter.move.CancelMove, GeneratorExit):
             # Exception was injected to signal cancelling
             return
 
@@ -124,12 +124,14 @@ class Player:
             self.discard_card(card)
         self._alive = False
 
-    def discard_card(self, card: Card):
+    def discard_card(self, card: Card) -> Tuple[loveletter.move.MoveResult, ...]:
         valid8.validate("card", card, is_in=self.hand)
         # noinspection PyProtectedMember
         self.hand._cards.remove(card)
-        self._discard_actions(card)
+        return self._discard_actions(card)
 
-    def _discard_actions(self, card):
+    def _discard_actions(self, card: Card) -> Tuple[loveletter.move.MoveResult, ...]:
         self.round.discard_pile.place(card)
+        results = card.discard_effects(self)
         self.cards_played.append(card)
+        return results

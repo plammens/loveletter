@@ -7,7 +7,7 @@ import math
 import random
 import unittest.mock
 from typing import Any, Collection, Counter, Generator, Tuple, Type, TypeVar, Union
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock
 
 from multimethod import multimethod
 
@@ -174,10 +174,16 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
 def mock_player(player: Player):
     mock = Mock(spec=player, wraps=player)
     mock.hand = mock_hand(player.hand)
+    mock.round = MagicMock(spec=player.round, wraps=player.round)
+    if player is player.round.current_player:
+        mock.round.state.current_player = mock
+        mock.round.current_player = mock
     type(mock).alive = PropertyMock(side_effect=lambda: player.alive)
     # Have to make immune a property that tracks the value since bool is immutable
     type(mock).immune = PropertyMock(side_effect=lambda: player.immune)
     mock.cards_played = player.cards_played
+    mock.play_card.side_effect = functools.partial(Player.play_card, mock)
+    mock._discard_actions.side_effect = functools.partial(Player._discard_actions, mock)
     return mock
 
 

@@ -13,6 +13,7 @@ from test_loveletter.utils import (
     force_next_turn,
     give_card,
     make_mock_move,
+    mock_player,
     play_card,
     play_card_with_cleanup,
     send_gracious,
@@ -283,6 +284,13 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert not victim.alive
     assert victim.cards_played[-1].value == cards.CardType.PRINCESS
     assert list(started_round.deck) == deck_before
+
+
+def test_princess_eliminatesSelf(current_player: Player):
+    player_mock = mock_player(current_player)
+    play_card(player_mock, cards.Princess())
+    player_mock.eliminate.assert_called_once()
+    assert not current_player.alive
 
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)

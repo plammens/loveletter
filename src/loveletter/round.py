@@ -126,7 +126,7 @@ class Round:
         )
         if player.alive:
             idx = living_players.index(player)
-            return players[(idx + offset) % len(living_players)]
+            return living_players[(idx + offset) % len(living_players)]
         else:
             valid8.validate(
                 "offset",

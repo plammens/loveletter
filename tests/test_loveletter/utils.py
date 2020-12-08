@@ -6,7 +6,7 @@ import inspect
 import math
 import random
 import unittest.mock
-from typing import Collection, Counter, Tuple, Type, TypeVar, Union
+from typing import Any, Collection, Counter, Generator, Tuple, Type, TypeVar, Union
 from unittest.mock import Mock, PropertyMock
 
 from multimethod import multimethod
@@ -53,14 +53,17 @@ def autofill_move(
 ) -> Union[move.MoveStep, Tuple[move.MoveResult, ...]]:
     close = close if close is not None else (num_steps is None)
     max_steps = num_steps + 1 if num_steps is not None else math.inf
-    i, step = 0, None
-    while not move.is_move_results(step) and i < max_steps:
-        step = move_.send(autofill_step(step))
-        i += 1
+    i, step, results = 0, None, None
+    try:
+        while i < max_steps:
+            step = move_.send(autofill_step(step))
+            i += 1
+    except StopIteration as e:
+        results = e.value
     assert num_steps is None or i == max_steps
     if close:
         move_.close()
-    return step
+    return results
 
 
 @multimethod
@@ -194,3 +197,10 @@ def force_next_turn(game_round: Round):
     assert game_round.state.type == RoundState.Type.TURN
     game_round.state.stage = Turn.Stage.COMPLETED
     return game_round.advance_turn()
+
+
+def send_gracious(gen: Generator, value: Any):
+    try:
+        return gen.send(value)
+    except StopIteration as e:
+        return e.value

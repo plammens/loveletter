@@ -15,6 +15,7 @@ from test_loveletter.utils import (
     make_mock_move,
     play_card,
     play_card_with_cleanup,
+    send_gracious,
 )
 
 
@@ -35,7 +36,7 @@ def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
     for expected_step_type in card.steps:
         step = move.send(autofill_step(step))
         assert type(step) == expected_step_type
-    results = move.send(autofill_step(step))
+    results = send_gracious(move, autofill_step(step))
     assert loveletter.move.is_move_results(results)
 
 
@@ -88,8 +89,7 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         target_step.choice = other
         guess_step = move.send(target_step)
         guess_step.choice = type(other.hand.card)
-        move.send(guess_step)
-        move.close()
+        send_gracious(move, guess_step)
         assert not other.alive
         # artificially start new turn with same player
         started_round.state = Turn(player)
@@ -105,8 +105,7 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             target_step.choice = other
             guess_step = move.send(target_step)
             guess_step.choice = wrong_type
-            move.send(guess_step)
-            move.close()
+            send_gracious(move, guess_step)
             assert other.alive
             # artificially start new turn with same player
             started_round.state = Turn(player)
@@ -118,7 +117,7 @@ def test_priest_validOpponent_showsCard(started_round: Round):
     move = play_card(player, cards.Priest())
     target_step = next(move)
     target_step.choice = opponent
-    result, *_ = move.send(target_step)
+    result, *_ = send_gracious(move, target_step)
     assert len(_) == 0
     assert isinstance(result, loveletter.move.ShowOpponentCard)
     move.close()
@@ -137,7 +136,7 @@ def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, ca
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    comparison, elimination, *_ = move.send(target_step)
+    comparison, elimination, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
     assert isinstance(comparison, loveletter.move.CardComparison)
@@ -162,7 +161,7 @@ def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    comparison, elimination, *_ = move.send(target_step)
+    comparison, elimination, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
     assert isinstance(comparison, loveletter.move.CardComparison)
@@ -184,7 +183,7 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    comparison, *_ = move.send(target_step)
+    comparison, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
     assert isinstance(comparison, loveletter.move.CardComparison)

@@ -122,11 +122,3 @@ def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Ca
         autofill_move(move, num_steps=len(card.steps) - 1)
         with pytest.raises(StopIteration):
             move.throw(CancelMove)
-
-
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
-def test_play_cancelMoveAfterCompleted_raises(current_player: Player, card):
-    move = play_card(current_player, card, autofill=False)
-    autofill_move(move, close=False)
-    with pytest.raises(RuntimeError):
-        move.throw(CancelMove)

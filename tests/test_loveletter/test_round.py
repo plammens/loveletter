@@ -11,10 +11,11 @@ from loveletter.cards import Card
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
-    autofill_move,
+    autofill_step,
     force_next_turn,
     make_mock_move,
     play_card,
+    send_gracious,
 )
 
 
@@ -134,10 +135,12 @@ def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
     move = play_card(player, card, autofill=False)
     with pytest.raises(valid8.ValidationError):
         started_round.advance_turn()
-    autofill_move(move, close=False)
-    with pytest.raises(valid8.ValidationError):
-        started_round.advance_turn()
-    move.close()
+    step = None
+    for _ in card.steps:
+        step = move.send(autofill_step(step))
+        with pytest.raises(valid8.ValidationError):
+            started_round.advance_turn()
+    send_gracious(move, autofill_step(step))  # send final step
     started_round.advance_turn()
 
 

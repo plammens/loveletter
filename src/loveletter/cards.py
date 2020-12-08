@@ -5,10 +5,10 @@ from typing import (
     ClassVar,
     Dict,
     Generator,
+    Optional,
     TYPE_CHECKING,
     Tuple,
     Type,
-    Union,
 )
 
 import valid8
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 MoveStepGenerator = Generator[
-    Union[move.MoveStep, Tuple[move.MoveResult, ...]], move.MoveStep, None
+    move.MoveStep, move.MoveStep, Optional[Tuple[move.MoveResult, ...]]
 ]
 
 
@@ -49,21 +49,13 @@ class Card(metaclass=abc.ABCMeta):
         was yielded by the generator results in an error).
 
         When all steps get fulfilled, the move will be executed and the generator
-        will yield a tuple of :class:`loveletter.move.MoveResult` instances
-        summarising the results of the move in sequence. After this, the only valid
-        thing to do is to .close() the generator, which will clean it up and
-        terminate it gracefully. If .send() is called again after the results have
-        been yielded, the generator will return, thus raising a StopIteration
-        exception.
+        will return a tuple of :class:`loveletter.move.MoveResult` instances
+        summarising the results of the move in sequence.
 
         At any point before the move is executed, the caller can .throw() a
         CancelMove exception to cancel the move. This will exit the generator
-        (raising a StopIteration) and thus will not apply the effect of the move. Once
-        the move results have been yielded, though, the move cannot be cancelled
-        anymore.
-
-        If .close() gets called before the move has been prepared and executed,
-        a RuntimeError is raised.
+        (raising a StopIteration) and thus will not apply the effect of the move.
+        Calling .close() is equivalent, but doesn't raise the StopIteration.
 
         :param owner: Owner of the card; who is playing it.
         :returns: A generator as described above.
@@ -124,7 +116,9 @@ class Spy(Card):
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
-        yield from self._yield_done()
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -149,7 +143,7 @@ class Guard(Card):
             opponent.eliminate()
             results.append(move.PlayerEliminated(owner, self, opponent))
 
-        yield from self._yield_done(*results)
+        return tuple(results)
 
 
 class Priest(Card):
@@ -159,7 +153,7 @@ class Priest(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
-        yield from self._yield_done(move.ShowOpponentCard(owner, self, opponent))
+        return (move.ShowOpponentCard(owner, self, opponent),)
 
 
 class Baron(Card):
@@ -184,7 +178,7 @@ class Baron(Card):
             eliminated.eliminate()
             results.append(move.PlayerEliminated(owner, self, eliminated))
 
-        yield from self._yield_done(*results)
+        return tuple(results)
 
 
 class Handmaid(Card):
@@ -194,7 +188,10 @@ class Handmaid(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         owner.immune = True
-        yield from self._yield_done()
+        # TODO: return immunity effect result
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
 
 class Prince(Card):
@@ -209,7 +206,7 @@ class Prince(Card):
         if player.alive:
             owner.round.deal_card(player)
 
-        yield from self._yield_done()
+        return ()
 
 
 class Chancellor(Card):
@@ -218,7 +215,9 @@ class Chancellor(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done()
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
 
 class King(Card):
@@ -227,7 +226,9 @@ class King(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done()
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
 
 class Countess(Card):
@@ -236,7 +237,9 @@ class Countess(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done()
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
 
 class Princess(Card):
@@ -245,7 +248,9 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done()
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
     # TODO: discard effect
 

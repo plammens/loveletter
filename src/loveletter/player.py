@@ -1,4 +1,5 @@
 import collections.abc
+import contextlib
 from typing import Iterator, List, Optional, TYPE_CHECKING
 
 import valid8
@@ -14,6 +15,7 @@ class Player:
     class Hand(collections.abc.Collection):
         def __init__(self):
             self._cards = []
+            self._playing: Optional[Card] = None  # card currently being played
 
         # fmt: off
         def __len__(self) -> int: return len(self._cards)
@@ -28,6 +30,24 @@ class Player:
         def add(self, card: Card):
             valid8.validate("player.hand", self._cards, max_len=1)
             self._cards.append(card)
+
+        @contextlib.contextmanager
+        def _play_card(self, card: "Card"):
+            # set card aside in temporary holding area:
+            idx = self._cards.index(card)
+            self._playing = self._cards.pop(idx)
+            # noinspection PyBroadException
+            try:
+                yield
+            except:
+                # Something happened; restore hand
+                self._cards.insert(idx, card)
+                raise
+            else:
+                # Move completed successfully
+                pass
+            finally:
+                self._playing = None
 
     round: "Round"
     hand: Hand
@@ -90,18 +110,14 @@ class Player:
             # The context manager ensures the move is completed before the round moves
             # on to the next turn
             with turn:
-                yield from card.play(self)
-        except CancelMove:
+                # tentatively remove card from hand; only do if move terminates OK
+                with self.hand._play_card(card):
+                    results = yield from card.play(self)
+                self._discard_actions(card)
+                return results
+        except (CancelMove, GeneratorExit):
             # Exception was injected to signal cancelling
             return
-        except GeneratorExit:
-            # Move completed successfully; finish cleaning up and committing the move:
-            if self.alive:
-                self.discard_card(card)
-        else:
-            # Neither cancelled nor committed; something was sent after move.DONE
-            # Raise StopIteration by just "falling off the end"
-            pass
 
     def eliminate(self):
         for card in self.hand._cards[::-1]:
@@ -112,5 +128,8 @@ class Player:
         valid8.validate("card", card, is_in=self.hand)
         # noinspection PyProtectedMember
         self.hand._cards.remove(card)
+        self._discard_actions(card)
+
+    def _discard_actions(self, card):
         self.round.discard_pile.place(card)
         self.cards_played.append(card)

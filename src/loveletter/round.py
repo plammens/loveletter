@@ -6,6 +6,7 @@ from typing import List, Optional, Sequence, TYPE_CHECKING
 import valid8
 
 from loveletter.cardpile import Deck, DiscardPile
+from loveletter.move import CancelMove
 from loveletter.player import Player
 
 if TYPE_CHECKING:
@@ -38,6 +39,7 @@ class Turn(RoundState):
         START = enum.auto()
         IN_PROGRESS = enum.auto()
         COMPLETED = enum.auto()
+        INVALID = enum.auto()
 
     stage: Stage
 
@@ -55,10 +57,12 @@ class Turn(RoundState):
         self.stage = Turn.Stage.IN_PROGRESS
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # A move is completed iff .close() was called, so check for GeneratorExit:
-        self.stage = (
-            Turn.Stage.COMPLETED if exc_type is GeneratorExit else Turn.Stage.START
-        )
+        transitions = {
+            None: Turn.Stage.COMPLETED,
+            GeneratorExit: Turn.Stage.START,
+            CancelMove: Turn.Stage.START,
+        }
+        self.stage = transitions.get(exc_type, Turn.Stage.INVALID)
 
 
 class RoundEnd(RoundState):

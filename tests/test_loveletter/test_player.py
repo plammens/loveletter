@@ -100,6 +100,13 @@ def test_eliminate_discardsCards(player: Player):
     assert len(player.hand) == 0
 
 
+@pytest_cases.parametrize_with_cases("player", cases=player_cases.DummyPlayerCases)
+def test_eliminate_deadPlayer_raises(player: Player):
+    player.eliminate()
+    with pytest.raises(valid8.ValidationError):
+        player.eliminate()
+
+
 @pytest_cases.parametrize_with_cases(
     "card", cases=card_cases.CardCases().case_multistep_card
 )

@@ -165,8 +165,8 @@ class Baron(Card):
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
 
         results = [move.CardComparison(owner, self, opponent)]
-        owner_card = next(card for card in owner.hand if card is not self)
-        owner_value, opponent_value = owner_card.value, opponent.hand.card.value
+        # owner.hand.card is guaranteed not to be the card being played (i.e. self)
+        owner_value, opponent_value = owner.hand.card.value, opponent.hand.card.value
         eliminated = (
             opponent
             if opponent_value < owner_value
@@ -202,7 +202,8 @@ class Prince(Card):
         self._validate_move(owner)
         player = (yield from self._yield_step(move.PlayerChoice(owner.round))).choice
 
-        player.discard_card(next(c for c in player.hand if c is not self))
+        # if player is owner, player.hand.card is guaranteed not to be self
+        player.discard_card(player.hand.card)
         if player.alive:
             owner.round.deal_card(player)
 

@@ -73,3 +73,7 @@ class PlayerCases:
     @pytest_cases.case()
     def case_last_player(self, started_round: Round):
         return started_round.players[-1]
+
+    @pytest_cases.case(id="current_player_")
+    def case_current_player(self, current_player: Player):
+        return current_player

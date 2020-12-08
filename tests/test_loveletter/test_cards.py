@@ -235,6 +235,56 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     assert not immune_player.immune
 
 
+@pytest_cases.parametrize("card_type", set(cards.CardType) - {cards.CardType.PRINCESS})
+@pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
+def test_prince_againstNonPrincess_dealsCard(
+    started_round: Round, target: Player, card_type
+):
+    player = started_round.current_player
+    give_card(target, card_type.card_class(), replace=True)
+    target_card = target.hand.card
+
+    deck_before = list(started_round.deck)
+    move = play_card(player, cards.Prince())
+    target_step = next(move)
+    target_step.choice = target
+    results = send_gracious(move, target_step)
+    assert tuple(map(type, results)) == (
+        loveletter.move.CardDiscarded,
+        loveletter.move.CardDealt,
+    )
+    assert results[0].target is target
+    assert target.alive
+    assert target.hand.card is deck_before[-1]
+    assert target.cards_played[-1 if target is not player else -2] is target_card
+    # Checking second-to-last as last is the Prince card:
+    assert list(started_round.discard_pile)[-2] is target_card
+    assert list(started_round.deck) == deck_before[:-1]
+
+
+def test_prince_againstPrincess_kills(started_round: Round):
+    player = started_round.current_player
+    victim = started_round.next_player(player)
+    give_card(victim, cards.Princess(), replace=True)
+    victim_card = victim.hand.card
+
+    deck_before = list(started_round.deck)
+    move = play_card(player, cards.Prince())
+    target_step = next(move)
+    target_step.choice = victim
+    results = send_gracious(move, target_step)
+    assert tuple(map(type, results)) == (
+        loveletter.move.CardDiscarded,
+        loveletter.move.PlayerEliminated,
+    )
+    assert results[0].target is victim
+    assert results[0].discarded is victim_card
+    assert results[1].eliminated is victim
+    assert not victim.alive
+    assert victim.cards_played[-1].value == cards.CardType.PRINCESS
+    assert list(started_round.deck) == deck_before
+
+
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)
 def test_targetCard_chooseSelf_raises(current_player, card):
     with play_card_with_cleanup(current_player, card) as move:

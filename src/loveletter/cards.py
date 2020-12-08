@@ -253,6 +253,16 @@ class Countess(Card):
         # noinspection PyUnreachableCode
         yield
 
+    def check_move(self, owner, card):
+        disallowed = {CardType.PRINCE, CardType.KING}
+        card_type = CardType(card)
+        valid8.validate(
+            "card",
+            card_type,
+            custom=lambda t: t not in disallowed,
+            help_msg=f"Can't play a {card_type.name} with a Countess in hand",
+        )
+
 
 class Princess(Card):
     value = 9

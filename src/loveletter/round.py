@@ -1,7 +1,7 @@
 import abc
 import enum
 import random
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import List, Optional, Sequence, TYPE_CHECKING
 
 import valid8
 
@@ -70,7 +70,7 @@ class RoundEnd(RoundState):
 
 
 class Round:
-    players: Sequence[Player]
+    players: List[Player]
     deck: Deck
     discard_pile: DiscardPile
     state: RoundState
@@ -114,10 +114,32 @@ class Round:
                        in which case this searches for players in reverse turn order.
         :return: The requested player object.
         """
-        players = self.living_players
-        valid8.validate("player", player, is_in=players)
-        idx = players.index(player)
-        return players[(idx + offset) % len(players)]
+        players, living_players = self.players, self.living_players
+        valid8.validate(
+            "player", player, is_in=players, help_msg="Player is not in this round"
+        )
+        valid8.validate(
+            "living_players",
+            living_players,
+            min_len=1,
+            help_msg="No living players remain",
+        )
+        if player.alive:
+            idx = living_players.index(player)
+            return players[(idx + offset) % len(living_players)]
+        else:
+            valid8.validate(
+                "offset",
+                offset,
+                custom=lambda o: o != 0,
+                help_msg="Can't get player at offset 0; player itself is not alive",
+            )
+            idx = player.id
+            nearest_living = next(p for p in players[idx:] + players[:idx] if p.alive)
+            if offset > 0:
+                offset -= 1
+            living_idx = living_players.index(nearest_living)
+            return living_players[(living_idx + offset) % len(living_players)]
 
     def next_player(self, player):
         """Get the next living player in turn order"""

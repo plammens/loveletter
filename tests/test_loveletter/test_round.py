@@ -147,3 +147,35 @@ def test_nextPrevPlayer_matchesTurnDirection(started_round: Round):
     after = started_round.current_player
     assert started_round.next_player(before) is after
     assert started_round.previous_player(after) is before
+
+
+def test_nextPlayer_deadPlayer_matchesTurnDirection(started_round: Round):
+    before = started_round.current_player
+    before.eliminate()
+    force_next_turn(started_round)
+    after = started_round.current_player or started_round.state.winner
+    assert started_round.next_player(before) is after
+
+
+def test_nextPlayer_deadPlayer_sameAsIfNotEliminated(started_round: Round):
+    player = started_round.current_player
+    next_while_living = started_round.next_player(player)
+    player.eliminate()
+    next_while_dead = started_round.next_player(player)
+    assert next_while_living is next_while_dead
+
+
+def test_previousPlayer_deadPlayer_matchesTurnDirection(started_round: Round):
+    before = started_round.current_player
+    force_next_turn(started_round)
+    after = started_round.current_player or started_round.state.winner
+    after.eliminate()
+    assert started_round.previous_player(after) is before
+
+
+def test_prevPlayer_deadPlayer_sameAsIfNotEliminated(started_round: Round):
+    player = started_round.current_player
+    prev_while_living = started_round.previous_player(player)
+    player.eliminate()
+    prev_while_dead = started_round.previous_player(player)
+    assert prev_while_living is prev_while_dead

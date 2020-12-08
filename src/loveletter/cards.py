@@ -260,7 +260,9 @@ class Princess(Card):
         # noinspection PyUnreachableCode
         yield
 
-    # TODO: discard effect
+    def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
+        owner.eliminate()
+        return (move.PlayerEliminated(owner, self, owner),)
 
 
 @functools.total_ordering

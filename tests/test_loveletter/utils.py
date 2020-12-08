@@ -6,7 +6,7 @@ import inspect
 import math
 import random
 import unittest.mock
-from typing import Collection, Counter, Type, TypeVar, Union
+from typing import Collection, Counter, Tuple, Type, TypeVar, Union
 from unittest.mock import Mock, PropertyMock
 
 from multimethod import multimethod
@@ -50,15 +50,15 @@ def random_card_counts() -> Counter[Type[Card]]:
 
 def autofill_move(
     move_: cards.MoveStepGenerator, num_steps: int = None, close=None
-) -> move.MoveResult:
+) -> Union[move.MoveStep, Tuple[move.MoveResult, ...]]:
     close = close if close is not None else (num_steps is None)
     max_steps = num_steps + 1 if num_steps is not None else math.inf
     i, step = 0, None
-    while not isinstance(step, move.MoveResult) and i < max_steps:
+    while not move.is_move_results(step) and i < max_steps:
         step = move_.send(autofill_step(step))
         i += 1
     assert num_steps is None or i == max_steps
-    if close is None:
+    if close:
         move_.close()
     return step
 
@@ -107,7 +107,7 @@ def play_card(player: Player, card: cards.Card, autofill=None):
     give_card(player, card)
     move_ = player.play_card(card)
     if autofill:
-        autofill_move(move_)
+        autofill_move(move_, close=True)
         return None
     else:
         return move_

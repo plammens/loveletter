@@ -96,7 +96,8 @@ class Player:
             return
         except GeneratorExit:
             # Move completed successfully; finish cleaning up and committing the move:
-            self.discard_card(card)
+            if self.alive:
+                self.discard_card(card)
         else:
             # Neither cancelled nor committed; something was sent after move.DONE
             # Raise StopIteration by just "falling off the end"

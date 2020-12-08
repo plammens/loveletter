@@ -1,7 +1,15 @@
 import abc
 import enum
 import functools
-from typing import ClassVar, Dict, Generator, TYPE_CHECKING, Tuple, Type, Union
+from typing import (
+    ClassVar,
+    Dict,
+    Generator,
+    TYPE_CHECKING,
+    Tuple,
+    Type,
+    Union,
+)
 
 import valid8
 
@@ -13,7 +21,7 @@ if TYPE_CHECKING:
 
 
 MoveStepGenerator = Generator[
-    Union[move.MoveStep, move.MoveResult], move.MoveStep, None
+    Union[move.MoveStep, Tuple[move.MoveResult, ...]], move.MoveStep, None
 ]
 
 
@@ -41,16 +49,18 @@ class Card(metaclass=abc.ABCMeta):
         was yielded by the generator results in an error).
 
         When all steps get fulfilled, the move will be executed and the generator
-        will yield an instance of :class:`loveletter.move.MoveResult` summarising the
-        result of the move. After this, the only valid thing to do is to .close() the
-        generator, which will clean it up and terminate it gracefully. If .send() is
-        called again after a MoveResult has been yielded, the generator will return,
-        thus raising a StopIteration exception.
+        will yield a tuple of :class:`loveletter.move.MoveResult` instances
+        summarising the results of the move in sequence. After this, the only valid
+        thing to do is to .close() the generator, which will clean it up and
+        terminate it gracefully. If .send() is called again after the results have
+        been yielded, the generator will return, thus raising a StopIteration
+        exception.
 
         At any point before the move is executed, the caller can .throw() a
-        CancelMove exception to cancel the move. This will destroy the generator and
-        thus will not apply the effect of the move. Once a MoveResult has been
-        yielded, though, the move cannot be cancelled anymore.
+        CancelMove exception to cancel the move. This will exit the generator
+        (raising a StopIteration) and thus will not apply the effect of the move. Once
+        the move results have been yielded, though, the move cannot be cancelled
+        anymore.
 
         If .close() gets called before the move has been prepared and executed,
         a RuntimeError is raised.
@@ -99,9 +109,9 @@ class Card(metaclass=abc.ABCMeta):
             raise RuntimeError("Can't close move before its completion")
 
     @staticmethod
-    def _yield_done(result: move.MoveResult):
+    def _yield_done(*results: move.MoveResult):
         try:
-            yield result
+            yield tuple(results)
         except move.CancelMove as e:
             raise RuntimeError("Can't cancel already completed move") from e
 
@@ -114,7 +124,7 @@ class Spy(Card):
         self._validate_move(owner)
         game_round = owner.round
         game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
@@ -134,10 +144,12 @@ class Guard(Card):
         guess = (yield from self._yield_step(move.CardGuess())).choice
 
         # execute move:
+        results = []
         if type(opponent.hand.card) == guess:
             opponent.eliminate()
+            results.append(move.PlayerEliminated(owner, self, opponent))
 
-        yield from self._yield_done(move.OpponentEliminated(owner, self, opponent))
+        yield from self._yield_done(*results)
 
 
 class Priest(Card):
@@ -158,18 +170,21 @@ class Baron(Card):
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
 
+        results = [move.CardComparison(owner, self, opponent)]
         owner_card = next(card for card in owner.hand if card is not self)
         owner_value, opponent_value = owner_card.value, opponent.hand.card.value
-        if opponent_value < owner_value:
-            eliminated = opponent
-        elif opponent_value > owner_value:
-            eliminated = owner
-        else:
-            eliminated = None
-
-        yield from self._yield_done(
-            move.CardComparison(owner, self, opponent, eliminated)
+        eliminated = (
+            opponent
+            if opponent_value < owner_value
+            else owner
+            if owner_value < opponent_value
+            else None
         )
+        if eliminated:
+            eliminated.eliminate()
+            results.append(move.PlayerEliminated(owner, self, eliminated))
+
+        yield from self._yield_done(*results)
 
 
 class Handmaid(Card):
@@ -179,7 +194,7 @@ class Handmaid(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         owner.immune = True
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
 
 class Prince(Card):
@@ -194,7 +209,7 @@ class Prince(Card):
         if player.alive:
             owner.round.deal_card(player)
 
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
 
 class Chancellor(Card):
@@ -203,7 +218,7 @@ class Chancellor(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
 
 class King(Card):
@@ -212,7 +227,7 @@ class King(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
 
 class Countess(Card):
@@ -221,7 +236,7 @@ class Countess(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
 
 
 class Princess(Card):
@@ -230,7 +245,9 @@ class Princess(Card):
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        yield from self._yield_done(move.MoveResult(owner, self))
+        yield from self._yield_done()
+
+    # TODO: discard effect
 
 
 @functools.total_ordering

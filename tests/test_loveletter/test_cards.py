@@ -35,7 +35,8 @@ def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
     for expected_step_type in card.steps:
         step = move.send(autofill_step(step))
         assert type(step) == expected_step_type
-    assert isinstance(move.send(autofill_step(step)), loveletter.move.MoveResult)
+    results = move.send(autofill_step(step))
+    assert loveletter.move.is_move_results(results)
 
 
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
@@ -117,7 +118,8 @@ def test_priest_validOpponent_showsCard(started_round: Round):
     move = play_card(player, cards.Priest())
     target_step = next(move)
     target_step.choice = opponent
-    result = move.send(target_step)
+    result, *_ = move.send(target_step)
+    assert len(_) == 0
     assert isinstance(result, loveletter.move.ShowOpponentCard)
     move.close()
     assert result.opponent is opponent
@@ -135,11 +137,17 @@ def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, ca
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    result = move.send(target_step)
-    assert isinstance(result, loveletter.move.CardComparison)
+    comparison, elimination, *_ = move.send(target_step)
     move.close()
-    assert result.opponent is opponent
-    assert result.eliminated is opponent
+    assert len(_) == 0
+    assert isinstance(comparison, loveletter.move.CardComparison)
+    assert isinstance(elimination, loveletter.move.PlayerEliminated)
+    assert comparison.opponent is opponent
+    assert elimination.eliminated is opponent
+
+    assert player.alive
+    assert not opponent.alive
+    # TODO: mock checks for .eliminate()
 
 
 @pytest_cases.parametrize_with_cases(
@@ -154,11 +162,16 @@ def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    result = move.send(target_step)
-    assert isinstance(result, loveletter.move.CardComparison)
+    comparison, elimination, *_ = move.send(target_step)
     move.close()
-    assert result.opponent is opponent
-    assert result.eliminated is player
+    assert len(_) == 0
+    assert isinstance(comparison, loveletter.move.CardComparison)
+    assert isinstance(elimination, loveletter.move.PlayerEliminated)
+    assert comparison.opponent is opponent
+    assert elimination.eliminated is player
+
+    assert not player.alive
+    assert opponent.alive
 
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
@@ -171,11 +184,13 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
     move = play_card(player, cards.Baron())
     target_step = next(move)
     target_step.choice = opponent
-    result = move.send(target_step)
-    assert isinstance(result, loveletter.move.CardComparison)
+    comparison, *_ = move.send(target_step)
     move.close()
-    assert result.opponent is opponent
-    assert result.eliminated is None
+    assert len(_) == 0
+    assert isinstance(comparison, loveletter.move.CardComparison)
+
+    assert player.alive
+    assert opponent.alive
 
 
 def test_handmaid_playerBecomesImmune(current_player: Player):

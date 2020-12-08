@@ -99,16 +99,16 @@ class OpponentChoice(PlayerChoice):
         )
 
 
-class MoveResult:
+class MoveResult(metaclass=abc.ABCMeta):
     def __init__(self, player: "Player", card_played: "Card"):
         self.player = player
         self.card_played = card_played
 
 
-class OpponentEliminated(MoveResult):
-    def __init__(self, player: "Player", card_played: "Card", opponent: "Player"):
+class PlayerEliminated(MoveResult):
+    def __init__(self, player: "Player", card_played: "Card", eliminated: "Player"):
         super().__init__(player, card_played)
-        self.opponent = opponent
+        self.eliminated = eliminated
 
 
 class ShowOpponentCard(MoveResult):
@@ -123,8 +123,11 @@ class CardComparison(MoveResult):
         player: "Player",
         card_played: "Card",
         opponent: "Player",
-        eliminated: Optional["Player"],
     ):
         super().__init__(player, card_played)
         self.opponent = opponent
-        self.eliminated = eliminated
+
+
+def is_move_results(step):
+    """Utility to determine whether a value yielded from .play() is the result"""
+    return isinstance(step, tuple) and all(isinstance(r, MoveResult) for r in step)

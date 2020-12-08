@@ -1,4 +1,5 @@
 import abc
+from dataclasses import dataclass
 from typing import Any, Optional, TYPE_CHECKING
 
 import valid8
@@ -99,33 +100,28 @@ class OpponentChoice(PlayerChoice):
         )
 
 
+# -------------------- MoveResult hierarchy ------------------
+
+
+@dataclass
 class MoveResult(metaclass=abc.ABCMeta):
-    def __init__(self, player: "Player", card_played: "Card"):
-        self.player = player
-        self.card_played = card_played
+    player: "Player"
+    card_played: "Card"
 
 
+@dataclass
 class PlayerEliminated(MoveResult):
-    def __init__(self, player: "Player", card_played: "Card", eliminated: "Player"):
-        super().__init__(player, card_played)
-        self.eliminated = eliminated
+    eliminated: "Player"
 
 
+@dataclass
 class ShowOpponentCard(MoveResult):
-    def __init__(self, player: "Player", card_played: "Card", opponent: "Player"):
-        super().__init__(player, card_played)
-        self.opponent = opponent
+    opponent: "Player"
 
 
+@dataclass
 class CardComparison(MoveResult):
-    def __init__(
-        self,
-        player: "Player",
-        card_played: "Card",
-        opponent: "Player",
-    ):
-        super().__init__(player, card_played)
-        self.opponent = opponent
+    opponent: "Player"
 
 
 def is_move_results(obj):

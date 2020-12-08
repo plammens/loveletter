@@ -112,6 +112,7 @@ class Player:
             with turn:
                 # tentatively remove card from hand; only do if move terminates OK
                 with self.hand._play_card(card):
+                    self.hand.card.check_move(self, card)  # does other card approve?
                     results = yield from card.play(self)
                 results += self._discard_actions(card)
                 return results

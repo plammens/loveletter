@@ -35,11 +35,11 @@ def collect_subclasses(base_class: Type[_T], module) -> Collection[Type[_T]]:
     return list(filter(is_strict_subclass, vars(module).values()))
 
 
-def random_card_counts() -> Counter[Type[Card]]:
+def random_card_counts() -> Counter[CardType]:
     counts = collections.Counter(
         {
-            cls: random.randint(0, max_count)
-            for cls, max_count in STANDARD_DECK_COUNTS.items()
+            card_type: random.randint(0, max_count)
+            for card_type, max_count in STANDARD_DECK_COUNTS.items()
         }
     )
     # Remove classes with 0 count:

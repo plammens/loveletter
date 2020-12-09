@@ -297,6 +297,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
     ) as mocked_round:
         player = mocked_round.current_player
         give_card(player, cards.Countess(), replace=True)
+        # TODO: manually play to ensure target is accurate
         play_card(player, card_type.card_class(), autofill=True)
 
 

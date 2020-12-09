@@ -20,6 +20,9 @@ def started_round(new_round: Round):
     return new_round
 
 
+# todo: ongoing_round with autoplay
+
+
 @pytest_cases.fixture()
 def current_player(started_round):
     return started_round.current_player

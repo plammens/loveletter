@@ -1,37 +1,28 @@
 import abc
-import collections
+import collections.abc
 import itertools as itt
 import random
-from typing import Counter, Dict, Iterator, List, Optional, Sequence, Type, TypeVar
+from typing import Counter, Iterator, List, Optional, Sequence, Type, TypeVar
 
 import more_itertools as mitt
 
 from loveletter.cards import (
-    Baron,
     Card,
-    Chancellor,
-    Countess,
-    Guard,
-    Handmaid,
-    King,
-    Priest,
-    Prince,
-    Princess,
-    Spy,
+    CardType,
 )
 
-STANDARD_DECK_COUNTS = collections.Counter(
+STANDARD_DECK_COUNTS: Counter[CardType] = collections.Counter(
     {
-        Spy: 2,
-        Guard: 5,
-        Priest: 2,
-        Baron: 2,
-        Handmaid: 2,
-        Prince: 2,
-        Chancellor: 2,
-        King: 1,
-        Countess: 1,
-        Princess: 1,
+        CardType.SPY: 2,
+        CardType.GUARD: 5,
+        CardType.PRIEST: 2,
+        CardType.BARON: 2,
+        CardType.HANDMAID: 2,
+        CardType.PRINCE: 2,
+        CardType.CHANCELLOR: 2,
+        CardType.KING: 1,
+        CardType.COUNTESS: 1,
+        CardType.PRINCESS: 1,
     }
 )
 
@@ -44,13 +35,13 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     _T = TypeVar("_T", bound="CardPile")
 
     @classmethod
-    def from_counts(cls: Type[_T], counts: Dict[Type[Card], int] = None) -> _T:
+    def from_counts(cls: Type[_T], counts: Counter[CardType] = None) -> _T:
         if counts is None:
             counts = STANDARD_DECK_COUNTS
         cards = list(
             itt.chain.from_iterable(
-                mitt.repeatfunc(card_class, count)
-                for card_class, count in counts.items()
+                mitt.repeatfunc(card_type.card_class, count)
+                for card_type, count in counts.items()
             )
         )
         random.shuffle(cards)
@@ -85,13 +76,15 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     def take(self) -> Card:
         return self._cards.pop()
 
-    def get_counts(self) -> Counter[Type[Card]]:
+    def get_counts(self) -> Counter[CardType]:
         """Returns a dictionary of card type to count in the pile."""
         # noinspection PyTypeChecker
-        return collections.Counter(map(type, self))
+        return collections.Counter(map(CardType, self))
 
 
 class Deck(CardPile):
+    # TODO: hold out one card
+
     def take(self) -> Card:
         return super(Deck, self).take()
 

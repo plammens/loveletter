@@ -203,5 +203,7 @@ class Round:
         return len(self.living_players) == 1 or len(self.deck) == 0
 
     def _finalize_round(self) -> RoundEnd:
-        self.state = end = RoundEnd(winner=self.living_players[0])
+        self.state = end = RoundEnd(
+            winner=max(self.living_players, key=lambda p: p.hand.card.value)
+        )
         return end

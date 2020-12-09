@@ -295,10 +295,17 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
     with assert_state_is_preserved(
         current_player.round, allow_mutation={current_player, target}
     ) as mocked_round:
-        player = mocked_round.current_player
+        player, target = mocked_round.current_player, mocked_round.players[target.id]
         give_card(player, cards.Countess(), replace=True)
-        # TODO: manually play to ensure target is accurate
-        play_card(player, card_type.card_class(), autofill=True)
+        move = play_card(player, card := card_type.card_class(), autofill=False)
+        step = None
+        for _ in card.steps:
+            step = move.send(step)
+            if isinstance(step, loveletter.move.PlayerChoice):
+                step.choice = target
+            else:
+                step = autofill_step(step)
+        send_gracious(move, step)
 
 
 @pytest_cases.parametrize("card_type", {CardType.PRINCE, CardType.KING})

@@ -322,9 +322,4 @@ class CardType(enum.Enum):
 
     @staticmethod
     def _get_value(other):
-        try:
-            if issubclass(other, Card):
-                return other.value
-        except TypeError:
-            pass
-        return other
+        return other.value if is_subclass(other, Card) else other

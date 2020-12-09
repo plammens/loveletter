@@ -65,11 +65,25 @@ class PlayerChoice(ChoiceStep):
     def __init__(self, game_round: "Round"):
         super().__init__()
         self.game_round = game_round
+        self._valid_choices = {
+            p for p in self.game_round.players if p.alive and not p.immune
+        }
 
     def _validate_choice(self, value):
-        from loveletter.round import Player
-
-        valid8.validate("value", value, instance_of=Player)
+        if self._valid_choices:
+            valid8.validate(
+                "target",
+                value,
+                is_in=self._valid_choices,
+                help_msg="Must target a living, non-immune Player",
+            )
+        else:
+            valid8.validate(
+                "target",
+                value,
+                equals=None,
+                help_msg="No targets available, choice must be None",
+            )
         valid8.validate(
             "target",
             value,
@@ -86,17 +100,12 @@ class OpponentChoice(PlayerChoice):
         self.player: "Player" = player
 
     def _validate_choice(self, value):
+        super()._validate_choice(value)
         valid8.validate(
             "target",
             value,
             custom=lambda v: v is not self.player,
             help_msg="You can't choose yourself",
-        )
-        valid8.validate(
-            "target",
-            value,
-            custom=lambda v: not getattr(v, "immune", False),
-            help_msg="Can't target an immune player",
         )
 
 

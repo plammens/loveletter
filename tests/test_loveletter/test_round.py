@@ -7,7 +7,7 @@ import valid8
 
 import test_loveletter.test_cards_cases as card_cases
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
-from loveletter.cards import Card
+from loveletter.cards import Card, CardType
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
@@ -100,6 +100,15 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert started_round.ended
     assert isinstance(state, RoundEnd)
     assert state.winner is winner
+
+
+def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(started_round: Round):
+    started_round.deck = Deck([])
+    state = force_next_turn(started_round)
+    assert state.type == RoundState.Type.ROUND_END
+    assert CardType(state.winner.hand.card) == max(
+        CardType(p.hand.card) for p in started_round.living_players
+    )
 
 
 def test_dealCard_newRound_playerInRound_works(new_round: Round):

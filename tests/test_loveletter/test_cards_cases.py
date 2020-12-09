@@ -39,7 +39,7 @@ class CardMockCases:
             return (move.MoveResult(owner, mock),)
 
         mock = MagicMock(spec=Card)
-        mock.value = -1
+        type(mock).value = -1
         mock.play.side_effect = play
         return mock
 

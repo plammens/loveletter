@@ -139,7 +139,9 @@ def give_card(player: Player, card: Card, replace=False):
 
 
 @contextlib.contextmanager
-def assert_state_is_preserved(game_round: Round, with_mock=True):
+def assert_state_is_preserved(
+    game_round: Round, allow_mutation: Collection[Player] = (), with_mock=True
+):
     state = game_round.state
     current_player = game_round.current_player
     round_copy = copy.deepcopy(game_round)
@@ -152,6 +154,7 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
         if with_mock
         else game_round.players
     )
+    allow_mutation = {maybe_mocked_players[p.id] for p in allow_mutation}
     with unittest.mock.patch.object(game_round, "players", new=maybe_mocked_players):
         try:
             yield game_round
@@ -159,6 +162,8 @@ def assert_state_is_preserved(game_round: Round, with_mock=True):
             assert game_round.state is state
             assert game_round.current_player is current_player
             for before, after in zip(round_copy.players, game_round.players):
+                if after in allow_mutation:
+                    continue
                 assert after.alive == before.alive
                 assert list(after.hand) == list(before.hand)
                 assert after.immune == before.immune

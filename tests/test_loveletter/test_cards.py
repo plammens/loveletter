@@ -9,6 +9,8 @@ import test_loveletter.test_player_cases as player_cases
 from loveletter.player import Player
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
+    assert_state_is_preserved,
+    autofill_move,
     autofill_step,
     force_next_turn,
     give_card,
@@ -284,6 +286,28 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert not victim.alive
     assert victim.cards_played[-1].value == cards.CardType.PRINCESS
     assert list(started_round.deck) == deck_before
+
+
+@pytest_cases.parametrize(
+    "card_type", set(cards.CardType) - {cards.CardType.PRINCE, cards.CardType.KING}
+)
+def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
+    target = current_player.round.next_player(current_player)
+    with assert_state_is_preserved(
+        current_player.round, allow_mutation={current_player, target}
+    ) as mocked_round:
+        player = mocked_round.current_player
+        give_card(player, cards.Countess(), replace=True)
+        play_card(player, card_type.card_class(), autofill=True)
+
+
+@pytest_cases.parametrize("card_type", {cards.CardType.PRINCE, cards.CardType.KING})
+def test_countess_playPrinceOrKing_raises(current_player: Player, card_type):
+    give_card(current_player, cards.Countess(), replace=True)
+    give_card(current_player, card := card_type.card_class())
+    with assert_state_is_preserved(current_player.round) as mocked_round:
+        with pytest.raises(valid8.ValidationError):
+            autofill_move(mocked_round.current_player.play_card(card))
 
 
 def test_princess_eliminatesSelf(current_player: Player):

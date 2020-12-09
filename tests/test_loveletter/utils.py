@@ -49,6 +49,14 @@ def random_card_counts() -> Counter[Type[Card]]:
     return counts
 
 
+def autoplay_round(game_round: Round):
+    while not game_round.ended:
+        player = game_round.current_player
+        card = random.choice(list(player.hand))
+        autofill_move(player.play_card(card))
+        game_round.advance_turn()
+
+
 def autofill_move(
     move_: cards.MoveStepGenerator, num_steps: int = None, close=None
 ) -> Union[move.MoveStep, Tuple[move.MoveResult, ...]]:
@@ -80,14 +88,17 @@ def autofill_step(step: Union[type(None), Mock]):
 
 @autofill_step.register
 def autofill_step(step: move.PlayerChoice):
-    step.choice = step.game_round.players[0]
+    step.choice = random.choice(step.game_round.living_players)
     return step
 
 
 @autofill_step.register
 def autofill_step(step: move.OpponentChoice):
     game_round = step.game_round
-    step.choice = game_round.next_player(step.player)
+    player = step.player
+    players = set(game_round.living_players)
+    opponents = players - {player} - {p for p in players if p.immune}
+    step.choice = random.choice(list(opponents)) if opponents else None
     return step
 
 

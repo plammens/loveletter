@@ -14,6 +14,7 @@ from typing import (
 import valid8
 
 import loveletter.move as move
+from loveletter.utils import is_subclass
 
 if TYPE_CHECKING:
     from loveletter.player import Player
@@ -305,8 +306,9 @@ class CardType(enum.Enum):
 
     @classmethod
     def _missing_(cls, value):
-        if isinstance(value, Card):
-            value = type(value)
+        value = type(value) if isinstance(value, Card) else value
+        if not is_subclass(value, Card):
+            return None
         return CardType(value.value)
 
     def __eq__(self, other):

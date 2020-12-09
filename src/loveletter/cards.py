@@ -88,26 +88,23 @@ class Card(metaclass=abc.ABCMeta):
 
     @staticmethod
     def _yield_step(step):
-        try:
-            completed = yield step
-            valid8.validate(
-                "completed_step",
-                completed,
-                custom=lambda s: s is step,
-                help_msg=(
-                    f"Did not receive the same MoveStep that was yielded: "
-                    f"expected {step}, got {completed}"
-                ),
-            )
-            valid8.validate(
-                "completed_step",
-                completed,
-                custom=lambda s: s.completed,
-                help_msg="Received an incomplete move step",
-            )
-            return completed
-        except GeneratorExit:
-            raise RuntimeError("Can't close move before its completion")
+        completed = yield step
+        valid8.validate(
+            "completed_step",
+            completed,
+            custom=lambda s: s is step,
+            help_msg=(
+                f"Did not receive the same MoveStep that was yielded: "
+                f"expected {step}, got {completed}"
+            ),
+        )
+        valid8.validate(
+            "completed_step",
+            completed,
+            custom=lambda s: s.completed,
+            help_msg="Received an incomplete move step",
+        )
+        return completed
 
     @staticmethod
     def _yield_done(*results: move.MoveResult):

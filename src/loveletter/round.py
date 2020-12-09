@@ -200,7 +200,7 @@ class Round:
 
     def _reached_end(self) -> bool:
         """Whether this round has reached to an end"""
-        return len(self.living_players) == 1
+        return len(self.living_players) == 1 or len(self.deck) == 0
 
     def _finalize_round(self) -> RoundEnd:
         self.state = end = RoundEnd(winner=self.living_players[0])

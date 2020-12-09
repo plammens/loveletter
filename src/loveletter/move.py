@@ -127,6 +127,7 @@ class CardComparison(MoveResult):
 @dataclass
 class CardDiscarded(MoveResult):
     target: "Player"
+    discarded: "Card"
 
 
 @dataclass

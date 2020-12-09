@@ -6,6 +6,7 @@ import loveletter.cards as cards
 import loveletter.move
 import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
+from loveletter.cards import CardType
 from loveletter.player import Player
 from loveletter.round import Round, Turn
 from test_loveletter.utils import (
@@ -23,8 +24,8 @@ from test_loveletter.utils import (
 
 
 def test_cards_have_unique_nonnegative_value():
-    values = {t.value for t in cards.CardType}
-    assert len(values) == len(cards.CardType)
+    values = {t.value for t in CardType}
+    assert len(values) == len(CardType)
     assert all(type(v) is int for v in values)
     assert all(v >= 0 for v in values)
 
@@ -102,7 +103,7 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
     player = started_round.current_player
     for other in set(started_round.players) - {player}:
         assert other.alive
-        for wrong_type in set(cards.CardType) - {cards.CardType(type(other.hand.card))}:
+        for wrong_type in set(CardType) - {CardType(type(other.hand.card))}:
             move = play_card(player, cards.Guard())
             target_step = next(move)
             target_step.choice = other
@@ -238,7 +239,7 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
     assert not immune_player.immune
 
 
-@pytest_cases.parametrize("card_type", set(cards.CardType) - {cards.CardType.PRINCESS})
+@pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCESS})
 @pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
 def test_prince_againstNonPrincess_dealsCard(
     started_round: Round, target: Player, card_type
@@ -284,13 +285,11 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert results[0].discarded is victim_card
     assert results[1].eliminated is victim
     assert not victim.alive
-    assert victim.cards_played[-1].value == cards.CardType.PRINCESS
+    assert victim.cards_played[-1].value == CardType.PRINCESS
     assert list(started_round.deck) == deck_before
 
 
-@pytest_cases.parametrize(
-    "card_type", set(cards.CardType) - {cards.CardType.PRINCE, cards.CardType.KING}
-)
+@pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})
 def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
     target = current_player.round.next_player(current_player)
     with assert_state_is_preserved(
@@ -301,7 +300,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
         play_card(player, card_type.card_class(), autofill=True)
 
 
-@pytest_cases.parametrize("card_type", {cards.CardType.PRINCE, cards.CardType.KING})
+@pytest_cases.parametrize("card_type", {CardType.PRINCE, CardType.KING})
 def test_countess_playPrinceOrKing_raises(current_player: Player, card_type):
     give_card(current_player, cards.Countess(), replace=True)
     give_card(current_player, card := card_type.card_class())

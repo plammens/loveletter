@@ -9,12 +9,13 @@ import unittest.mock
 from typing import Any, Collection, Counter, Generator, Tuple, Type, TypeVar, Union
 from unittest.mock import MagicMock, Mock, PropertyMock
 
+import pytest
 from multimethod import multimethod
 
 import loveletter.cards as cards
 import loveletter.move as move
 from loveletter.cardpile import STANDARD_DECK_COUNTS
-from loveletter.cards import Card
+from loveletter.cards import Card, CardType
 from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
 from test_loveletter import test_cards_cases as card_cases
@@ -101,11 +102,18 @@ def make_mock_move(player):
     play_card(player, card_mock, autofill=True)
 
 
-def play_card(player: Player, card: cards.Card, autofill=None):
+def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowed=True):
     from test_loveletter.test_cards_cases import DISCARD_TYPES
 
     if autofill is None:
-        autofill = cards.CardType(type(card)) in DISCARD_TYPES
+        autofill = CardType(type(card)) in DISCARD_TYPES
+    if (
+        skip_if_disallowed
+        and not isinstance(card, Mock)
+        and CardType.COUNTESS in map(CardType, player.hand)
+        and CardType(card) in {CardType.PRINCE, CardType.KING}
+    ):
+        pytest.skip(f"Playing {card} with Countess in hand will raise")
 
     give_card(player, card)
     move_ = player.play_card(card)

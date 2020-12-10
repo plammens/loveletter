@@ -114,16 +114,16 @@ class Spy(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         game_round = owner.round
-        game_round.spy_winner = owner if not hasattr(game_round, "spy_winner") else None
+        spy_winner = getattr(game_round, "spy_winner", None)
+        game_round.spy_winner = owner if spy_winner in {None, owner} else None
         return ()
         # noinspection PyUnreachableCode
         yield
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
-        # TODO: Award extra point only if alive
         points = super().collect_extra_points(game_round)
-        if spy_winner := getattr(game_round, "spy_winner", None):
+        if (spy_winner := getattr(game_round, "spy_winner", None)) and spy_winner.alive:
             points.update({spy_winner: 1})
         return points
 

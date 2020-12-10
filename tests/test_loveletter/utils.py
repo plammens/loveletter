@@ -229,6 +229,12 @@ def force_next_turn(game_round: Round):
     return game_round.advance_turn()
 
 
+def restart_turn(game_round: Round):
+    assert game_round.state.type == RoundState.Type.TURN
+    game_round.state.stage = Turn.Stage.START
+    return game_round.state
+
+
 def send_gracious(gen: Generator, value: Any):
     try:
         return gen.send(value)

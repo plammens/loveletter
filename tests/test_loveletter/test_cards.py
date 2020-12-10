@@ -20,6 +20,7 @@ from test_loveletter.utils import (
     mock_player,
     play_card,
     play_card_with_cleanup,
+    restart_turn,
     send_gracious,
 )
 
@@ -62,7 +63,19 @@ def test_spy_onePlayed_getsPoint(started_round: Round):
     assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
-def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
+def test_spy_onePlayedTwice_getsOnePoint(started_round: Round):
+    first = started_round.current_player
+    play_card(first, cards.Spy())
+    restart_turn(started_round)
+    play_card(first, cards.Spy())
+    for player in started_round.players:
+        if player is not first:
+            player.eliminate()
+    started_round.advance_turn()
+    assert cards.Spy.collect_extra_points(started_round) == {first: 1}
+
+
+def test_spy_onePlayed_doesNotGetPointIfDead(started_round: Round):
     first = started_round.current_player
     second = started_round.next_player(first)
     play_card(first, cards.Spy())
@@ -70,7 +83,7 @@ def test_spy_onePlayed_getsPointEvenIfDead(started_round: Round):
         if player is not second:
             player.eliminate()
     started_round.advance_turn()
-    assert cards.Spy.collect_extra_points(started_round) == {first: 1}
+    assert cards.Spy.collect_extra_points(started_round) == {}
 
 
 def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):

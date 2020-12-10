@@ -35,6 +35,16 @@ class Card(metaclass=abc.ABCMeta):
         """Name of the card"""
         return self.__class__.__name__
 
+    def __str__(self) -> str:
+        return f"{self.name}()"
+
+    def __repr__(self) -> str:
+        return f"<{self} at {id(self):#X}>"
+
+    def check_move(self, owner, card):
+        """Check if the owner can play a given card if it has this one in their hand"""
+        pass
+
     @abc.abstractmethod
     def play(self, owner: "Player") -> MoveStepGenerator:
         """
@@ -66,10 +76,6 @@ class Card(metaclass=abc.ABCMeta):
     def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
         """Apply the effects of discarding this card from the player's hand"""
         return ()
-
-    def check_move(self, owner, card):
-        """Check if the owner can play a given card if it has this one in their hand"""
-        pass
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:

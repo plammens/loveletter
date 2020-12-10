@@ -129,8 +129,7 @@ def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowe
     give_card(player, card)
     move_ = player.play_card(card)
     if autofill:
-        autofill_move(move_, close=True)
-        return None
+        return autofill_move(move_, close=True)
     else:
         return move_
 

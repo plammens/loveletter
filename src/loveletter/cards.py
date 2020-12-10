@@ -188,8 +188,7 @@ class Handmaid(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         owner.immune = True
-        # TODO: return immunity effect result
-        return ()
+        return (move.ImmunityGranted(owner, self),)
         # noinspection PyUnreachableCode
         yield
 

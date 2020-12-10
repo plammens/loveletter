@@ -144,6 +144,11 @@ class CardDealt(MoveResult):
     target: "Player"
 
 
+@dataclass
+class ImmunityGranted(MoveResult):
+    pass
+
+
 def is_move_results(obj):
     """Utility to determine whether a value yielded from .play() is the result"""
     return isinstance(obj, tuple) and all(isinstance(r, MoveResult) for r in obj)

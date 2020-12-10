@@ -6,6 +6,7 @@ import loveletter.cards as cards
 import loveletter.move
 import test_loveletter.test_cards_cases as card_cases
 import test_loveletter.test_player_cases as player_cases
+from loveletter.cardpile import Deck
 from loveletter.cards import CardType
 from loveletter.player import Player
 from loveletter.round import Round, Turn
@@ -287,6 +288,21 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert not victim.alive
     assert victim.cards_played[-1].value == CardType.PRINCESS
     assert list(started_round.deck) == deck_before
+
+
+@pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
+def test_prince_emptyDeck_dealsSetAsideCard(current_player: Player, target: Player):
+    set_aside = card_cases.CardMockCases().case_generic()
+    current_player.round.deck = Deck([], set_aside=set_aside)
+
+    give_card(target, card_cases.CardMockCases().case_generic(), replace=True)
+    move = play_card(current_player, cards.Prince())
+    target_step = next(move)
+    target_step.choice = target
+    send_gracious(move, target_step)
+    assert target.hand.card is set_aside
+    assert current_player.round.deck.set_aside is None
+    assert not current_player.round.deck
 
 
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})

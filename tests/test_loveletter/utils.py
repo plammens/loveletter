@@ -117,7 +117,7 @@ def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowe
     from test_loveletter.test_cards_cases import DISCARD_TYPES
 
     if autofill is None:
-        autofill = CardType(type(card)) in DISCARD_TYPES
+        autofill = CardType(card) in DISCARD_TYPES
     if (
         skip_if_disallowed
         and not isinstance(card, Mock)

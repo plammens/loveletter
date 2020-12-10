@@ -31,6 +31,9 @@ class InitialState(RoundState):
     def __init__(self):
         super().__init__(RoundState.Type.INIT, None)
 
+    def __repr__(self):
+        return "InitialState()"
+
 
 class Turn(RoundState):
     """Represents a single turn; acts as a context manager activated during a move"""
@@ -46,6 +49,10 @@ class Turn(RoundState):
     def __init__(self, current_player: Player):
         super().__init__(RoundState.Type.TURN, current_player)
         self.stage = Turn.Stage.START
+
+    def __repr__(self):
+        current_player = self.current_player
+        return f"<Turn({current_player}) [stage={self.stage.name}]>"
 
     def __enter__(self):
         valid8.validate(
@@ -71,6 +78,9 @@ class RoundEnd(RoundState):
     def __init__(self, winner: Player):
         super().__init__(RoundState.Type.ROUND_END, None)
         self.winner = winner
+
+    def __repr__(self):
+        return f"<RoundEnd(winner={self.winner})>"
 
 
 class Round:

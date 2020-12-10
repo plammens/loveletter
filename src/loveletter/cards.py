@@ -303,8 +303,7 @@ class CardType(enum.Enum):
 
     @classmethod
     def _missing_(cls, value):
-        value = type(value) if isinstance(value, Card) else value
-        if not is_subclass(value, Card):
+        if not (isinstance(value, Card) or is_subclass(value, Card)):
             return None
         return CardType(value.value)
 

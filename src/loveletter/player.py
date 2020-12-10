@@ -66,6 +66,12 @@ class Player:
     def alive(self) -> bool:
         return self._alive
 
+    def __repr__(self):
+        return f"<Player {self.id} of {repr(self.round)}>"
+
+    def __str__(self):
+        return f"player-{self.id}"
+
     def give(self, card: Card):
         """Give this player a card; alias for hand.add"""
         self.hand.add(card)

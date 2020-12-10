@@ -109,6 +109,10 @@ class Round:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
+    def __repr__(self):
+        alive, state = len(self.living_players), self.state
+        return f"<Round({self.num_players}) [{alive=}, {state=}] at {id(self):#X}>"
+
     def get_player(self, player: Player, offset: int):
         """
         Get the living player that is ``offset`` turns away from a given player.

@@ -27,6 +27,9 @@ class Player:
         def card(self) -> Optional[Card]:
             return self._cards[0] if self._cards else None
 
+        def __repr__(self):
+            return f"<Hand of {self._cards}>"
+
         def add(self, card: Card):
             valid8.validate("player.hand", self._cards, max_len=1)
             self._cards.append(card)

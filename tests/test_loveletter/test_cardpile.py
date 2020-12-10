@@ -20,7 +20,7 @@ def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     pile = pile_class.from_counts(counts)
     empiric_counts = Counter(map(CardType, pile))
     assert empiric_counts == counts
-    assert empiric_counts == pile.get_counts()
+    assert pile.get_counts() == empiric_counts
 
 
 @pytest_cases.parametrize_with_cases("card_pile")

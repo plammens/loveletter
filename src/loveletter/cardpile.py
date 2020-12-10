@@ -28,8 +28,16 @@ STANDARD_DECK_COUNTS: Counter[CardType] = collections.Counter(
 
 
 class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
+    """
+    A collection of cards with a specific purpose in the game.
+
+    Objects of this class consist of a stack of cards plus, optionally, other arbitrary
+    card storage. If viewed as a collection, iterating yields all cards contained in the
+    pile, first any spare cards and then the stack (from bottom to top).
+    """
+
     def __init__(self, cards: Sequence[Card]):
-        self._cards: List[Card] = list(cards)
+        self.stack: List[Card] = list(cards)
 
     # noinspection PyTypeChecker
     _T = TypeVar("_T", bound="CardPile")
@@ -45,18 +53,22 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
             )
         )
         random.shuffle(cards)
+        return cls.from_cards(cards)
+
+    @classmethod
+    def from_cards(cls: Type[_T], cards) -> _T:
         return cls(cards)
 
     del _T
 
     def __len__(self) -> int:
-        return len(self._cards)
+        return len(self.stack)
 
     def __iter__(self) -> Iterator[Card]:
-        return iter(self._cards)
+        return iter(self.stack)
 
     def __contains__(self, x: object) -> bool:
-        return x in self._cards
+        return x in self.stack
 
     def __eq__(self, o: object) -> bool:
         """Two piles are equal if they contain the same distribution of cards."""
@@ -66,15 +78,15 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
 
     @property
     def top(self) -> Optional[Card]:
-        return self._cards[-1] if len(self._cards) else None
+        return self.stack[-1] if len(self.stack) else None
 
     @abc.abstractmethod
     def place(self, card: Card) -> None:
-        self._cards.append(card)
+        self.stack.append(card)
 
     @abc.abstractmethod
     def take(self) -> Card:
-        return self._cards.pop()
+        return self.stack.pop()
 
     def get_counts(self) -> Counter[CardType]:
         """Returns a dictionary of card type to count in the pile."""
@@ -83,10 +95,37 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
 
 
 class Deck(CardPile):
-    # TODO: hold out one card
+    def __init__(self, cards: Sequence[Card], set_aside: Optional[Card]):
+        super().__init__(cards)
+        self.set_aside: Optional[Card] = set_aside
+
+    @classmethod
+    def from_cards(cls, cards):
+        return cls(cards, set_aside=cards.pop() if cards else None)
+
+    def __len__(self) -> int:
+        return super().__len__() + int(self.set_aside is not None)
+
+    def __iter__(self) -> Iterator[Card]:
+        return (
+            mitt.prepend(self.set_aside, super().__iter__())
+            if self.set_aside is not None
+            else super().__iter__()
+        )
+
+    def __contains__(self, x: object) -> bool:
+        return super().__contains__(x) or (
+            self.set_aside is not None and x == self.set_aside
+        )
 
     def take(self) -> Card:
-        return super(Deck, self).take()
+        if self.stack:
+            return super().take()
+        else:
+            card, self.set_aside = self.set_aside, None
+            if card is None:
+                raise ValueError("Deck empty and no card set aside")
+            return card
 
     def place(self, card: Card) -> None:
         raise TypeError("Can't place cards in deck")

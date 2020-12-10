@@ -211,6 +211,7 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
 
 
 def test_handmaid_playerBecomesImmune(current_player: Player):
+    assert not current_player.immune
     results = play_card(current_player, cards.Handmaid())
     assert tuple(map(type, results)) == (loveletter.move.ImmunityGranted,)
     assert results[0].player is current_player

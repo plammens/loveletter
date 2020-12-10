@@ -21,6 +21,12 @@ class MoveStep(metaclass=abc.ABCMeta):
     def completed(self) -> bool:
         return False
 
+    def __repr__(self):
+        return (
+            f"<{'completed' if self.completed else 'incomplete'}"
+            f" {self.__class__.__name__}>"
+        )
+
 
 class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
     def __init__(self):
@@ -38,6 +44,13 @@ class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
     @property
     def completed(self) -> bool:
         return self._choice is not None
+
+    def __repr__(self):
+        return (
+            super().__repr__()
+            if not self.completed
+            else f"<completed {self.__class__.__name__} with choice {self.choice}>"
+        )
 
     @abc.abstractmethod
     def _validate_choice(self, value):

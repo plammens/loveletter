@@ -106,13 +106,6 @@ class Card(metaclass=abc.ABCMeta):
         )
         return completed
 
-    @staticmethod
-    def _yield_done(*results: move.MoveResult):
-        try:
-            yield tuple(results)
-        except move.CancelMove as e:
-            raise RuntimeError("Can't cancel already completed move") from e
-
 
 class Spy(Card):
     value = 0

@@ -119,7 +119,7 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
 
 
 @pytest_cases.parametrize_with_cases(
-    "card", cases=card_cases.CardCases().case_multistep_card
+    "card", cases=card_cases.case_multistep_card_cancel
 )
 def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Card):
     give_card(current_player, card)

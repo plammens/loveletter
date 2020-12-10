@@ -31,8 +31,20 @@ class Player:
             return f"<Hand of {self._cards}>"
 
         def add(self, card: Card):
+            """Add a card to the hand"""
             valid8.validate("player.hand", self._cards, max_len=1)
             self._cards.append(card)
+
+        def replace(self, card: Card):
+            """Replace the current (only) card in the hand; return the old card"""
+            valid8.validate(
+                "hand",
+                self._cards,
+                length=1,
+                help_msg="Can't replace hand with more than one card",
+            )
+            old, self._cards[0] = self._cards[0], card
+            return old
 
         @contextlib.contextmanager
         def _play_card(self, card: "Card"):

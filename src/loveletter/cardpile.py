@@ -122,16 +122,16 @@ class Deck(CardPile):
         )
 
     def take(self) -> Card:
-        if self.stack:
-            return super().take()
-        else:
-            card, self.set_aside = self.set_aside, None
-            if card is None:
-                raise ValueError("Deck empty and no card set aside")
-            return card
+        return super().take()
+
+    def take_set_aside(self):
+        card = self.set_aside
+        self.set_aside = None
+        return card
 
     def place(self, card: Card) -> None:
-        raise TypeError("Can't place cards in deck")
+        """Place card on the bottom of the stack"""
+        self.stack.insert(0, card)
 
 
 class DiscardPile(CardPile):

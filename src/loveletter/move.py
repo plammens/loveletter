@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, Tuple
 
 import valid8
 
@@ -122,6 +122,41 @@ class OpponentChoice(PlayerChoice):
         )
 
 
+class ChooseOneCard(ChoiceStep):
+    def __init__(self, options: Tuple["Card", ...]):
+        super().__init__()
+        self.options = options
+
+    def _validate_choice(self, value):
+        valid8.validate(
+            "choice",
+            value,
+            is_in=self.options,
+            help_msg="This card is not an option",
+        )
+
+
+class ChooseOrderForDeckBottom(ChoiceStep):
+    """
+    Choose the order in which to put some cards at the bottom of the deck.
+
+    The choice should be a tuple of the given cards, ordered from bottommost to topmost.
+    """
+
+    def __init__(self, cards: Tuple["Card", ...]):
+        super().__init__()
+        self.cards = cards
+
+    def _validate_choice(self, value):
+        valid8.validate("choice", value, instance_of=tuple)
+        valid8.validate(
+            "choice",
+            set(value),
+            equals=set(self.cards),
+            help_msg="Chosen cards don't match cards to be ordered",
+        )
+
+
 # -------------------- MoveResult hierarchy ------------------
 
 
@@ -155,6 +190,17 @@ class CardDiscarded(MoveResult):
 @dataclass
 class CardDealt(MoveResult):
     target: "Player"
+    dealt: "Card"
+
+
+@dataclass
+class CardChosen(MoveResult):
+    choice: "Card"
+
+
+@dataclass
+class CardsPlacedBottomOfDeck(MoveResult):
+    cards: Tuple["Card"]
 
 
 @dataclass

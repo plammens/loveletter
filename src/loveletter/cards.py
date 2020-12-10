@@ -11,6 +11,7 @@ from typing import (
     Type,
 )
 
+import more_itertools as mitt
 import valid8
 
 import loveletter.move as move
@@ -211,21 +212,45 @@ class Prince(Card):
         results = [move.CardDiscarded(owner, self, player, player.hand.card)]
         results.extend(player.discard_card(player.hand.card))
         if player.alive:
-            owner.round.deal_card(player)
-            results.append(move.CardDealt(owner, self, player))
+            deck = owner.round.deck
+            card = deck.take() if deck.stack else deck.take_set_aside()
+            player.give(card)
+            results.append(move.CardDealt(owner, self, player, card))
 
         return tuple(results)
 
 
 class Chancellor(Card):
     value = 6
-    steps = ()
+    steps = (move.ChooseOneCard, move.ChooseOrderForDeckBottom)
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        return ()
-        # noinspection PyUnreachableCode
-        yield
+
+        deck = owner.round.deck
+        options = (
+            owner.hand.card,
+            *mitt.repeatfunc(deck.take, times=min(len(deck.stack), 2)),
+        )
+        try:
+            choice = (yield from self._yield_step(move.ChooseOneCard(options))).choice
+            owner.hand.replace(choice)
+            leftover = set(options) - {choice}
+            order = (
+                yield from self._yield_step(
+                    move.ChooseOrderForDeckBottom(tuple(leftover))
+                )
+            ).choice
+            for card in reversed(order):
+                deck.place(card)
+
+            return (
+                move.CardChosen(owner, self, choice),
+                move.CardsPlacedBottomOfDeck(owner, self, order),
+            )
+        except (move.CancelMove, GeneratorExit):
+            # Can't cancel once the player has seen the cards in the deck
+            raise RuntimeError("Can't cancel anymore; player has seen cards in deck")
 
 
 class King(Card):

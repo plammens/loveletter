@@ -108,6 +108,20 @@ def autofill_step(step: move.CardGuess):
     return step
 
 
+@autofill_step.register
+def autofill_step(step: move.ChooseOneCard):
+    step.choice = random.choice(step.options)
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: move.ChooseOrderForDeckBottom):
+    order = list(step.cards)
+    random.shuffle(order)
+    step.choice = tuple(order)
+    return step
+
+
 def make_mock_move(player):
     card_mock = card_cases.CardMockCases().case_generic()
     play_card(player, card_mock, autofill=True)

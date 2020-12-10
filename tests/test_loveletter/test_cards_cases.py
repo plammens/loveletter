@@ -6,7 +6,10 @@ import pytest_cases
 import loveletter.move as move
 from loveletter.cards import Card, CardType
 
+
 DISCARD_TYPES = {t for t in CardType if t.card_class.steps == ()}
+MULTISTEP_TYPES = set(CardType) - DISCARD_TYPES
+NO_CANCEL_TYPES = {CardType.CHANCELLOR}
 TARGET_TYPES = {
     t
     for t in CardType
@@ -21,9 +24,15 @@ class CardCases:
         return card_type.card_class()
 
     @pytest_cases.case()
-    @pytest_cases.parametrize(card_type=set(CardType) - DISCARD_TYPES)
+    @pytest_cases.parametrize(card_type=MULTISTEP_TYPES)
     def case_multistep_card(self, card_type: CardType):
         return card_type.card_class()
+
+
+@pytest_cases.case()
+@pytest_cases.parametrize(card_type=MULTISTEP_TYPES - NO_CANCEL_TYPES)
+def case_multistep_card_cancel(card_type: CardType):
+    return card_type.card_class()
 
 
 @pytest_cases.parametrize(card_type=TARGET_TYPES)

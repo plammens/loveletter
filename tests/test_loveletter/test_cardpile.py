@@ -40,9 +40,9 @@ def test_deckFromCounts_default_isStandardDeck():
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
 @pytest_cases.parametrize_with_cases("deck", cases=cardpile_cases.DeckCases)
-def test_deckPlace_card_raises(deck, card):
-    with pytest.raises(TypeError):
-        deck.place(card)
+def test_deckPlace_card_placesBottom(deck, card):
+    deck.place(card)
+    assert deck.stack[0] is card
 
 
 @pytest_cases.parametrize_with_cases(

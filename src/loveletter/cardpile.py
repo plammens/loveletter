@@ -76,6 +76,9 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
             raise TypeError(f"{self} and {o} not comparable")
         return self.get_counts() == o.get_counts()
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}.from_counts({self.get_counts()})"
+
     @property
     def top(self) -> Optional[Card]:
         return self.stack[-1] if len(self.stack) else None

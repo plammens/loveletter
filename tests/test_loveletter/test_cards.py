@@ -422,3 +422,18 @@ def test_targetCard_chooseSelf_raises(current_player, card):
         with pytest.raises(valid8.ValidationError):
             target_step.choice = current_player
             move.send(target_step)
+
+
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)
+def test_targetCard_allOpponentsImmune_canChooseNone(started_round: Round, card):
+    for player in started_round.players:
+        if player is not started_round.current_player:
+            player.immune = True
+
+    with assert_state_is_preserved(
+        started_round, allow_mutation={started_round.current_player}
+    ) as mocked_round:
+        move = play_card(mocked_round.current_player, card)
+        target_step = next(move)
+        target_step.choice = loveletter.move.OpponentChoice.NO_TARGET
+        send_gracious(move, target_step)

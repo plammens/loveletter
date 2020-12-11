@@ -364,9 +364,8 @@ def test_chancellor_oneCardInDeck_onlyUsesOneCard(started_round: Round):
     assert set(card_choice.options) == {player.hand.card, deck_card}
     assert started_round.deck.set_aside is set_aside
 
-    # cleanup to avoid exception when cancelling the move
-    order_choice = move.send(autofill_step(card_choice))
-    send_gracious(move, autofill_step(order_choice))
+    # cleanup to avoid exception when .close() is called
+    autofill_move(move, start_step=card_choice)
 
 
 def test_chancellor_cancelAfterStart_raises(current_player: Player):

@@ -58,11 +58,31 @@ def autoplay_round(game_round: Round):
 
 
 def autofill_move(
-    move_: cards.MoveStepGenerator, num_steps: int = None, close=None
+    move_: cards.MoveStepGenerator, start_step=None, num_steps: int = None, close=None
 ) -> Union[move.MoveStep, Tuple[move.MoveResult, ...]]:
+    """
+    Automatically play a move by making (arbitrary) choices for each of the steps.
+
+    Useful if the test doesn't care about the specifics of the move, just wants to play
+    it out.
+
+    :param move_: Move step generator as returned by Player.play().
+    :param start_step: Starting step, if any. If not None, the caller will have already
+                       completed part of the move, and this will be the most recent step
+                       yielded by move_, from which autofill_move will pick up. If None,
+                       it means start from the beginning.
+    :param num_steps: Number of steps to complete. Steps will be completed until either
+                      the move has been completed or the number of sent steps reaches
+                      this number. None means no limit.
+    :param close: Whether to call move_.close() at the end to make sure the generator
+                  gets cleaned up. By default this will be true if num_steps is None.
+
+    :return: The results of the move if it was played to completion, otherwise the most
+             recent unfulfilled step yielded by ``move_``.
+    """
     close = close if close is not None else (num_steps is None)
     max_steps = num_steps + 1 if num_steps is not None else math.inf
-    i, step, results = 0, None, None
+    i, step, results = 0, start_step, None
     try:
         while i < max_steps:
             step = move_.send(autofill_step(step))
@@ -72,11 +92,12 @@ def autofill_move(
     assert num_steps is None or i == max_steps
     if close:
         move_.close()
-    return results
+    return results if results is not None else step
 
 
 @multimethod
 def autofill_step(step: move.MoveStep):
+    """Fulfill a move step by making a(n arbitrary) choice"""
     raise TypeError(f"autofill_step not implemented for {type(step)}")
 
 

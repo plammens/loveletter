@@ -90,37 +90,35 @@ class PlayerChoice(ChoiceStep):
         }
 
     def _validate_choice(self, value):
-        if self._valid_choices:
-            valid8.validate(
-                "target",
-                value,
-                is_in=self._valid_choices,
-                help_msg="Must target a living, non-immune Player",
-            )
-        else:
-            valid8.validate(
-                "target",
-                value,
-                equals=None,
-                help_msg="No targets available, choice must be None",
-            )
         valid8.validate(
             "target",
             value,
-            is_in=self.game_round.living_players,
-            help_msg="Cannot choose a player from outside the round",
+            is_in=self._valid_choices,
+            help_msg="Must target a living, non-immune player from the round",
         )
 
 
 class OpponentChoice(PlayerChoice):
     """Make the player choose an opponent (any player but themselves)"""
 
+    # special value for when no player can be targeted because they're all immune
+    NO_TARGET = object()
+
     def __init__(self, player: "Player"):
         super().__init__(player.round)
         self.player: "Player" = player
+        self._valid_choices = self._valid_choices - {player}
 
     def _validate_choice(self, value):
-        super()._validate_choice(value)
+        if self._valid_choices:
+            super()._validate_choice(value)
+        else:
+            valid8.validate(
+                "choice",
+                value,
+                equals=self.NO_TARGET,
+                help_msg="No opponent can be targeted, they're all immune",
+            )
         valid8.validate(
             "target",
             value,

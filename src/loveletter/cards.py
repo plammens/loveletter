@@ -147,6 +147,9 @@ class Guard(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        if opponent is move.OpponentChoice.NO_TARGET:
+            return ()
+
         guess = (yield from self._yield_step(move.CardGuess())).choice
 
         # execute move:
@@ -165,6 +168,8 @@ class Priest(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        if opponent is move.OpponentChoice.NO_TARGET:
+            return ()
         return (move.ShowOpponentCard(owner, self, opponent),)
 
 
@@ -175,6 +180,8 @@ class Baron(Card):
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        if opponent is move.OpponentChoice.NO_TARGET:
+            return ()
 
         results = [move.CardComparison(owner, self, opponent)]
         # owner.hand.card is guaranteed not to be the card being played (i.e. self)

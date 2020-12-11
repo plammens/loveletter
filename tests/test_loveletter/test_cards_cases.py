@@ -9,7 +9,7 @@ from loveletter.cards import Card, CardType
 
 DISCARD_TYPES = {t for t in CardType if t.card_class.steps == ()}
 MULTISTEP_TYPES = set(CardType) - DISCARD_TYPES
-NO_CANCEL_TYPES = {CardType.CHANCELLOR}
+NO_CANCEL_TYPES = {t for t in CardType if not t.card_class.cancellable}
 TARGET_TYPES = {
     t
     for t in CardType

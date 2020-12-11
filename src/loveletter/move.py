@@ -11,8 +11,15 @@ if TYPE_CHECKING:
     from loveletter.round import Round
 
 
-class CancelMove(Exception):
+class CancelMove(BaseException):
     pass
+
+
+class CancellationError(RuntimeError):
+    pass
+
+
+# -------------------- MoveStep hierarchy ------------------
 
 
 class MoveStep(metaclass=abc.ABCMeta):

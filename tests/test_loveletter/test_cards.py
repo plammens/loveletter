@@ -370,11 +370,15 @@ def test_chancellor_oneCardInDeck_onlyUsesOneCard(started_round: Round):
 
 
 def test_chancellor_cancelAfterStart_raises(current_player: Player):
-    move = play_card(current_player, cards.Chancellor())
-    next(move)
-    # player has already seen cards so shouldn't be able to cancel:
-    with pytest.raises(RuntimeError):
-        move.throw(loveletter.move.CancelMove)
+    chancellor = cards.Chancellor()
+    move = play_card(current_player, chancellor)
+    with assert_state_is_preserved(current_player.round):
+        next(move)
+        # player has already seen cards so shouldn't be able to cancel:
+        assert not chancellor.cancellable
+        with pytest.raises(loveletter.move.CancellationError):
+            move.throw(loveletter.move.CancelMove)
+        assert current_player.round.state.stage == Turn.Stage.INVALID
 
 
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})

@@ -11,7 +11,6 @@ from typing import (
     Type,
 )
 
-import more_itertools as mitt
 import valid8
 
 import loveletter.move as move
@@ -30,6 +29,7 @@ MoveStepGenerator = Generator[
 class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
     steps: ClassVar[Tuple[Type[move.MoveStep]]]  # indicates the steps yielded by play()
+    cancellable: ClassVar[bool] = True
 
     @property
     def name(self):
@@ -64,10 +64,15 @@ class Card(metaclass=abc.ABCMeta):
         will return a tuple of :class:`loveletter.move.MoveResult` instances
         summarising the results of the move in sequence.
 
-        At any point before the move is executed, the caller can .throw() a
+        For cancellable cards (those whose ``cancellable`` class variable is set to
+        True), at any point before the move is executed, the caller can .throw() a
         CancelMove exception to cancel the move. This will exit the generator
         (raising a StopIteration) and thus will not apply the effect of the move.
         Calling .close() is equivalent, but doesn't raise the StopIteration.
+
+        Some moves don't allow cancellation; if attempted to be cancelled, they will
+        throw a CancellationError will be thrown and the turn will be put in an
+        invalid state.
 
         :param owner: Owner of the card; who is playing it.
         :returns: A generator as described above.
@@ -223,16 +228,16 @@ class Prince(Card):
 class Chancellor(Card):
     value = 6
     steps = (move.ChooseOneCard, move.ChooseOrderForDeckBottom)
+    cancellable = False
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
 
         deck = owner.round.deck
-        options = (
-            owner.hand.card,
-            *mitt.repeatfunc(deck.take, times=min(len(deck.stack), 2)),
-        )
         try:
+            # don't take cards from deck yet so that if something raises, the deck
+            # will remain intact
+            options = (owner.hand.card, *deck.stack[-2:])
             choice = (yield from self._yield_step(move.ChooseOneCard(options))).choice
             owner.hand.replace(choice)
             leftover = set(options) - {choice}
@@ -241,6 +246,11 @@ class Chancellor(Card):
                     move.ChooseOrderForDeckBottom(tuple(leftover))
                 )
             ).choice
+
+            # actually take cards from deck
+            for card in reversed(options[1:]):
+                _ = deck.take()
+                assert _ is card
             for card in reversed(order):
                 deck.place(card)
 
@@ -248,9 +258,10 @@ class Chancellor(Card):
                 move.CardChosen(owner, self, choice),
                 move.CardsPlacedBottomOfDeck(owner, self, order),
             )
-        except (move.CancelMove, GeneratorExit):
-            # Can't cancel once the player has seen the cards in the deck
-            raise RuntimeError("Can't cancel anymore; player has seen cards in deck")
+        except (move.CancelMove, GeneratorExit) as e:
+            raise move.CancellationError(
+                "Can't cancel anymore; player has seen cards in deck"
+            ) from e
 
 
 class King(Card):

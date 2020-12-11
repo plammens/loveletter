@@ -1,3 +1,5 @@
+import random
+
 import pytest
 import pytest_cases
 import valid8
@@ -319,6 +321,60 @@ def test_prince_emptyDeck_dealsSetAsideCard(current_player: Player, target: Play
     assert target.hand.card is set_aside
     assert current_player.round.deck.set_aside is None
     assert not current_player.round.deck
+
+
+def test_chancellor_correctlyHandlesCards(started_round):
+    player = started_round.current_player
+    other_card = player.hand.card
+    top_2 = started_round.deck.stack[-2:]
+
+    move = play_card(player, cards.Chancellor())
+    card_choice: loveletter.move.ChooseOneCard = next(move)
+    assert player.hand.card is other_card
+    assert other_card in card_choice.options
+    assert set(top_2).issubset(set(card_choice.options))
+
+    card_choice.choice = random.choice(card_choice.options)
+    order_choice: loveletter.move.ChooseOrderForDeckBottom = move.send(card_choice)
+    assert player.hand.card is card_choice.choice
+    assert len(player.hand) == 1
+    assert set(card_choice.options) - {card_choice.choice} == set(order_choice.cards)
+
+    order = list(order_choice.cards)
+    random.shuffle(order)
+    order_choice.choice = tuple(order)
+    results = send_gracious(move, order_choice)
+    assert started_round.deck.stack[:2] == order
+
+    assert tuple(map(type, results)) == (
+        loveletter.move.CardChosen,
+        loveletter.move.CardsPlacedBottomOfDeck,
+    )
+    assert results[0].choice is card_choice.choice
+    assert results[1].cards == order_choice.choice
+
+
+def test_chancellor_oneCardInDeck_onlyUsesOneCard(started_round: Round):
+    deck_card, set_aside = cards.Spy(), cards.Princess()
+    started_round.deck = Deck([deck_card], set_aside=set_aside)
+    player = started_round.current_player
+    move = play_card(player, cards.Chancellor())
+    card_choice = next(move)
+    assert len(card_choice.options) == 2
+    assert set(card_choice.options) == {player.hand.card, deck_card}
+    assert started_round.deck.set_aside is set_aside
+
+    # cleanup to avoid exception when cancelling the move
+    order_choice = move.send(autofill_step(card_choice))
+    send_gracious(move, autofill_step(order_choice))
+
+
+def test_chancellor_cancelAfterStart_raises(current_player: Player):
+    move = play_card(current_player, cards.Chancellor())
+    next(move)
+    # player has already seen cards so shouldn't be able to cancel:
+    with pytest.raises(RuntimeError):
+        move.throw(loveletter.move.CancelMove)
 
 
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})

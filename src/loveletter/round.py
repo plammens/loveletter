@@ -242,6 +242,9 @@ class Round:
 
     def _finalize_round(self) -> RoundEnd:
         self.state = end = RoundEnd(
-            winner=max(self.living_players, key=lambda p: p.hand.card.value)
+            winner=max(
+                self.living_players,
+                key=lambda p: (p.hand.card.value, sum(c.value for c in p.cards_played)),
+            )
         )
         return end

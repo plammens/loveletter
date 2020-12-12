@@ -178,11 +178,25 @@ class Round:
         player.give(card := self.deck.take())
         return card
 
-    def start(self) -> Turn:
-        """Initialise the round: hand out one card to each player and start a turn."""
+    def start(self, first_player: Player = None) -> Turn:
+        """
+        Initialise the round: hand out one card to each player and start a turn.
+
+        :param first_player: First player that will play in this round. None means
+                             choose at random.
+        """
+        if first_player is None:
+            first_player = random.choice(self.players)
+        else:
+            valid8.validate(
+                "first_player",
+                first_player,
+                is_in=self.players,
+                help_msg="Not a player of this round",
+            )
+
         for player in self.players:
             self.deal_card(player)
-        first_player = random.choice(self.players)
         self.deal_card(first_player)
         self.state = turn = Turn(first_player)
         return turn

@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterable, Iterator, List, Optional, TypeVar
 
 
 def is_subclass(value, cls):
@@ -32,3 +32,25 @@ def cycle_from(
         return itertools.chain.from_iterable(itertools.repeat(it, times))
     else:
         return itertools.cycle(it)
+
+
+def argmax(iterable: Iterable[T], key: Callable[[T], Any] = None) -> List[T]:
+    """
+    Get a list of *all* maximal elements in an iterable.
+
+    :param iterable: Iterable of items to search through.
+    :param key: Key function to maximize; default is the identity function.
+    """
+    key = key if key is not None else lambda x: x
+    it = iter(iterable)
+    if (first := next(it, None)) is None:
+        raise ValueError("Empty iterable")
+    max_key, args = key(first), [first]
+
+    for x in it:
+        if (k := key(x)) > max_key:
+            max_key, args = k, [x]
+        elif k == max_key:
+            args.append(x)
+
+    return args

@@ -2,14 +2,15 @@ import abc
 import enum
 import itertools
 import random
-from typing import List, Optional, Sequence, TYPE_CHECKING
+from typing import Iterable, List, Optional, Sequence, Set, TYPE_CHECKING
 
+import more_itertools
 import valid8
 
 from loveletter.cardpile import Deck, DiscardPile
 from loveletter.move import CancelMove
 from loveletter.player import Player
-from loveletter.utils import cycle_from
+from loveletter.utils import argmax, cycle_from
 
 if TYPE_CHECKING:
     from loveletter.cards import Card
@@ -75,11 +76,18 @@ class Turn(RoundState):
 
 
 class RoundEnd(RoundState):
-    winner: Player
+    winners: Set[Player]
 
-    def __init__(self, winner: Player):
+    def __init__(self, winners: Iterable[Player]):
         super().__init__(RoundState.Type.ROUND_END, None)
-        self.winner = winner
+        self.winners = set(winners)
+
+    @property
+    def winner(self) -> Player:
+        with valid8.validation(
+            "winners", self.winners, help_msg="There is more than one winner"
+        ):
+            return more_itertools.only(self.winners)
 
     def __repr__(self):
         return f"<RoundEnd(winner={self.winner})>"
@@ -242,7 +250,7 @@ class Round:
 
     def _finalize_round(self) -> RoundEnd:
         self.state = end = RoundEnd(
-            winner=max(
+            winners=argmax(
                 self.living_players,
                 key=lambda p: (p.hand.card.value, sum(c.value for c in p.cards_played)),
             )

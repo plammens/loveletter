@@ -156,6 +156,22 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
     assert end.winner is winner
 
 
+def test_roundEnd_totalTie_everyoneWins(started_round: Round):
+    card = cards.Guard()
+
+    started_round.deck.stack.clear()
+    for player in started_round.players:
+        give_card(player, card, replace=True)
+        player.cards_played.clear()
+
+    end = force_next_turn(started_round)
+    assert end.type == RoundState.Type.ROUND_END
+    assert end.winners == set(started_round.players)
+    with pytest.raises(valid8.ValidationError):
+        # noinspection PyStatementEffect
+        end.winner
+
+
 def test_dealCard_newRound_playerInRound_works(new_round: Round):
     init_deck = list(new_round.deck)
     player = new_round.players[-1]

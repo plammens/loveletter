@@ -6,6 +6,7 @@ import pytest_cases
 import valid8
 
 import test_loveletter.unit.test_cards_cases as card_cases
+from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.round import Round, RoundEnd, RoundState, Turn
@@ -14,6 +15,7 @@ from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM
 from test_loveletter.utils import (
     autofill_step,
     force_next_turn,
+    give_card,
     play_card,
     play_mock_move,
     send_gracious,
@@ -127,6 +129,29 @@ def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(started_round: Rou
     assert CardType(state.winner.hand.card) == max(
         CardType(p.hand.card) for p in started_round.living_players
     )
+
+
+@pytest_cases.parametrize(from_player=[0, 1, 2])
+def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_player):
+    discard_piles = (
+        [cards.Priest(), cards.Prince()],  # total value: 7
+        [cards.Guard(), cards.Countess()],  # total value: 8  -- best; offset=1
+        [cards.Guard(), cards.Spy()],  # total value: 1
+    )
+    from_player = started_round.players[from_player % started_round.num_players]
+    winner = started_round.get_player(from_player, offset=1)
+    card = cards.Guard()
+
+    started_round.deck.stack.clear()
+    for player, discard_pile in zip(
+        cycle_from(started_round.players, from_player), discard_piles
+    ):
+        give_card(player, card, replace=True)
+        player.cards_played = discard_pile
+
+    end = force_next_turn(started_round)
+    assert end.type == RoundState.Type.ROUND_END
+    assert end.winner is winner
 
 
 def test_dealCard_newRound_playerInRound_works(new_round: Round):

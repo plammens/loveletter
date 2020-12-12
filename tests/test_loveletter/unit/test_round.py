@@ -137,6 +137,7 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
         [cards.Priest(), cards.Prince()],  # total value: 7
         [cards.Guard(), cards.Countess()],  # total value: 8  -- best; offset=1
         [cards.Guard(), cards.Spy()],  # total value: 1
+        [cards.Spy()],  # total value: 0
     )
     from_player = started_round.players[from_player % started_round.num_players]
     winner = started_round.get_player(from_player, offset=1)
@@ -144,7 +145,8 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
 
     started_round.deck.stack.clear()
     for player, discard_pile in zip(
-        cycle_from(started_round.players, from_player), discard_piles
+        cycle_from(started_round.players, from_player, times=1),
+        discard_piles,
     ):
         give_card(player, card, replace=True)
         player.cards_played = discard_pile

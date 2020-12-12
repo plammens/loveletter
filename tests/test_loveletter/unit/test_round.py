@@ -156,20 +156,25 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
     assert end.winner is winner
 
 
-def test_roundEnd_totalTie_everyoneWins(started_round: Round):
-    card = cards.Guard()
+@pytest_cases.parametrize_with_cases("loser", cases=player_cases.MaybePlayerCases)
+def test_roundEnd_totalTie_everyoneWins(started_round: Round, loser):
+    losers = {loser} if loser is not None else set()
+    winners = set(started_round.players) - losers
 
     started_round.deck.stack.clear()
-    for player in started_round.players:
-        give_card(player, card, replace=True)
+    for player in winners:
+        give_card(player, cards.Princess(), replace=True)
         player.cards_played.clear()
+    for loser in losers:
+        give_card(loser, cards.Guard(), replace=True)
 
     end = force_next_turn(started_round)
     assert end.type == RoundState.Type.ROUND_END
-    assert end.winners == set(started_round.players)
-    with pytest.raises(valid8.ValidationError):
-        # noinspection PyStatementEffect
-        end.winner
+    assert end.winners == winners
+    if len(winners) > 1:
+        with pytest.raises(valid8.ValidationError):
+            # noinspection PyStatementEffect
+            end.winner
 
 
 def test_dealCard_newRound_playerInRound_works(new_round: Round):

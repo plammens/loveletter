@@ -68,3 +68,10 @@ class PlayerCases:
     @pytest_cases.case(id="current_player_")
     def case_current_player(self, current_player: Player):
         return current_player
+
+
+class MaybePlayerCases:
+    PlayerCases = PlayerCases
+
+    def case_no_player(self):
+        return None

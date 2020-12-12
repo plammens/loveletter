@@ -103,7 +103,7 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
 
 
 def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(started_round: Round):
-    started_round.deck = Deck([], set_aside=card_cases.CardMockCases().case_generic())
+    started_round.deck = Deck([], set_aside=card_cases.CardMockCases.case_generic())
     state = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
     assert CardType(state.winner.hand.card) == max(

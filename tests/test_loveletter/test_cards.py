@@ -310,10 +310,10 @@ def test_prince_againstPrincess_kills(started_round: Round):
 
 @pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
 def test_prince_emptyDeck_dealsSetAsideCard(current_player: Player, target: Player):
-    set_aside = card_cases.CardMockCases().case_generic()
+    set_aside = card_cases.CardMockCases.case_generic()
     current_player.round.deck = Deck([], set_aside=set_aside)
 
-    give_card(target, card_cases.CardMockCases().case_generic(), replace=True)
+    give_card(target, card_cases.CardMockCases.case_generic(), replace=True)
     move = play_card(current_player, cards.Prince())
     target_step = next(move)
     target_step.choice = target

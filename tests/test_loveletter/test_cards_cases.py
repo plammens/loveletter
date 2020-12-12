@@ -41,8 +41,9 @@ def case_target_card(card_type: CardType):
 
 
 class CardMockCases:
+    @staticmethod
     @pytest_cases.case()
-    def case_generic(self) -> MagicMock:
+    def case_generic() -> MagicMock:
         def play(owner):
             yield MagicMock()
             return (move.MoveResult(owner, mock),)

@@ -1,4 +1,4 @@
-import itertools
+import itertools as itt
 import unittest.mock
 
 import pytest
@@ -9,6 +9,7 @@ import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.round import Round, RoundEnd, RoundState, Turn
+from loveletter.utils import cycle_from
 from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
     autofill_step,
@@ -42,13 +43,30 @@ def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
     assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)
 
 
-def test_start_newRound_setsCorrectGameState(new_round: Round):
+@pytest_cases.parametrize(first=[None, 0, 1, 3])
+def test_start_newRound_setsCorrectGameState(new_round: Round, first):
+    first = None if first is None else new_round.players[first % new_round.num_players]
     assert new_round.current_player is None
-    new_round.start()
+
+    new_round.start(first_player=first)
     assert new_round.current_player in new_round.players
+    if first is not None:
+        assert new_round.current_player is first
     assert new_round.started
     assert new_round.state.type == RoundState.Type.TURN
     assert new_round.state.current_player == new_round.current_player
+
+
+@pytest_cases.parametrize(first=[0, 1, 3])
+def test_start_withFirstPlayer_dealsCardsInOrder(new_round: Round, first):
+    first = None if first is None else new_round.players[first % new_round.num_players]
+    top_cards = new_round.deck.stack[-(new_round.num_players + 1) :]
+
+    new_round.start(first_player=first)
+    for player, card in zip(
+        cycle_from(new_round.players, item=first), reversed(top_cards)
+    ):
+        assert card in player.hand
 
 
 def test_start_newRound_dealsCardsCorrectly(new_round: Round):
@@ -57,7 +75,7 @@ def test_start_newRound_dealsCardsCorrectly(new_round: Round):
     new_round.start()
     # +1 is for extra card dealt to first player
     expected_cards_dealt = new_round.num_players + 1
-    hands = list(itertools.chain.from_iterable(p.hand for p in new_round.players))
+    hands = list(itt.chain.from_iterable(p.hand for p in new_round.players))
     assert set(hands) == set(init_deck[-expected_cards_dealt:])
     assert list(new_round.deck) == init_deck[:-expected_cards_dealt]
     assert new_round.state.current_player == new_round.current_player

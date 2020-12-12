@@ -90,7 +90,7 @@ class RoundEnd(RoundState):
             return more_itertools.only(self.winners)
 
     def __repr__(self):
-        return f"<RoundEnd(winner={self.winner})>"
+        return f"<RoundEnd(winners={set(map(str, self.winners))})>"
 
 
 class Round:

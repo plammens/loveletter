@@ -82,7 +82,7 @@ class Player:
         return self._alive
 
     def __repr__(self):
-        return f"<Player {self.id} of {repr(self.round)}>"
+        return f"<Player {self.id} of <Round at {id(self.round):#X}>>"
 
     def __str__(self):
         return f"player-{self.id}"

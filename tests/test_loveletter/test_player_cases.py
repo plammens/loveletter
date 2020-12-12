@@ -1,5 +1,4 @@
 from typing import Sequence
-from unittest.mock import MagicMock, PropertyMock
 
 import pytest_cases
 
@@ -7,6 +6,7 @@ import test_loveletter.test_cards_cases as card_cases
 from loveletter.cards import Card
 from loveletter.player import Player
 from loveletter.round import Round
+from test_loveletter.utils import make_round_mock
 
 
 class PlayerHandCases:
@@ -29,17 +29,8 @@ class PlayerHandCases:
 class DummyPlayerCases:
     @staticmethod
     def __make_player(hand: Sequence[Card]) -> Player:
-        round_ = Round(2)
-        round_.start()
-        player = round_.current_player
-        round_mock = MagicMock(wraps=round_)
-        for p in round_mock.players:
-            p.round = round_mock
-        round_mock.current_player = round_mock.state.current_player = player
-        type(round_mock).living_players = PropertyMock(
-            side_effect=lambda: round_.living_players
-        )
-        round_mock.players = round_.players
+        round_mock = make_round_mock()
+        player = round_mock.current_player
         player.hand._cards.clear()
         for card in hand:
             player.give(card)

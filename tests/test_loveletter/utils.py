@@ -274,3 +274,18 @@ def send_gracious(gen: Generator, value: Any):
         return gen.send(value)
     except StopIteration as e:
         return e.value
+
+
+def make_round_mock():
+    round_ = Round(2)
+    round_.start()
+    player = round_.current_player
+    round_mock = MagicMock(wraps=round_)
+    round_mock.current_player = round_mock.state.current_player = player
+    type(round_mock).living_players = PropertyMock(
+        side_effect=lambda: round_.living_players
+    )
+    round_mock.players = round_.players
+    for p in round_mock.players:
+        p.round = round_mock
+    return round_mock

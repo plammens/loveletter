@@ -273,13 +273,15 @@ class Chancellor(Card):
 
 class King(Card):
     value = 7
-    steps = ()
+    steps = (move.OpponentChoice,)
 
     def play(self, owner: "Player") -> MoveStepGenerator:
         self._validate_move(owner)
-        return ()
-        # noinspection PyUnreachableCode
-        yield
+        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        if opponent is move.OpponentChoice.NO_TARGET:
+            return ()
+        opponent.hand.replace(owner.hand.replace(opponent.hand.card))
+        return (move.CardsSwapped(owner, self, opponent),)
 
 
 class Countess(Card):

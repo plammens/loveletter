@@ -6,7 +6,7 @@ import pytest_cases
 import test_loveletter.test_cards_cases as card_cases
 from loveletter.cards import Card
 from loveletter.player import Player
-from loveletter.round import Round, Turn
+from loveletter.round import Round
 
 
 class PlayerHandCases:
@@ -31,10 +31,10 @@ class DummyPlayerCases:
     def __make_player(hand: Sequence[Card]) -> Player:
         round_ = Round(2)
         round_.start()
-        player = round_.players[0]
+        player = round_.current_player
         round_mock = MagicMock(wraps=round_)
-        player.round = round_mock
-        round_mock.state = Turn(player)
+        for p in round_mock.players:
+            p.round = round_mock
         round_mock.current_player = round_mock.state.current_player = player
         type(round_mock).living_players = PropertyMock(
             side_effect=lambda: round_.living_players

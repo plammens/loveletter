@@ -5,7 +5,7 @@ from typing import Iterator, List, Optional, TYPE_CHECKING, Tuple
 import valid8
 
 import loveletter.move
-from loveletter.cards import Card, MoveStepGenerator
+from loveletter.cards import Card, CardType, MoveStepGenerator
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -140,6 +140,15 @@ class Player:
         except (loveletter.move.CancelMove, GeneratorExit):
             # Exception was injected to signal cancelling
             return
+
+    def play_type(self, card_type: CardType) -> MoveStepGenerator:
+        """Shortcut to play the first card in the hand of a given type"""
+        with valid8.validation("card_type", card_type, help_msg="Not in hand"):
+            for card in self.hand:
+                if CardType(card) == card_type:
+                    return self.play_card(card)
+            else:
+                raise LookupError(card_type)
 
     @valid8.validate_arg("self", alive.fget, help_msg="Can't eliminate dead player")
     def eliminate(self):

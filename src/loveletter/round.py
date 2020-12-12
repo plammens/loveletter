@@ -1,5 +1,6 @@
 import abc
 import enum
+import itertools
 import random
 from typing import List, Optional, Sequence, TYPE_CHECKING
 
@@ -8,6 +9,7 @@ import valid8
 from loveletter.cardpile import Deck, DiscardPile
 from loveletter.move import CancelMove
 from loveletter.player import Player
+from loveletter.utils import cycle_from
 
 if TYPE_CHECKING:
     from loveletter.cards import Card
@@ -202,9 +204,10 @@ class Round:
                 help_msg="Not a player of this round",
             )
 
-        for player in self.players:
+        for player in itertools.islice(
+            cycle_from(self.players, first_player), None, self.num_players + 1
+        ):
             self.deal_card(player)
-        self.deal_card(first_player)
         self.state = turn = Turn(first_player)
         return turn
 

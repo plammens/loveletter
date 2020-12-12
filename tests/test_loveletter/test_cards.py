@@ -18,10 +18,10 @@ from test_loveletter.utils import (
     autofill_step,
     force_next_turn,
     give_card,
-    make_mock_move,
     mock_player,
     play_card,
     play_card_with_cleanup,
+    play_mock_move,
     restart_turn,
     send_gracious,
 )
@@ -240,7 +240,7 @@ def test_handmaid_immunityLastsOneFullRotation(started_round: Round):
     started_round.advance_turn()
     while (current := started_round.current_player) is not immune_player:
         assert immune_player.immune
-        make_mock_move(current)
+        play_mock_move(current)
         started_round.advance_turn()
     assert not immune_player.immune
 

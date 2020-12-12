@@ -13,8 +13,8 @@ from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAY
 from test_loveletter.utils import (
     autofill_step,
     force_next_turn,
-    make_mock_move,
     play_card,
+    play_mock_move,
     send_gracious,
 )
 
@@ -69,7 +69,7 @@ def test_currentPlayer_isValid(started_round):
 
 def test_nextTurn_currentPlayerIsValid(started_round: Round):
     before = started_round.current_player
-    make_mock_move(before)
+    play_mock_move(before)
     started_round.advance_turn()
     after = started_round.current_player
     assert after.alive
@@ -84,7 +84,7 @@ def test_nextTurn_dealsCard(started_round: Round):
 
 
 def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):
-    make_mock_move(started_round.current_player)
+    play_mock_move(started_round.current_player)
     state = started_round.advance_turn()
     assert state.type == RoundState.Type.TURN
     assert isinstance(state, Turn)

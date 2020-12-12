@@ -143,7 +143,7 @@ def autofill_step(step: move.ChooseOrderForDeckBottom):
     return step
 
 
-def make_mock_move(player):
+def play_mock_move(player):
     card_mock = card_cases.CardMockCases().case_generic()
     play_card(player, card_mock, autofill=True)
 

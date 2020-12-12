@@ -89,12 +89,19 @@ class Round:
     discard_pile: DiscardPile
     state: RoundState
 
-    def __init__(self, num_players: int):
+    def __init__(self, num_players: int, deck: Deck = None):
+        """
+        Initialise a new round.
+
+        :param num_players: Number of players in the round.
+        :param deck: Initial deck to start with. None means use the standard deck.
+        """
+
         valid8.validate(
             "num_players", num_players, instance_of=int, min_value=2, max_value=4
         )
         self.players = [Player(self, i) for i in range(num_players)]
-        self.deck = Deck.from_counts()
+        self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
         self.state = InitialState()
 

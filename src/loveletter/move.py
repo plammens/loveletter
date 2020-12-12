@@ -165,55 +165,55 @@ class ChooseOrderForDeckBottom(ChoiceStep):
 # -------------------- MoveResult hierarchy ------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoveResult(metaclass=abc.ABCMeta):
     player: "Player"
     card_played: "Card"
 
 
-@dataclass
+@dataclass(frozen=True)
 class PlayerEliminated(MoveResult):
     eliminated: "Player"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ShowOpponentCard(MoveResult):
     opponent: "Player"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardComparison(MoveResult):
     opponent: "Player"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardDiscarded(MoveResult):
     target: "Player"
     discarded: "Card"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardDealt(MoveResult):
     target: "Player"
     dealt: "Card"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardChosen(MoveResult):
     choice: "Card"
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardsPlacedBottomOfDeck(MoveResult):
     cards: Tuple["Card"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class ImmunityGranted(MoveResult):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class CardsSwapped(MoveResult):
     opponent: "Player"
 

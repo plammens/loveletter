@@ -6,6 +6,7 @@ import pytest_cases
 import valid8
 
 import test_loveletter.unit.test_cards_cases as card_cases
+import test_loveletter.unit.test_player_cases as player_cases
 from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
@@ -131,7 +132,7 @@ def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(started_round: Rou
     )
 
 
-@pytest_cases.parametrize(from_player=[0, 1, 2])
+@pytest_cases.parametrize_with_cases("from_player", cases=player_cases.PlayerCases)
 def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_player):
     discard_piles = (
         [cards.Priest(), cards.Prince()],  # total value: 7
@@ -139,7 +140,6 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
         [cards.Guard(), cards.Spy()],  # total value: 1
         [cards.Spy()],  # total value: 0
     )
-    from_player = started_round.players[from_player % started_round.num_players]
     winner = started_round.get_player(from_player, offset=1)
     card = cards.Guard()
 

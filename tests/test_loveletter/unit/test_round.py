@@ -5,11 +5,11 @@ import pytest
 import pytest_cases
 import valid8
 
-import test_loveletter.test_cards_cases as card_cases
+import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.round import Round, RoundEnd, RoundState, Turn
-from test_loveletter.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
+from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
     autofill_step,
     force_next_turn,

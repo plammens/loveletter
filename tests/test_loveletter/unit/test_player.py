@@ -3,8 +3,8 @@ import pytest
 import pytest_cases
 import valid8
 
-import test_loveletter.test_cards_cases as card_cases
-import test_loveletter.test_player_cases as player_cases
+import test_loveletter.unit.test_cards_cases as card_cases
+import test_loveletter.unit.test_player_cases as player_cases
 from loveletter.cards import Card
 from loveletter.move import CancelMove
 from loveletter.player import Player

@@ -6,8 +6,8 @@ import valid8
 
 import loveletter.cards as cards
 import loveletter.move
-import test_loveletter.test_cards_cases as card_cases
-import test_loveletter.test_player_cases as player_cases
+import test_loveletter.unit.test_cards_cases as card_cases
+import test_loveletter.unit.test_player_cases as player_cases
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType
 from loveletter.player import Player

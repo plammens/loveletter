@@ -18,7 +18,7 @@ from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
-from test_loveletter import test_cards_cases as card_cases
+from test_loveletter.unit import test_cards_cases as card_cases
 
 
 _T = TypeVar("_T")
@@ -149,7 +149,7 @@ def play_mock_move(player):
 
 
 def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowed=True):
-    from test_loveletter.test_cards_cases import DISCARD_TYPES
+    from test_loveletter.unit.test_cards_cases import DISCARD_TYPES
 
     if autofill is None:
         autofill = CardType(card) in DISCARD_TYPES

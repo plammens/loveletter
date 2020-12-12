@@ -2,7 +2,7 @@ from typing import Sequence
 
 import pytest_cases
 
-import test_loveletter.test_cards_cases as card_cases
+import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cards import Card
 from loveletter.player import Player
 from loveletter.round import Round

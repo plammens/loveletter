@@ -5,8 +5,8 @@ import pytest
 import pytest_cases
 
 import loveletter.cardpile
-import test_loveletter.test_cardpile_cases as cardpile_cases
-import test_loveletter.test_cards_cases as card_cases
+import test_loveletter.unit.test_cardpile_cases as cardpile_cases
+import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import CardType
 from test_loveletter.utils import collect_subclasses, random_card_counts

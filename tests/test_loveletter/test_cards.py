@@ -380,6 +380,19 @@ def test_chancellor_cancelAfterStart_raises(current_player: Player):
         assert current_player.round.state.stage == Turn.Stage.INVALID
 
 
+def test_king_againstOpponent_swapsCards(current_player: Player):
+    move = play_card(current_player, cards.King())
+    target_step = autofill_step(next(move))
+    target = target_step.choice
+    player_card, target_card = current_player.hand.card, target.hand.card
+
+    results = send_gracious(move, target_step)
+    assert current_player.hand.card is target_card
+    assert target.hand.card is player_card
+    assert tuple(map(type, results)) == (loveletter.move.CardsSwapped,)
+    assert results[0].opponent is target
+
+
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})
 def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
     target = current_player.round.next_player(current_player)

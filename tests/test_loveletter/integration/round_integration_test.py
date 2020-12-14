@@ -3,7 +3,11 @@ import loveletter.move as move
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType
 from loveletter.round import Round, RoundState
-from test_loveletter.utils import make_round_from_player_cards, play_with_choices
+from test_loveletter.utils import (
+    make_round_from_player_cards,
+    play_random_move,
+    play_with_choices,
+)
 
 
 def test_1_prince_victory():
@@ -31,17 +35,15 @@ def test_1_prince_victory():
 
     (immunity,) = play_with_choices(player0, CardType.HANDMAID)
     assert immunity.player is player0
-    game_round.advance_turn()
 
     results = play_with_choices(player1, CardType.PRIEST, move.OpponentChoice.NO_TARGET)
     assert results == ()
-    game_round.advance_turn()
 
     discarded, dealt = play_with_choices(player0, CardType.PRINCE, player0)
     assert CardType(discarded.discarded) == CardType.GUARD
     assert CardType(dealt.dealt) == CardType.PRINCESS
-    end = game_round.advance_turn()
 
+    end = game_round.state
     assert end.type == RoundState.Type.ROUND_END
     assert max(game_round.players, key=lambda p: p.hand.card.value) is player0
     assert end.winner is player0
@@ -64,22 +66,12 @@ def test_2_threeway_draw():
     game_round.start(first_player=player0)
 
     play_with_choices(player0, CardType.SPY)
-    game_round.advance_turn()
-
     play_with_choices(player1, CardType.GUARD, player0, CardType.PRINCESS)
-    game_round.advance_turn()
-
     play_with_choices(player2, CardType.PRIEST, player0)
-    game_round.advance_turn()
-
     play_with_choices(player0, CardType.PRIEST, player1)
-    game_round.advance_turn()
-
     play_with_choices(player1, CardType.GUARD, player2, CardType.PRINCESS)
-    game_round.advance_turn()
-
     play_with_choices(player2, CardType.SPY)
-    end = game_round.advance_turn()
 
+    end = game_round.state
     assert end.type == RoundState.Type.ROUND_END
     assert end.winners == {player0, player1, player2}

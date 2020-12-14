@@ -61,10 +61,13 @@ def random_card_counts() -> Counter[CardType]:
 
 def autoplay_round(game_round: Round):
     while not game_round.ended:
-        player = game_round.current_player
-        card = random.choice(list(player.hand))
-        autofill_move(player.play_card(card))
-        game_round.advance_turn()
+        play_random_move(game_round.current_player)
+
+
+def play_random_move(player):
+    card = random.choice(list(player.hand))
+    autofill_move(player.play_card(card))
+    player.round.advance_turn()
 
 
 def autofill_move(
@@ -307,13 +310,16 @@ def card_from_card_type(card_type: CardType):
     return card_type.card_class()
 
 
-def play_with_choices(player: Player, card_type: CardType, *choices):
+def play_with_choices(player: Player, card_type: CardType, *choices, advance_turn=True):
     move_ = player.play_type(card_type)
     step = None
     for choice in choices:
         step = move_.send(step)
         step.choice = choice
-    return send_gracious(move_, step)
+    result = send_gracious(move_, step)
+    if advance_turn:
+        player.round.advance_turn()
+    return result
 
 
 def make_round_from_player_cards(*player_cards: Sequence[cards.Card], set_aside=None):

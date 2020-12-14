@@ -6,15 +6,26 @@ import inspect
 import math
 import random
 import unittest.mock
-from typing import Any, Collection, Counter, Generator, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Collection,
+    Counter,
+    Generator,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 from unittest.mock import MagicMock, Mock, PropertyMock
 
+import more_itertools
 import pytest
 from multimethod import multimethod
 
-import loveletter.cards as cards
 import loveletter.move as move
-from loveletter.cardpile import STANDARD_DECK_COUNTS
+from loveletter import cards as cards
+from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
@@ -294,3 +305,34 @@ def make_round_mock():
 
 def card_from_card_type(card_type: CardType):
     return card_type.card_class()
+
+
+def play_with_choices(player: Player, card_type: CardType, *choices):
+    move_ = player.play_type(card_type)
+    step = None
+    for choice in choices:
+        step = move_.send(step)
+        step.choice = choice
+    return send_gracious(move_, step)
+
+
+def make_round_from_player_cards(*player_cards: Sequence[cards.Card], set_aside=None):
+    """
+    Create a round that will deal to each player the specified sequence of cards.
+
+    The deck is built in a way so that player i starts with player_cards[i][0] and
+    is dealt the cards in player_cards[i][1:] in order at each successive turn.
+    This assumes that no player is eliminated before the last card in player_cards[i]
+    is dealt to them.
+
+    :param player_cards: A varargs sequence of card sequences that each player
+                         will receive during the round. The first list corresponds
+                         to player 0, then player 1, and so on.
+    :param set_aside: Which card to set aside in the deck. Default is a new instance of
+                      :class:`cards.Princess`.
+    :return: A round with the number of players and deck deduced from ``player_cards``.
+    """
+    stack = list(more_itertools.roundrobin(*player_cards))[::-1]
+    deck = Deck(stack, set_aside=set_aside or cards.Princess())
+    round = Round(len(player_cards), deck=deck)
+    return round

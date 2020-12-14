@@ -73,5 +73,6 @@ class PlayerCases:
 class MaybePlayerCases:
     PlayerCases = PlayerCases
 
+    @pytest_cases.case()
     def case_no_player(self):
         return None

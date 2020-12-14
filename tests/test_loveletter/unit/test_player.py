@@ -106,9 +106,7 @@ def test_eliminate_deadPlayer_raises(player: Player):
         player.eliminate()
 
 
-@pytest_cases.parametrize_with_cases(
-    "card", cases=card_cases.CardCases().case_multistep_card
-)
+@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases.MultiStepCases)
 def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
     move = play_card(current_player, card)
     step = next(move)
@@ -118,7 +116,9 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
 
 
 @pytest_cases.parametrize_with_cases(
-    "card", cases=card_cases.case_multistep_card_cancel
+    "card",
+    cases=card_cases.CardCases.MultiStepCases,
+    glob="*_cancel",
 )
 def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Card):
     move = play_card(current_player, card)

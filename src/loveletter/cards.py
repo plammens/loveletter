@@ -325,6 +325,8 @@ class Princess(Card):
 
 @functools.total_ordering
 class CardType(enum.Enum):
+    # TODO: use class as value
+
     def __new__(cls, card_class):
         obj = object.__new__(cls)
         obj._value_ = card_class.value

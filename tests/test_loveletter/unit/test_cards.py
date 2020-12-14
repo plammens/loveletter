@@ -16,6 +16,7 @@ from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
     autofill_step,
+    card_from_card_type,
     force_next_turn,
     give_card,
     mock_player,
@@ -220,7 +221,9 @@ def test_handmaid_playerBecomesImmune(current_player: Player):
     assert current_player.immune
 
 
-@pytest_cases.parametrize_with_cases("card", card_cases.case_target_card)
+@pytest_cases.parametrize_with_cases(
+    "card", card_cases.CardCases.MultiStepCases.TargetCases
+)
 def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     immune_player = started_round.current_player
     play_card(immune_player, cards.Handmaid())
@@ -264,7 +267,7 @@ def test_prince_againstNonPrincess_dealsCard(
     started_round: Round, target: Player, card_type
 ):
     player = started_round.current_player
-    give_card(target, card_type.card_class(), replace=True)
+    give_card(target, card_from_card_type(card_type), replace=True)
     target_card = target.hand.card
 
     deck_before = list(started_round.deck)
@@ -309,11 +312,13 @@ def test_prince_againstPrincess_kills(started_round: Round):
 
 
 @pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
-def test_prince_emptyDeck_dealsSetAsideCard(current_player: Player, target: Player):
-    set_aside = card_cases.CardMockCases.case_generic()
+@pytest_cases.parametrize_with_cases("set_aside", cases=card_cases.CardMockCases)
+def test_prince_emptyDeck_dealsSetAsideCard(
+    current_player: Player, target: Player, set_aside: cards.Card
+):
     current_player.round.deck = Deck([], set_aside=set_aside)
 
-    give_card(target, card_cases.CardMockCases.case_generic(), replace=True)
+    give_card(target, card_cases.CardMockCases().case_generic(), replace=True)
     move = play_card(current_player, cards.Prince())
     target_step = next(move)
     target_step.choice = target
@@ -401,7 +406,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
     ) as mocked_round:
         player, target = mocked_round.current_player, mocked_round.players[target.id]
         give_card(player, cards.Countess(), replace=True)
-        move = play_card(player, card := card_type.card_class(), autofill=False)
+        move = play_card(player, card := card_from_card_type(card_type), autofill=False)
         step = None
         for _ in card.steps:
             step = move.send(step)
@@ -415,7 +420,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
 @pytest_cases.parametrize("card_type", {CardType.PRINCE, CardType.KING})
 def test_countess_playPrinceOrKing_raises(current_player: Player, card_type):
     give_card(current_player, cards.Countess(), replace=True)
-    give_card(current_player, card := card_type.card_class())
+    give_card(current_player, card := card_from_card_type(card_type))
     with assert_state_is_preserved(current_player.round) as mocked_round:
         with pytest.raises(valid8.ValidationError):
             autofill_move(mocked_round.current_player.play_card(card))
@@ -428,7 +433,9 @@ def test_princess_eliminatesSelf(current_player: Player):
     assert not current_player.alive
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)
+@pytest_cases.parametrize_with_cases(
+    "card", cases=card_cases.CardCases.MultiStepCases.TargetCases
+)
 def test_targetCard_chooseSelf_raises(current_player, card):
     with play_card_with_cleanup(current_player, card) as move:
         target_step = next(move)
@@ -437,7 +444,9 @@ def test_targetCard_chooseSelf_raises(current_player, card):
             move.send(target_step)
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.case_target_card)
+@pytest_cases.parametrize_with_cases(
+    "card", cases=card_cases.CardCases.MultiStepCases.TargetCases
+)
 def test_targetCard_allOpponentsImmune_canChooseNone(started_round: Round, card):
     for player in started_round.players:
         if player is not started_round.current_player:

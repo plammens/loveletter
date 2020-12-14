@@ -9,7 +9,7 @@ import test_loveletter.unit.test_cards_cases as card_cases
 import test_loveletter.unit.test_player_cases as player_cases
 from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
-from loveletter.cards import Card, CardType
+from loveletter.cards import Card
 from loveletter.round import Round, RoundEnd, RoundState, Turn
 from loveletter.utils import cycle_from
 from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
@@ -123,13 +123,20 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert state.winner is winner
 
 
-def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(started_round: Round):
-    started_round.deck = Deck([], set_aside=card_cases.CardMockCases.case_generic())
+@pytest_cases.parametrize_with_cases("set_aside", cases=card_cases.CardMockCases)
+def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(
+    started_round: Round, set_aside
+):
+    started_round.deck = Deck([], set_aside=set_aside)
+    increasing_cards = [cards.Guard(), cards.Priest(), cards.Baron(), cards.Princess()]
+    for player, card in zip(started_round.players, increasing_cards):
+        give_card(player, card, replace=True)
+    # noinspection PyUnboundLocalVariable
+    winner = player
+
     state = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
-    assert CardType(state.winner.hand.card) == max(
-        CardType(p.hand.card) for p in started_round.living_players
-    )
+    assert state.winner is winner
 
 
 @pytest_cases.parametrize_with_cases("from_player", cases=player_cases.PlayerCases)
@@ -204,7 +211,7 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
     assert (player.hand.card is card) == (len(before) == 0)
 
 
-@pytest_cases.parametrize_with_cases("card", card_cases.CardCases().case_multistep_card)
+@pytest_cases.parametrize_with_cases("card", card_cases.CardCases.MultiStepCases)
 def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
     player = started_round.current_player
     move = play_card(player, card, autofill=False)

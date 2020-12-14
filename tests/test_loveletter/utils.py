@@ -18,7 +18,6 @@ from loveletter.cardpile import STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
-from test_loveletter.unit import test_cards_cases as card_cases
 
 
 _T = TypeVar("_T")
@@ -144,7 +143,9 @@ def autofill_step(step: move.ChooseOrderForDeckBottom):
 
 
 def play_mock_move(player):
-    card_mock = card_cases.CardMockCases.case_generic()
+    import test_loveletter.unit.test_cards_cases as card_cases
+
+    card_mock = card_cases.CardMockCases().case_generic()
     play_card(player, card_mock, autofill=True)
 
 
@@ -289,3 +290,7 @@ def make_round_mock():
     for p in round_mock.players:
         p.round = round_mock
     return round_mock
+
+
+def card_from_card_type(card_type: CardType):
+    return card_type.card_class()

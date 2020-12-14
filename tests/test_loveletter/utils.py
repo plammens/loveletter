@@ -277,15 +277,16 @@ def mock_hand(hand: RoundPlayer.Hand):
 
 
 def force_next_turn(game_round: Round):
-    assert game_round.state.type == RoundState.Type.TURN
-    game_round.state.stage = Turn.Stage.COMPLETED
+    turn: Turn = game_round.state
+    assert turn.type == RoundState.Type.TURN
+    turn._set_stage(Turn.Stage.COMPLETED)
     return game_round.advance_turn()
 
 
 def restart_turn(game_round: Round):
-    assert game_round.state.type == RoundState.Type.TURN
-    game_round.state.stage = Turn.Stage.START
-    return game_round.state
+    turn: Turn = game_round.state
+    assert turn.type == RoundState.Type.TURN
+    turn._set_stage(Turn.Stage.START)
 
 
 def send_gracious(gen: Generator, value: Any):

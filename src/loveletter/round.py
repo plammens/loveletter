@@ -2,7 +2,8 @@ import abc
 import enum
 import itertools
 import random
-from typing import Iterable, List, Optional, Sequence, Set, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import FrozenSet, List, Optional, Sequence, TYPE_CHECKING
 
 import more_itertools
 import valid8
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from loveletter.cards import Card
 
 
+@dataclass(frozen=True, eq=False)
 class RoundState(metaclass=abc.ABCMeta):
     """
     Objects of this class represent the game state of a round.
@@ -33,22 +35,10 @@ class RoundState(metaclass=abc.ABCMeta):
         TURN = enum.auto()  # some player's turn
         ROUND_END = enum.auto()  # round has ended
 
-    type: Type
-    current_player: Optional[RoundPlayer]
-
-    def __init__(self, type_: Type, current_player: Optional[RoundPlayer]):
-        self.type = type_
-        self.current_player = current_player
+    type: "RoundState.Type"
 
 
-class InitialState(RoundState):
-    def __init__(self):
-        super().__init__(RoundState.Type.INIT, None)
-
-    def __repr__(self):
-        return "InitialState()"
-
-
+@dataclass(frozen=True, eq=False)
 class Turn(RoundState):
     """Represents a single turn; acts as a context manager activated during a move"""
 
@@ -58,15 +48,13 @@ class Turn(RoundState):
         COMPLETED = enum.auto()
         INVALID = enum.auto()
 
-    stage: Stage
-
-    def __init__(self, current_player: RoundPlayer):
-        super().__init__(RoundState.Type.TURN, current_player)
-        self.stage = Turn.Stage.START
+    current_player: RoundPlayer
+    type: RoundState.Type = field(default=RoundState.Type.TURN, init=False, repr=False)
+    # stage is the only mutable field (as if with the C++ `mutable` modifier)
+    stage: Stage = field(default=Stage.START, init=False, repr=False, compare=False)
 
     def __repr__(self):
-        current_player = self.current_player
-        return f"<Turn({current_player}) [stage={self.stage.name}]>"
+        return f"<Turn({self.current_player}) [stage={self.stage.name}]>"
 
     def __enter__(self):
         valid8.validate(
@@ -75,7 +63,7 @@ class Turn(RoundState):
             equals=Turn.Stage.START,
             help_msg=f"Can't start another move; turn is already {self.stage.name}",
         )
-        self.stage = Turn.Stage.IN_PROGRESS
+        self._set_stage(Turn.Stage.IN_PROGRESS)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         transitions = {
@@ -83,15 +71,19 @@ class Turn(RoundState):
             GeneratorExit: Turn.Stage.START,
             CancelMove: Turn.Stage.START,
         }
-        self.stage = transitions.get(exc_type, Turn.Stage.INVALID)
+        self._set_stage(transitions.get(exc_type, Turn.Stage.INVALID))
+
+    def _set_stage(self, stage: Stage):
+        # circumvent frozen dataclass for mutable field  ``stage``
+        object.__setattr__(self, "stage", stage)
 
 
+@dataclass(frozen=True)
 class RoundEnd(RoundState):
-    winners: Set[RoundPlayer]
-
-    def __init__(self, winners: Iterable[RoundPlayer]):
-        super().__init__(RoundState.Type.ROUND_END, None)
-        self.winners = set(winners)
+    winners: FrozenSet[RoundPlayer]
+    type: RoundState.Type = field(
+        default=RoundState.Type.ROUND_END, init=False, repr=False
+    )
 
     @property
     def winner(self) -> RoundPlayer:
@@ -99,9 +91,6 @@ class RoundEnd(RoundState):
             "winners", self.winners, help_msg="There is more than one winner"
         ):
             return more_itertools.only(self.winners)
-
-    def __repr__(self):
-        return f"<RoundEnd(winners={set(map(str, self.winners))})>"
 
 
 class Round:
@@ -142,7 +131,7 @@ class Round:
         self.players = [RoundPlayer(self, i) for i in range(num_players)]
         self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
-        self.state = InitialState()
+        self.state = RoundState(RoundState.Type.INIT)
 
     @property
     def num_players(self):
@@ -162,7 +151,7 @@ class Round:
     @property
     def current_player(self) -> Optional[RoundPlayer]:
         """The player whose turn it currently is, or None if not started or ended."""
-        return self.state.current_player
+        return getattr(self.state, "current_player", None)
 
     @property
     def living_players(self) -> Sequence[RoundPlayer]:
@@ -283,10 +272,12 @@ class Round:
 
     def _finalize_round(self) -> RoundEnd:
         """End the round and declare the winner(s)."""
-        self.state = end = RoundEnd(
-            winners=argmax(
-                self.living_players,
-                key=lambda p: (p.hand.card.value, sum(c.value for c in p.cards_played)),
-            )
+        winners = argmax(
+            self.living_players,
+            key=lambda p: (
+                p.hand.card.value,
+                sum(c.value for c in p.cards_played),
+            ),
         )
+        self.state = end = RoundEnd(winners=frozenset(winners))
         return end

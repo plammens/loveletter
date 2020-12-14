@@ -17,10 +17,21 @@ if TYPE_CHECKING:
 
 
 class RoundState(metaclass=abc.ABCMeta):
+    """
+    Objects of this class represent the game state of a round.
+
+    A RoundState object can be of one of several types, as specified in
+    :class:`RoundState.Type`. The relationship between round state types and subclasses
+    of RoundState might not necessarily be one-to-one (but it will always be one-to-*).
+
+    The attributes of a RoundState are:
+     - ``type``: the type of round state as described above
+    """
+
     class Type(enum.Enum):
-        INIT = enum.auto()
-        TURN = enum.auto()
-        ROUND_END = enum.auto()
+        INIT = enum.auto()  # round hasn't started yet
+        TURN = enum.auto()  # some player's turn
+        ROUND_END = enum.auto()  # round has ended
 
     type: Type
     current_player: Optional[RoundPlayer]
@@ -94,6 +105,24 @@ class RoundEnd(RoundState):
 
 
 class Round:
+    """
+    A single round of Love Letter.
+
+    Only the number of players and a deck is needed to initialise a Round.
+    Instantiating a Round creates a list of :class:`RoundPlayer` s bound to this
+    Round object.
+
+    The main attributes/properties that make up the state of a Round are:
+     - ``players``: A list of RoundPlayers (a physical player bound to this round).
+                    The ID (:attr:`~loveletter.roundplayer.RoundPlayer.id`) of each
+                    player corresponds to their index in this list.
+     - ``living_players``: A subsequence of ``players`` containing only players that
+                           are still alive in this round.
+     - ``deck``: The deck cards are drawn from in this round.
+     - ``discard_pile``: Central discard pile where discarded cards go.
+     - ``state``: The current game state, an instance of :class:`RoundState`.
+    """
+
     players: List[RoundPlayer]
     deck: Deck
     discard_pile: DiscardPile
@@ -117,18 +146,22 @@ class Round:
 
     @property
     def num_players(self):
+        """The total number of players participating in this round."""
         return len(self.players)
 
     @property
     def started(self):
+        """Whether the round has started (first cards dealt and first turn started)."""
         return self.state.type != RoundState.Type.INIT
 
     @property
     def ended(self):
+        """Whether the round has ended."""
         return self.state.type == RoundState.Type.ROUND_END
 
     @property
     def current_player(self) -> Optional[RoundPlayer]:
+        """The player whose turn it currently is, or None if not started or ended."""
         return self.state.current_player
 
     @property
@@ -197,7 +230,7 @@ class Round:
 
     def start(self, first_player: RoundPlayer = None) -> Turn:
         """
-        Initialise the round: hand out one card to each player and start a turn.
+        Start the round: hand out one card to each player and start the first turn.
 
         :param first_player: First player that will play in this round. None means
                              choose at random.
@@ -221,7 +254,7 @@ class Round:
 
     @valid8.validate_arg("self", started.fget, help_msg="Round hasn't started yet")
     def advance_turn(self) -> RoundState:
-        """Advance to the next turn (supposing the round is ready to do so)"""
+        """Advance to the next turn (supposing it is possible to do so already)."""
         valid8.validate(
             "turn",
             self.state,
@@ -245,10 +278,11 @@ class Round:
         return self.state
 
     def _reached_end(self) -> bool:
-        """Whether this round has reached to an end"""
+        """Whether this round has reached to an end."""
         return len(self.living_players) == 1 or len(self.deck.stack) == 0
 
     def _finalize_round(self) -> RoundEnd:
+        """End the round and declare the winner(s)."""
         self.state = end = RoundEnd(
             winners=argmax(
                 self.living_players,

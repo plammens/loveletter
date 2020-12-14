@@ -1,11 +1,7 @@
-import random
-
 import pytest
 import pytest_cases
 
 from loveletter.round import Round
-
-random.seed(2020)
 
 
 @pytest_cases.fixture()

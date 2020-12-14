@@ -1,8 +1,10 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, Optional, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Tuple
 
 import valid8
+
+from loveletter.gameevent import ChoiceEvent, GameInputRequest, GameResultEvent
 
 
 if TYPE_CHECKING:
@@ -22,47 +24,12 @@ class CancellationError(RuntimeError):
 # -------------------- MoveStep hierarchy ------------------
 
 
-class MoveStep(metaclass=abc.ABCMeta):
-    @property
-    @abc.abstractmethod
-    def completed(self) -> bool:
-        return False
-
-    def __repr__(self):
-        return (
-            f"<{'completed' if self.completed else 'incomplete'}"
-            f" {self.__class__.__name__}>"
-        )
+class MoveStep(GameInputRequest, metaclass=abc.ABCMeta):
+    pass
 
 
-class ChoiceStep(MoveStep, metaclass=abc.ABCMeta):
-    def __init__(self):
-        self._choice = None
-
-    @property
-    def choice(self) -> Optional[Any]:
-        return self._choice
-
-    @choice.setter
-    def choice(self, value):
-        self._validate_choice(value)
-        self._choice = value
-
-    @property
-    def completed(self) -> bool:
-        return self._choice is not None
-
-    def __repr__(self):
-        return (
-            super().__repr__()
-            if not self.completed
-            else f"<completed {self.__class__.__name__} with choice {self.choice}>"
-        )
-
-    @abc.abstractmethod
-    def _validate_choice(self, value):
-        """Subclasses should override this to provide validation for the choice"""
-        pass
+class ChoiceStep(MoveStep, ChoiceEvent, metaclass=abc.ABCMeta):
+    pass
 
 
 class CardGuess(ChoiceStep):
@@ -166,7 +133,7 @@ class ChooseOrderForDeckBottom(ChoiceStep):
 
 
 @dataclass(frozen=True)
-class MoveResult(metaclass=abc.ABCMeta):
+class MoveResult(GameResultEvent, metaclass=abc.ABCMeta):
     player: "RoundPlayer"
     card_played: "Card"
 

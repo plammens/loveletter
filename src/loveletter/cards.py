@@ -98,26 +98,6 @@ class Card(metaclass=abc.ABCMeta):
     def _validate_move(self, owner: "RoundPlayer") -> None:
         valid8.validate("owner", owner)
 
-    @staticmethod
-    def _yield_step(step):
-        completed = yield step
-        valid8.validate(
-            "completed_step",
-            completed,
-            custom=lambda s: s is step,
-            help_msg=(
-                f"Did not receive the same MoveStep that was yielded: "
-                f"expected {step}, got {completed}"
-            ),
-        )
-        valid8.validate(
-            "completed_step",
-            completed,
-            custom=lambda s: s.completed,
-            help_msg="Received an incomplete move step",
-        )
-        return completed
-
 
 class Spy(Card):
     value = 0
@@ -146,11 +126,11 @@ class Guard(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        opponent = (yield from move.OpponentChoice(owner)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
 
-        guess = (yield from self._yield_step(move.CardGuess())).choice
+        guess = (yield from move.CardGuess()).choice
 
         # execute move:
         results = []
@@ -167,7 +147,7 @@ class Priest(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        opponent = (yield from move.OpponentChoice(owner)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
         return (move.ShowOpponentCard(owner, self, opponent),)
@@ -179,7 +159,7 @@ class Baron(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        opponent = (yield from move.OpponentChoice(owner)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
 
@@ -218,7 +198,7 @@ class Prince(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        player = (yield from self._yield_step(move.PlayerChoice(owner.round))).choice
+        player = (yield from move.PlayerChoice(owner.round)).choice
 
         # if player is owner, player.hand.card is guaranteed not to be self
         results = [move.CardDiscarded(owner, self, player, player.hand.card)]
@@ -245,14 +225,10 @@ class Chancellor(Card):
             # don't take cards from deck yet so that if something raises, the deck
             # will remain intact
             options = (owner.hand.card, *deck.stack[-2:])
-            choice = (yield from self._yield_step(move.ChooseOneCard(options))).choice
+            choice = (yield from move.ChooseOneCard(options)).choice
             owner.hand.replace(choice)
             leftover = set(options) - {choice}
-            order = (
-                yield from self._yield_step(
-                    move.ChooseOrderForDeckBottom(tuple(leftover))
-                )
-            ).choice
+            order = (yield from move.ChooseOrderForDeckBottom(tuple(leftover))).choice
 
             # actually take cards from deck
             for card in reversed(options[1:]):
@@ -277,7 +253,7 @@ class King(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
+        opponent = (yield from move.OpponentChoice(owner)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
         opponent.hand.replace(owner.hand.replace(opponent.hand.card))

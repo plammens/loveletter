@@ -9,7 +9,7 @@ import valid8
 
 from loveletter.cardpile import Deck, DiscardPile
 from loveletter.move import CancelMove
-from loveletter.player import Player
+from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import argmax, cycle_from
 
 if TYPE_CHECKING:
@@ -23,9 +23,9 @@ class RoundState(metaclass=abc.ABCMeta):
         ROUND_END = enum.auto()
 
     type: Type
-    current_player: Optional[Player]
+    current_player: Optional[RoundPlayer]
 
-    def __init__(self, type_: Type, current_player: Optional[Player]):
+    def __init__(self, type_: Type, current_player: Optional[RoundPlayer]):
         self.type = type_
         self.current_player = current_player
 
@@ -49,7 +49,7 @@ class Turn(RoundState):
 
     stage: Stage
 
-    def __init__(self, current_player: Player):
+    def __init__(self, current_player: RoundPlayer):
         super().__init__(RoundState.Type.TURN, current_player)
         self.stage = Turn.Stage.START
 
@@ -76,14 +76,14 @@ class Turn(RoundState):
 
 
 class RoundEnd(RoundState):
-    winners: Set[Player]
+    winners: Set[RoundPlayer]
 
-    def __init__(self, winners: Iterable[Player]):
+    def __init__(self, winners: Iterable[RoundPlayer]):
         super().__init__(RoundState.Type.ROUND_END, None)
         self.winners = set(winners)
 
     @property
-    def winner(self) -> Player:
+    def winner(self) -> RoundPlayer:
         with valid8.validation(
             "winners", self.winners, help_msg="There is more than one winner"
         ):
@@ -94,7 +94,7 @@ class RoundEnd(RoundState):
 
 
 class Round:
-    players: List[Player]
+    players: List[RoundPlayer]
     deck: Deck
     discard_pile: DiscardPile
     state: RoundState
@@ -110,7 +110,7 @@ class Round:
         valid8.validate(
             "num_players", num_players, instance_of=int, min_value=2, max_value=4
         )
-        self.players = [Player(self, i) for i in range(num_players)]
+        self.players = [RoundPlayer(self, i) for i in range(num_players)]
         self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
         self.state = InitialState()
@@ -128,11 +128,11 @@ class Round:
         return self.state.type == RoundState.Type.ROUND_END
 
     @property
-    def current_player(self) -> Optional[Player]:
+    def current_player(self) -> Optional[RoundPlayer]:
         return self.state.current_player
 
     @property
-    def living_players(self) -> Sequence[Player]:
+    def living_players(self) -> Sequence[RoundPlayer]:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
@@ -140,7 +140,7 @@ class Round:
         alive, state = len(self.living_players), self.state
         return f"<Round({self.num_players}) [{alive=}, {state=}] at {id(self):#X}>"
 
-    def get_player(self, player: Player, offset: int):
+    def get_player(self, player: RoundPlayer, offset: int):
         """
         Get the living player that is ``offset`` turns away from a given player.
 
@@ -184,7 +184,7 @@ class Round:
         """Get the previous living player in turn order"""
         return self.get_player(player, -1)
 
-    def deal_card(self, player: Player) -> "Card":
+    def deal_card(self, player: RoundPlayer) -> "Card":
         """Deal a card to a player from the deck and return the dealt card."""
         valid8.validate(
             "player",
@@ -195,7 +195,7 @@ class Round:
         player.give(card := self.deck.take())
         return card
 
-    def start(self, first_player: Player = None) -> Turn:
+    def start(self, first_player: RoundPlayer = None) -> Turn:
         """
         Initialise the round: hand out one card to each player and start a turn.
 

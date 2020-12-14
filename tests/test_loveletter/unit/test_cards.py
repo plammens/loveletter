@@ -10,8 +10,8 @@ import test_loveletter.unit.test_cards_cases as card_cases
 import test_loveletter.unit.test_player_cases as player_cases
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType
-from loveletter.player import Player
 from loveletter.round import Round, Turn
+from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
@@ -39,7 +39,7 @@ def test_cards_have_unique_nonnegative_value():
 @pytest_cases.parametrize_with_cases(
     "player", cases=player_cases.DummyPlayerCases().case_single_card
 )
-def test_cardSteps_correspondsToReality(player: Player, card: cards.Card):
+def test_cardSteps_correspondsToReality(player: RoundPlayer, card: cards.Card):
     move = play_card(player, card, autofill=False)
     step = None
     for expected_step_type in card.steps:
@@ -213,7 +213,7 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
     assert opponent.alive
 
 
-def test_handmaid_playerBecomesImmune(current_player: Player):
+def test_handmaid_playerBecomesImmune(current_player: RoundPlayer):
     assert not current_player.immune
     results = play_card(current_player, cards.Handmaid())
     assert tuple(map(type, results)) == (loveletter.move.ImmunityGranted,)
@@ -264,7 +264,7 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCESS})
 @pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
 def test_prince_againstNonPrincess_dealsCard(
-    started_round: Round, target: Player, card_type
+    started_round: Round, target: RoundPlayer, card_type
 ):
     player = started_round.current_player
     give_card(target, card_from_card_type(card_type), replace=True)
@@ -314,7 +314,7 @@ def test_prince_againstPrincess_kills(started_round: Round):
 @pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
 @pytest_cases.parametrize_with_cases("set_aside", cases=card_cases.CardMockCases)
 def test_prince_emptyDeck_dealsSetAsideCard(
-    current_player: Player, target: Player, set_aside: cards.Card
+    current_player: RoundPlayer, target: RoundPlayer, set_aside: cards.Card
 ):
     current_player.round.deck = Deck([], set_aside=set_aside)
 
@@ -373,7 +373,7 @@ def test_chancellor_oneCardInDeck_onlyUsesOneCard(started_round: Round):
     autofill_move(move, start_step=card_choice)
 
 
-def test_chancellor_cancelAfterStart_raises(current_player: Player):
+def test_chancellor_cancelAfterStart_raises(current_player: RoundPlayer):
     chancellor = cards.Chancellor()
     move = play_card(current_player, chancellor)
     with assert_state_is_preserved(current_player.round):
@@ -385,7 +385,7 @@ def test_chancellor_cancelAfterStart_raises(current_player: Player):
         assert current_player.round.state.stage == Turn.Stage.INVALID
 
 
-def test_king_againstOpponent_swapsCards(current_player: Player):
+def test_king_againstOpponent_swapsCards(current_player: RoundPlayer):
     move = play_card(current_player, cards.King())
     target_step = autofill_step(next(move))
     target = target_step.choice
@@ -399,7 +399,7 @@ def test_king_againstOpponent_swapsCards(current_player: Player):
 
 
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCE, CardType.KING})
-def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
+def test_countess_playNotPrinceOrKing_noOp(current_player: RoundPlayer, card_type):
     target = current_player.round.next_player(current_player)
     with assert_state_is_preserved(
         current_player.round, allow_mutation={current_player, target}
@@ -418,7 +418,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: Player, card_type):
 
 
 @pytest_cases.parametrize("card_type", {CardType.PRINCE, CardType.KING})
-def test_countess_playPrinceOrKing_raises(current_player: Player, card_type):
+def test_countess_playPrinceOrKing_raises(current_player: RoundPlayer, card_type):
     give_card(current_player, cards.Countess(), replace=True)
     give_card(current_player, card := card_from_card_type(card_type))
     with assert_state_is_preserved(current_player.round) as mocked_round:
@@ -426,7 +426,7 @@ def test_countess_playPrinceOrKing_raises(current_player: Player, card_type):
             autofill_move(mocked_round.current_player.play_card(card))
 
 
-def test_princess_eliminatesSelf(current_player: Player):
+def test_princess_eliminatesSelf(current_player: RoundPlayer):
     player_mock = mock_player(current_player)
     play_card(player_mock, cards.Princess())
     player_mock.eliminate.assert_called_once()

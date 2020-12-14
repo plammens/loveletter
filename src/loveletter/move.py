@@ -7,7 +7,7 @@ import valid8
 
 if TYPE_CHECKING:
     from loveletter.cards import Card
-    from loveletter.player import Player
+    from loveletter.roundplayer import RoundPlayer
     from loveletter.round import Round
 
 
@@ -104,9 +104,9 @@ class OpponentChoice(PlayerChoice):
     # special value for when no player can be targeted because they're all immune
     NO_TARGET = object()
 
-    def __init__(self, player: "Player"):
+    def __init__(self, player: "RoundPlayer"):
         super().__init__(player.round)
-        self.player: "Player" = player
+        self.player: "RoundPlayer" = player
         self._valid_choices = self._valid_choices - {player}
 
     def _validate_choice(self, value):
@@ -167,34 +167,34 @@ class ChooseOrderForDeckBottom(ChoiceStep):
 
 @dataclass(frozen=True)
 class MoveResult(metaclass=abc.ABCMeta):
-    player: "Player"
+    player: "RoundPlayer"
     card_played: "Card"
 
 
 @dataclass(frozen=True)
 class PlayerEliminated(MoveResult):
-    eliminated: "Player"
+    eliminated: "RoundPlayer"
 
 
 @dataclass(frozen=True)
 class ShowOpponentCard(MoveResult):
-    opponent: "Player"
+    opponent: "RoundPlayer"
 
 
 @dataclass(frozen=True)
 class CardComparison(MoveResult):
-    opponent: "Player"
+    opponent: "RoundPlayer"
 
 
 @dataclass(frozen=True)
 class CardDiscarded(MoveResult):
-    target: "Player"
+    target: "RoundPlayer"
     discarded: "Card"
 
 
 @dataclass(frozen=True)
 class CardDealt(MoveResult):
-    target: "Player"
+    target: "RoundPlayer"
     dealt: "Card"
 
 
@@ -215,7 +215,7 @@ class ImmunityGranted(MoveResult):
 
 @dataclass(frozen=True)
 class CardsSwapped(MoveResult):
-    opponent: "Player"
+    opponent: "RoundPlayer"
 
 
 def is_move_results(obj):

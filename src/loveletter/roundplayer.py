@@ -11,7 +11,21 @@ if TYPE_CHECKING:
     from loveletter.round import Round
 
 
-class Player:
+class RoundPlayer:
+    """
+    Represents a single player bound to one specific round.
+
+    RoundPlayer objects are created every time a new Round object is instantiated, and
+    they are no longer used once the round ends. Their lifecycle is bound to the
+    lifecycle of the Round object; they're essentially owned by it.
+
+    They do *not* represent a physical player of the overall Game, although each
+    RoundPlayer is bound to one.
+
+    Could have been a nested class of Round, but it has been extracted to avoid
+    excessive nesting and classes in the Round code.
+    """
+
     class Hand(collections.abc.Collection):
         def __init__(self):
             self._cards = []
@@ -82,7 +96,7 @@ class Player:
         return self._alive
 
     def __repr__(self):
-        return f"<Player {self.id} of <Round at {id(self.round):#X}>>"
+        return f"<RoundPlayer {self.id} of <Round at {id(self.round):#X}>>"
 
     def __str__(self):
         return f"player-{self.id}"

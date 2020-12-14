@@ -7,7 +7,7 @@ import test_loveletter.unit.test_cards_cases as card_cases
 import test_loveletter.unit.test_player_cases as player_cases
 from loveletter.cards import Card
 from loveletter.move import CancelMove
-from loveletter.player import Player
+from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
@@ -17,7 +17,7 @@ from test_loveletter.utils import (
 
 @pytest.mark.parametrize("id", [0, 1, 2, 3])
 def test_newPlayer_validRound_initsCorrectly(game_round, id: int):
-    player = Player(game_round, id)
+    player = RoundPlayer(game_round, id)
     assert player.round is game_round
     assert player.alive
     assert player.hand.card is None
@@ -26,19 +26,19 @@ def test_newPlayer_validRound_initsCorrectly(game_round, id: int):
 
 
 @pytest_cases.parametrize_with_cases("dummy_player", player_cases.DummyPlayerCases)
-def test_handCard_isFirstCard(dummy_player: Player):
+def test_handCard_isFirstCard(dummy_player: RoundPlayer):
     assert dummy_player.hand.card is mitt.first(dummy_player.hand, None)
 
 
 @pytest_cases.parametrize_with_cases("dummy_player", player_cases.DummyPlayerCases)
-def test_playerHand_len_isAtMostTwo(dummy_player: Player):
+def test_playerHand_len_isAtMostTwo(dummy_player: RoundPlayer):
     assert len(dummy_player.hand) <= 2
 
 
 @pytest_cases.parametrize_with_cases(
     "dummy_player", player_cases.DummyPlayerCases().case_single_card
 )
-def test_give_playerWithOneCard_oneCard_works(dummy_player: Player):
+def test_give_playerWithOneCard_oneCard_works(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
     before = dummy_player.hand.card
     dummy_player.give(card)
@@ -49,7 +49,7 @@ def test_give_playerWithOneCard_oneCard_works(dummy_player: Player):
     "dummy_player",
     player_cases.DummyPlayerCases().case_two_cards,
 )
-def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
+def test_give_playerWithTwoCards_oneCard_raises(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
     with pytest.raises(valid8.ValidationError):
         dummy_player.give(card)
@@ -60,7 +60,7 @@ def test_give_playerWithTwoCards_oneCard_raises(dummy_player: Player):
 @pytest_cases.parametrize_with_cases(
     "dummy_player", player_cases.DummyPlayerCases().case_empty_hand
 )
-def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
+def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
     autofill_move(dummy_player.play_card(left))
@@ -77,7 +77,7 @@ def test_playCard_left_playsLeftCard(dummy_player: Player, left, right):
 @pytest_cases.parametrize_with_cases(
     "dummy_player", player_cases.DummyPlayerCases().case_empty_hand
 )
-def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
+def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
     autofill_move(dummy_player.play_card(right))
@@ -90,7 +90,7 @@ def test_playCard_right_playsRightCard(dummy_player: Player, left, right):
 
 
 @pytest_cases.parametrize_with_cases("player", cases=player_cases.PlayerCases)
-def test_eliminate_discardsCards(player: Player):
+def test_eliminate_discardsCards(player: RoundPlayer):
     game_round = player.round
     card = player.hand.card
     player.eliminate()
@@ -100,14 +100,14 @@ def test_eliminate_discardsCards(player: Player):
 
 
 @pytest_cases.parametrize_with_cases("player", cases=player_cases.DummyPlayerCases)
-def test_eliminate_deadPlayer_raises(player: Player):
+def test_eliminate_deadPlayer_raises(player: RoundPlayer):
     player.eliminate()
     with pytest.raises(valid8.ValidationError):
         player.eliminate()
 
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases.MultiStepCases)
-def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
+def test_play_multiStepNoChoice_raises(current_player: RoundPlayer, card: Card):
     move = play_card(current_player, card)
     step = next(move)
     # we don't complete the step and send it right back
@@ -120,7 +120,9 @@ def test_play_multiStepNoChoice_raises(current_player: Player, card: Card):
     cases=card_cases.CardCases.MultiStepCases,
     glob="*_cancel",
 )
-def test_play_cancelMove_stateResetSuccessfully(current_player: Player, card: Card):
+def test_play_cancelMove_stateResetSuccessfully(
+    current_player: RoundPlayer, card: Card
+):
     move = play_card(current_player, card)
     with assert_state_is_preserved(current_player.round):
         autofill_move(move, num_steps=len(card.steps) - 1)

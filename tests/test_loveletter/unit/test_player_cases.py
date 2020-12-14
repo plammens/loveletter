@@ -4,8 +4,8 @@ import pytest_cases
 
 import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cards import Card
-from loveletter.player import Player
 from loveletter.round import Round
+from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import make_round_mock
 
 
@@ -28,7 +28,7 @@ class PlayerHandCases:
 
 class DummyPlayerCases:
     @staticmethod
-    def __make_player(hand: Sequence[Card]) -> Player:
+    def __make_player(hand: Sequence[Card]) -> RoundPlayer:
         round_mock = make_round_mock()
         player = round_mock.current_player
         player.hand._cards.clear()
@@ -66,7 +66,7 @@ class PlayerCases:
         return started_round.players[-1]
 
     @pytest_cases.case(id="current_player_")
-    def case_current_player(self, current_player: Player):
+    def case_current_player(self, current_player: RoundPlayer):
         return current_player
 
 

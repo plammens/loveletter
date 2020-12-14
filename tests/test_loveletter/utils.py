@@ -27,8 +27,8 @@ import loveletter.move as move
 from loveletter import cards as cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
-from loveletter.player import Player
 from loveletter.round import Round, RoundState, Turn
+from loveletter.roundplayer import RoundPlayer
 
 
 _T = TypeVar("_T")
@@ -79,7 +79,7 @@ def autofill_move(
     Useful if the test doesn't care about the specifics of the move, just wants to play
     it out.
 
-    :param move_: Move step generator as returned by Player.play().
+    :param move_: Move step generator as returned by RoundPlayer.play().
     :param start_step: Starting step, if any. If not None, the caller will have already
                        completed part of the move, and this will be the most recent step
                        yielded by move_, from which autofill_move will pick up. If None,
@@ -163,7 +163,9 @@ def play_mock_move(player):
     play_card(player, card_mock, autofill=True)
 
 
-def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowed=True):
+def play_card(
+    player: RoundPlayer, card: cards.Card, autofill=None, skip_if_disallowed=True
+):
     from test_loveletter.unit.test_cards_cases import DISCARD_TYPES
 
     if autofill is None:
@@ -185,7 +187,7 @@ def play_card(player: Player, card: cards.Card, autofill=None, skip_if_disallowe
 
 
 @contextlib.contextmanager
-def play_card_with_cleanup(player: Player, card: cards.Card):
+def play_card_with_cleanup(player: RoundPlayer, card: cards.Card):
     move_ = play_card(player, card, autofill=False)
     try:
         yield move_
@@ -198,7 +200,7 @@ def play_card_with_cleanup(player: Player, card: cards.Card):
             move_.close()
 
 
-def give_card(player: Player, card: Card, replace=False):
+def give_card(player: RoundPlayer, card: Card, replace=False):
     if replace:
         player.hand._cards.clear()
     elif len(player.hand) == 2:
@@ -208,7 +210,7 @@ def give_card(player: Player, card: Card, replace=False):
 
 @contextlib.contextmanager
 def assert_state_is_preserved(
-    game_round: Round, allow_mutation: Collection[Player] = (), with_mock=True
+    game_round: Round, allow_mutation: Collection[RoundPlayer] = (), with_mock=True
 ):
     state = game_round.state
     current_player = game_round.current_player
@@ -244,7 +246,7 @@ def assert_state_is_preserved(
                     after.hand.add.assert_not_called()
 
 
-def mock_player(player: Player):
+def mock_player(player: RoundPlayer):
     mock = Mock(spec=player, wraps=player)
     mock.hand = mock_hand(player.hand)
     mock.round = MagicMock(spec=player.round, wraps=player.round)
@@ -255,12 +257,14 @@ def mock_player(player: Player):
     # Have to make immune a property that tracks the value since bool is immutable
     type(mock).immune = PropertyMock(side_effect=lambda: player.immune)
     mock.cards_played = player.cards_played
-    mock.play_card.side_effect = functools.partial(Player.play_card, mock)
-    mock._discard_actions.side_effect = functools.partial(Player._discard_actions, mock)
+    mock.play_card.side_effect = functools.partial(RoundPlayer.play_card, mock)
+    mock._discard_actions.side_effect = functools.partial(
+        RoundPlayer._discard_actions, mock
+    )
     return mock
 
 
-def mock_hand(hand: Player.Hand):
+def mock_hand(hand: RoundPlayer.Hand):
     mock = Mock(spec=hand, wraps=hand)
     type(mock).card = PropertyMock(
         side_effect=functools.partial(type(hand).card.fget, mock)
@@ -310,7 +314,9 @@ def card_from_card_type(card_type: CardType):
     return card_type.card_class()
 
 
-def play_with_choices(player: Player, card_type: CardType, *choices, advance_turn=True):
+def play_with_choices(
+    player: RoundPlayer, card_type: CardType, *choices, advance_turn=True
+):
     move_ = player.play_type(card_type)
     step = None
     for choice in choices:

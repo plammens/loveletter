@@ -17,7 +17,7 @@ import loveletter.move as move
 from loveletter.utils import is_subclass
 
 if TYPE_CHECKING:
-    from loveletter.player import Player
+    from loveletter.roundplayer import RoundPlayer
     from loveletter.round import Round
 
 
@@ -47,7 +47,7 @@ class Card(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         """
         Play this card on behalf of its owner.
 
@@ -79,12 +79,12 @@ class Card(metaclass=abc.ABCMeta):
         """
         pass
 
-    def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
+    def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         """Apply the effects of discarding this card from the player's hand"""
         return ()
 
     @classmethod
-    def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
+    def collect_extra_points(cls, game_round: "Round") -> Dict["RoundPlayer", int]:
         """
         After a round has ended, collect any extra points to award to players.
 
@@ -95,7 +95,7 @@ class Card(metaclass=abc.ABCMeta):
         return {}
 
     # noinspection PyMethodMayBeStatic
-    def _validate_move(self, owner: "Player") -> None:
+    def _validate_move(self, owner: "RoundPlayer") -> None:
         valid8.validate("owner", owner)
 
     @staticmethod
@@ -123,7 +123,7 @@ class Spy(Card):
     value = 0
     steps = ()
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         game_round = owner.round
         spy_winner = getattr(game_round, "spy_winner", None)
@@ -133,7 +133,7 @@ class Spy(Card):
         yield
 
     @classmethod
-    def collect_extra_points(cls, game_round: "Round") -> Dict["Player", int]:
+    def collect_extra_points(cls, game_round: "Round") -> Dict["RoundPlayer", int]:
         points = super().collect_extra_points(game_round)
         if (spy_winner := getattr(game_round, "spy_winner", None)) and spy_winner.alive:
             points.update({spy_winner: 1})
@@ -144,7 +144,7 @@ class Guard(Card):
     value = 1
     steps = (move.OpponentChoice, move.CardGuess)
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         if opponent is move.OpponentChoice.NO_TARGET:
@@ -165,7 +165,7 @@ class Priest(Card):
     value = 2
     steps = (move.OpponentChoice,)
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         if opponent is move.OpponentChoice.NO_TARGET:
@@ -177,7 +177,7 @@ class Baron(Card):
     value = 3
     steps = (move.OpponentChoice,)
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         if opponent is move.OpponentChoice.NO_TARGET:
@@ -204,7 +204,7 @@ class Handmaid(Card):
     value = 4
     steps = ()
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         owner.immune = True
         return (move.ImmunityGranted(owner, self),)
@@ -216,7 +216,7 @@ class Prince(Card):
     value = 5
     steps = (move.PlayerChoice,)
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         player = (yield from self._yield_step(move.PlayerChoice(owner.round))).choice
 
@@ -237,7 +237,7 @@ class Chancellor(Card):
     steps = (move.ChooseOneCard, move.ChooseOrderForDeckBottom)
     cancellable = False
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
 
         deck = owner.round.deck
@@ -275,7 +275,7 @@ class King(Card):
     value = 7
     steps = (move.OpponentChoice,)
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         opponent = (yield from self._yield_step(move.OpponentChoice(owner))).choice
         if opponent is move.OpponentChoice.NO_TARGET:
@@ -288,7 +288,7 @@ class Countess(Card):
     value = 8
     steps = ()
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         return ()
         # noinspection PyUnreachableCode
@@ -309,13 +309,13 @@ class Princess(Card):
     value = 9
     steps = ()
 
-    def play(self, owner: "Player") -> MoveStepGenerator:
+    def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
         return ()
         # noinspection PyUnreachableCode
         yield
 
-    def discard_effects(self, owner: "Player") -> Tuple[move.MoveResult, ...]:
+    def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         if owner.alive:
             owner.eliminate()
             return (move.PlayerEliminated(owner, self, owner),)

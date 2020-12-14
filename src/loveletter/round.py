@@ -170,6 +170,40 @@ class Round:
         alive, state = len(self.living_players), self.state
         return f"<Round({self.num_players}) [{alive=}, {state=}] at {id(self):#X}>"
 
+    def play(self) -> GameEventGenerator:
+        """
+        The game event generator for this that runs for the duration of the round.
+
+        This provides a higher-level API to step-by-step methods such as
+        :meth:`Round.advance_turn`. See :class:`loveletter.gameevent.GameEvent` for a
+        description of game event generators.
+
+        The return value of the generator is the final state of the round (i.e. a
+        :class:`RoundEnd` instance).
+        """
+
+        def iteration():
+            # noinspection PyUnresolvedReferences
+            card = (yield from PlayerMoveChoice(self.current_player)).choice
+            results = yield from self.current_player.play_card(card)
+            yield from results  # results is a tuple
+
+        valid8.validate(
+            "started",
+            self.started,
+            equals=False,
+            help_msg="Can't start .play() once the game_round has already started",
+        )
+        # noinspection PyUnresolvedReferences
+        first_player = (yield from FirstPlayerChoice(self)).choice
+        yield self.start(first_player=first_player)
+        yield from iteration()
+        while not self._reached_end():
+            yield self.advance_turn()
+            yield from iteration()
+        end = self.advance_turn()
+        return (end,)
+
     def get_player(self, player: RoundPlayer, offset: int):
         """
         Get the living player that is ``offset`` turns away from a given player.
@@ -286,3 +320,35 @@ class Round:
         )
         self.state = end = RoundEnd(winners=frozenset(winners))
         return end
+
+
+class FirstPlayerChoice(ChoiceEvent):
+    """Let the players chose who goes first."""
+
+    def __init__(self, game_round: Round):
+        super().__init__()
+        self.round = game_round
+
+    def _validate_choice(self, value):
+        valid8.validate(
+            "choice",
+            value,
+            is_in=self.round.players,
+            help_msg="Not a player of the round",
+        )
+
+
+class PlayerMoveChoice(ChoiceEvent):
+    """Make the player chose a card to play."""
+
+    def __init__(self, player: RoundPlayer):
+        super().__init__()
+        self.player = player
+
+    def _validate_choice(self, value):
+        valid8.validate(
+            "choice",
+            value,
+            is_in=self.player.hand,
+            help_msg="Card not in player's hand",
+        )

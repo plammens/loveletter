@@ -322,7 +322,9 @@ def play_with_choices(player: Player, card_type: CardType, *choices, advance_tur
     return result
 
 
-def make_round_from_player_cards(*player_cards: Sequence[cards.Card], set_aside=None):
+def start_round_from_player_cards(
+    *player_cards: Sequence[cards.Card], first_player: int, set_aside=None
+):
     """
     Create a round that will deal to each player the specified sequence of cards.
 
@@ -334,11 +336,16 @@ def make_round_from_player_cards(*player_cards: Sequence[cards.Card], set_aside=
     :param player_cards: A varargs sequence of card sequences that each player
                          will receive during the round. The first list corresponds
                          to player 0, then player 1, and so on.
+    :param first_player: ID (index) of the first player to play in the round. This is
+                         (also) needed to build the deck so that player_cards[i] always
+                         corresponds to player i (*not* the i-th player to play).
     :param set_aside: Which card to set aside in the deck. Default is a new instance of
                       :class:`cards.Princess`.
     :return: A round with the number of players and deck deduced from ``player_cards``.
     """
+    player_cards = player_cards[first_player:] + player_cards[:first_player]
     stack = list(more_itertools.roundrobin(*player_cards))[::-1]
     deck = Deck(stack, set_aside=set_aside or cards.Princess())
     round = Round(len(player_cards), deck=deck)
+    round.start(first_player=round.players[first_player])
     return round

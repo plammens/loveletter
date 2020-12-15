@@ -20,14 +20,14 @@ TARGET_TYPES = frozenset(
 )
 
 
-class CardCases:
+class CardCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     @pytest.mark.parametrize("card_type", DISCARD_TYPES)
     def case_discard_card(self, card_type: CardType):
         return card_from_card_type(card_type)
 
-    class MultiStepCases:
-        class TargetCases:
+    class MultiStepCases(metaclass=CaseGroupMeta):
+        class TargetCases(metaclass=CaseGroupMeta):
             @pytest_cases.case()
             @pytest.mark.parametrize("card_type", TARGET_TYPES - NO_CANCEL_TYPES)
             def case_target_card_cancel(self, card_type: CardType):
@@ -53,7 +53,7 @@ class CardCases:
             return card_from_card_type(card_type)
 
 
-class CardMockCases:
+class CardMockCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     def case_generic(self) -> MagicMock:
         def play(owner):

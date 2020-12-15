@@ -36,7 +36,7 @@ def test_playerHand_len_isAtMostTwo(dummy_player: RoundPlayer):
 
 
 @pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases().case_single_card
+    "dummy_player", player_cases.DummyPlayerCases.case_single_card
 )
 def test_give_playerWithOneCard_oneCard_works(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
@@ -47,7 +47,7 @@ def test_give_playerWithOneCard_oneCard_works(dummy_player: RoundPlayer):
 
 @pytest_cases.parametrize_with_cases(
     "dummy_player",
-    player_cases.DummyPlayerCases().case_two_cards,
+    player_cases.DummyPlayerCases.case_two_cards,
 )
 def test_give_playerWithTwoCards_oneCard_raises(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
@@ -58,7 +58,7 @@ def test_give_playerWithTwoCards_oneCard_raises(dummy_player: RoundPlayer):
 @pytest_cases.parametrize_with_cases("right", cases=card_cases.CardMockCases)
 @pytest_cases.parametrize_with_cases("left", cases=card_cases.CardMockCases)
 @pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases().case_empty_hand
+    "dummy_player", player_cases.DummyPlayerCases.case_empty_hand
 )
 def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)
@@ -75,7 +75,7 @@ def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
 @pytest_cases.parametrize_with_cases("right", cases=card_cases.CardMockCases)
 @pytest_cases.parametrize_with_cases("left", cases=card_cases.CardMockCases)
 @pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases().case_empty_hand
+    "dummy_player", player_cases.DummyPlayerCases.case_empty_hand
 )
 def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)

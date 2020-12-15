@@ -1,14 +1,17 @@
+from collections import Counter
+
 import more_itertools as mitt
 import pytest_cases
+from pytest_cases import CaseGroupMeta
 
 from loveletter.cardpile import Deck, DiscardPile, STANDARD_DECK_COUNTS
 from test_loveletter.utils import random_card_counts
 
 
-class DeckCases:
+class DeckCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     def case_empty_deck(self):
-        return Deck.from_counts({})
+        return Deck.from_counts(Counter())
 
     @pytest_cases.case()
     @pytest_cases.parametrize(counts=mitt.repeatfunc(random_card_counts, 5))
@@ -20,10 +23,10 @@ class DeckCases:
         return Deck.from_counts(STANDARD_DECK_COUNTS)
 
 
-class DiscardPileCases:
+class DiscardPileCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     def case_empty_discard_pile(self):
-        return DiscardPile.from_counts({})
+        return DiscardPile.from_counts(Counter())
 
     @pytest_cases.case()
     @pytest_cases.parametrize(counts=mitt.repeatfunc(random_card_counts, 5))

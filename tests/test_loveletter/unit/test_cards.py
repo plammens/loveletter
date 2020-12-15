@@ -48,7 +48,7 @@ def test_cardTypeOrder_increasingPair_asExpected(card1, card2):
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
 @pytest_cases.parametrize_with_cases(
-    "player", cases=player_cases.DummyPlayerCases().case_single_card
+    "player", cases=player_cases.DummyPlayerCases.case_single_card
 )
 def test_cardSteps_correspondsToReality(player: RoundPlayer, card: cards.Card):
     move = play_card(player, card, autofill=False)

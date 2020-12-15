@@ -1,6 +1,7 @@
 from typing import Sequence
 
 import pytest_cases
+from pytest_cases import CaseGroupMeta
 
 import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cards import Card
@@ -9,7 +10,7 @@ from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import make_round_mock
 
 
-class PlayerHandCases:
+class PlayerHandCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     def case_empty_hand(self):
         return []
@@ -26,7 +27,7 @@ class PlayerHandCases:
         return [card1.valuegetter(), card2.valuegetter()]
 
 
-class DummyPlayerCases:
+class DummyPlayerCases(metaclass=CaseGroupMeta):
     @staticmethod
     def __make_player(hand: Sequence[Card]) -> RoundPlayer:
         round_mock = make_round_mock()
@@ -37,26 +38,22 @@ class DummyPlayerCases:
         return player
 
     @pytest_cases.case()
-    @pytest_cases.parametrize_with_cases(
-        "hand", cases=PlayerHandCases().case_empty_hand
-    )
+    @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_empty_hand)
     def case_empty_hand(self, hand):
         return DummyPlayerCases.__make_player(hand.valuegetter())
 
     @pytest_cases.case()
-    @pytest_cases.parametrize_with_cases(
-        "hand", cases=PlayerHandCases().case_single_card
-    )
+    @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_single_card)
     def case_single_card(self, hand):
         return DummyPlayerCases.__make_player(hand.valuegetter())
 
     @pytest_cases.case()
-    @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases().case_two_cards)
+    @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_two_cards)
     def case_two_cards(self, hand):
         return DummyPlayerCases.__make_player(hand.valuegetter())
 
 
-class PlayerCases:
+class PlayerCases(metaclass=CaseGroupMeta):
     @pytest_cases.case()
     def case_first_player(self, started_round: Round):
         return started_round.players[0]
@@ -70,7 +67,7 @@ class PlayerCases:
         return current_player
 
 
-class MaybePlayerCases:
+class MaybePlayerCases(metaclass=CaseGroupMeta):
     PlayerCases = PlayerCases
 
     @pytest_cases.case()

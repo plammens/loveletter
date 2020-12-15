@@ -48,7 +48,21 @@ class RoundState(GameResultEvent, metaclass=abc.ABCMeta):
 
 @dataclass(frozen=True, eq=False)
 class Turn(RoundState):
-    """Represents a single turn; acts as a context manager activated during a move"""
+    """
+    Represents a single turn; enforces turn constraints.
+
+    A player can only make a move if it is their turn. Thus trying to run e.g.
+    :meth:`RoundPlayer.play_card` when it's not the player's turn will raise an
+    error. The round can only move on to the next turn if the previous one has been
+    completed.
+
+    It is used as a context manager that is entered when a player begins a move.
+    While the context is active, it disallows any player in the round (including the
+    one that initiated this move) from starting a new move while this one is still
+    being played. If the context is exited with an exception, the turn either gets
+    reset to its initial state (so that it can start again) or is set to an error
+    state, depending on the type of exception.
+    """
 
     class Stage(enum.Enum):
         START = enum.auto()

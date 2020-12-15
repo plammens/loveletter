@@ -102,6 +102,14 @@ class Turn(RoundState):
 
 @dataclass(frozen=True)
 class RoundEnd(RoundState):
+    """
+    Represents the final state of the round after it has ended.
+
+    Usually there will be only one winner (which can be accessed through the ``winner``
+    property), but sometimes more. In this case, accessing ``winner`` will raise an
+    error. Thus one should always check the ``winners`` attribute first.
+    """
+
     winners: FrozenSet[RoundPlayer]
     type: RoundState.Type = field(
         default=RoundState.Type.ROUND_END, init=False, repr=False
@@ -109,6 +117,7 @@ class RoundEnd(RoundState):
 
     @property
     def winner(self) -> RoundPlayer:
+        """Return the only winner of the round; raise an error if more than one."""
         with valid8.validation(
             "winners", self.winners, help_msg="There is more than one winner"
         ):

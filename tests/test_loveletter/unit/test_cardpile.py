@@ -5,6 +5,7 @@ import pytest
 import pytest_cases
 
 import loveletter.cardpile
+import loveletter.cards as cards
 import test_loveletter.unit.test_cardpile_cases as cardpile_cases
 import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS
@@ -36,6 +37,11 @@ def test_pileEq_equivalentToCountEq(card_pile):
 def test_deckFromCounts_default_isStandardDeck():
     deck = Deck.from_counts()
     assert Counter(map(CardType, deck)) == STANDARD_DECK_COUNTS
+
+
+def test_deck_containsSetAside():
+    deck = Deck([], set_aside=(set_aside := cards.Princess()))
+    assert set_aside in deck
 
 
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)

@@ -66,6 +66,6 @@ class CardMockCases:
 
 class CardPairCases:
     @pytest_cases.case()
-    @pytest.mark.parametrize("type1,type2", itertools.combinations(CardType, r=2))
+    @pytest.mark.parametrize("type1,type2", list(itertools.combinations(CardType, r=2)))
     def case_ordered_pair(self, type1, type2):
         return type1.card_class(), type2.card_class()

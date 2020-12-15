@@ -276,10 +276,16 @@ class Round:
                 help_msg="Not a player of this round",
             )
 
-        for player in itertools.islice(
-            cycle_from(self.players, first_player), None, self.num_players + 1
+        with valid8.validation(
+            "round", self, help_msg="Invalid initial state for starting the round"
         ):
-            self.deal_card(player)
+            for player in itertools.islice(
+                cycle_from(self.players, first_player), None, self.num_players + 1
+            ):
+                self.deal_card(player)
+            if self._reached_end():
+                raise ValueError("End condition true immediately upon starting")
+
         self.state = turn = Turn(first_player)
         return turn
 

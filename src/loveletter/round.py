@@ -32,10 +32,10 @@ class RoundState(GameResultEvent, metaclass=abc.ABCMeta):
     of RoundState might not necessarily be one-to-one (but it will always be one-to-*).
 
     When seen as a :class:`GameResultEvent`, a RoundState instance represents the event
-    corresponding to the game_round entering the state described by said instance.
+    corresponding to the round entering the state described by said instance.
 
     The attributes of a RoundState are:
-     - ``type``: the type of game_round state as described above
+     - ``type``: the type of round state as described above
     """
 
     class Type(enum.Enum):
@@ -103,19 +103,19 @@ class RoundEnd(RoundState):
 
 class Round:
     """
-    A single game_round of Love Letter.
+    A single round of Love Letter.
 
     Only the number of players and a deck is needed to initialise a Round.
     Instantiating a Round creates a list of :class:`RoundPlayer` s bound to this
     Round object.
 
     The main attributes/properties that make up the state of a Round are:
-     - ``players``: A list of RoundPlayers (a physical player bound to this game_round).
+     - ``players``: A list of RoundPlayers (a physical player bound to this round).
                     The ID (:attr:`~loveletter.roundplayer.RoundPlayer.id`) of each
                     player corresponds to their index in this list.
      - ``living_players``: A subsequence of ``players`` containing only players that
-                           are still alive in this game_round.
-     - ``deck``: The deck cards are drawn from in this game_round.
+                           are still alive in this round.
+     - ``deck``: The deck cards are drawn from in this round.
      - ``discard_pile``: Central discard pile where discarded cards go.
      - ``state``: The current game state, an instance of :class:`RoundState`.
     """
@@ -192,7 +192,7 @@ class Round:
             "started",
             self.started,
             equals=False,
-            help_msg="Can't start .play() once the game_round has already started",
+            help_msg="Can't start .play() once the round has already started",
         )
         # noinspection PyUnresolvedReferences
         first_player = (yield from FirstPlayerChoice(self)).choice

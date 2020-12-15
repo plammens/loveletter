@@ -289,6 +289,9 @@ class Round:
         :param first_player: First player that will play in this round. None means
                              choose at random.
         """
+        valid8.validate(
+            "started", self.started, equals=False, help_msg="Round has already started"
+        )
         if first_player is None:
             first_player = random.choice(self.players)
         else:

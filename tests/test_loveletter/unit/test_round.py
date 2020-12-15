@@ -87,6 +87,21 @@ def test_start_newRound_dealsCardsCorrectly(new_round: Round):
     assert new_round.state.current_player == new_round.current_player
 
 
+def test_start_insufficientCardsInDeck_raises(new_round: Round):
+    new_round.deck = Deck([cards.Guard() for _ in new_round.players], None)
+    with pytest.raises(valid8.ValidationError):
+        new_round.start()
+
+
+def test_start_emptyDeckUponStart_raises(new_round: Round):
+    new_round.deck = Deck(
+        [cards.Guard() for _ in range(new_round.num_players + 1)],
+        set_aside=cards.Princess(),
+    )
+    with pytest.raises(valid8.ValidationError):
+        new_round.start()
+
+
 def test_currentPlayer_isValid(started_round):
     assert started_round.current_player.alive
 

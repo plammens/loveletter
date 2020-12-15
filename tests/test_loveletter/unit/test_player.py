@@ -3,15 +3,18 @@ import pytest
 import pytest_cases
 import valid8
 
+import loveletter.cards as cards
 import test_loveletter.unit.test_cards_cases as card_cases
 import test_loveletter.unit.test_player_cases as player_cases
-from loveletter.cards import Card
+from loveletter.cards import Card, CardType
 from loveletter.move import CancelMove
 from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
+    give_card,
     play_card,
+    send_gracious,
 )
 
 
@@ -87,6 +90,27 @@ def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     assert right not in dummy_player.hand
     dummy_player.round.discard_pile.place.assert_called_once_with(right)
     assert dummy_player.cards_played[-1] == right
+
+
+@pytest_cases.parametrize_with_cases(
+    "player", player_cases.DummyPlayerCases.case_empty_hand
+)
+def test_playType_present_works(player: RoundPlayer):
+    give_card(player, cards.Prince())
+    give_card(player, cards.Prince())
+    autofill_move(player.play_type(card_type := CardType.PRINCE))
+    assert len(player.hand) == 1
+    assert CardType(player.cards_played[-1]) == card_type
+
+
+@pytest_cases.parametrize_with_cases(
+    "player", player_cases.DummyPlayerCases.case_empty_hand
+)
+def test_playType_notPresent_raises(player: RoundPlayer):
+    give_card(player, cards.Guard())
+    give_card(player, cards.Princess())
+    with pytest.raises(valid8.ValidationError):
+        send_gracious(player.play_type(CardType.PRINCE), None)
 
 
 @pytest_cases.parametrize_with_cases("player", cases=player_cases.PlayerCases)

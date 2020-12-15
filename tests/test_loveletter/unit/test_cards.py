@@ -34,6 +34,18 @@ def test_cards_have_nonnegative_value():
     assert all(v >= 0 for v in values)
 
 
+@pytest_cases.parametrize(card_type=card_cases.ALL_TYPES)
+def test_cardType_any_isLeqPrincess(card_type):
+    assert card_type <= CardType.PRINCESS
+
+
+@pytest_cases.parametrize_with_cases(
+    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
+)
+def test_cardTypeOrder_increasingPair_asExpected(card1, card2):
+    assert CardType(card1) < CardType(card2)
+
+
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
 @pytest_cases.parametrize_with_cases(
     "player", cases=player_cases.DummyPlayerCases().case_single_card
@@ -145,7 +157,7 @@ def test_priest_validOpponent_showsCard(started_round: Round):
 
 
 @pytest_cases.parametrize_with_cases(
-    "card1,card2", cases=card_cases.CardPairCases().case_ordered_pair
+    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
 )
 def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, card2):
     player = started_round.current_player
@@ -170,7 +182,7 @@ def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, ca
 
 
 @pytest_cases.parametrize_with_cases(
-    "card1,card2", cases=card_cases.CardPairCases().case_ordered_pair
+    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
 )
 def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card2):
     player = started_round.current_player

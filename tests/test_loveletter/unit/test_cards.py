@@ -59,6 +59,12 @@ def test_cardType_fromSubclass_works(card_type):
     assert CardType(DummySubclass) == card_type
 
 
+@pytest_cases.parametrize(value=[0, 2, 9])
+def test_cardType_fromIntValue_raises(value):
+    with pytest.raises(ValueError):
+        CardType(value)
+
+
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
 @pytest_cases.parametrize_with_cases(
     "player", cases=player_cases.DummyPlayerCases.case_single_card

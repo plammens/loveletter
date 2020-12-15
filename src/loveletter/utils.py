@@ -2,7 +2,7 @@ import itertools
 from typing import Any, Callable, Iterable, Iterator, List, Optional, TypeVar
 
 
-def is_subclass(value, cls):
+def safe_is_subclass(value, cls):
     try:
         return issubclass(value, cls)
     except TypeError:

@@ -14,7 +14,7 @@ from typing import (
 import valid8
 
 import loveletter.move as move
-from loveletter.utils import is_subclass
+from loveletter.utils import safe_is_subclass
 
 if TYPE_CHECKING:
     from loveletter.roundplayer import RoundPlayer
@@ -134,7 +134,7 @@ class Guard(Card):
 
         # execute move:
         results = []
-        if type(opponent.hand.card) == guess:
+        if guess == CardType(opponent.hand.card):
             opponent.eliminate()
             results.append(move.PlayerEliminated(owner, self, opponent))
 
@@ -301,12 +301,7 @@ class Princess(Card):
 
 @functools.total_ordering
 class CardType(enum.Enum):
-    # TODO: use class as value
-
-    def __new__(cls, card_class):
-        obj = object.__new__(cls)
-        obj._value_ = card_class.value
-        return obj
+    card_class: Type[Card]
 
     def __init__(self, card_class):
         self.card_class = card_class
@@ -324,19 +319,34 @@ class CardType(enum.Enum):
 
     @classmethod
     def _missing_(cls, value):
-        if not (isinstance(value, Card) or is_subclass(value, Card)):
-            return None
-        return CardType(value.value)
+        """Allows to get the CardType out of instances and other Card subclasses"""
+        if isinstance(value, Card):
+            for card_type in cls:
+                if isinstance(value, card_type.card_class):
+                    return card_type
+        elif safe_is_subclass(value, Card):
+            for card_type in cls:
+                if issubclass(value, card_type.card_class):
+                    return card_type
+        return None
 
-    def __eq__(self, other):
-        return super().__eq__(CardType(self._get_value(other)))
-
-    def __hash__(self):
-        return self.value
+    def __repr__(self):
+        return f"{type(self).__name__}.{self.name}"
 
     def __lt__(self, other):
-        return self.value < self._get_value(other)
+        """
+        Defines an ordering based on closeness to Princess Annette.
 
-    @staticmethod
-    def _get_value(other):
-        return other.value if is_subclass(other, Card) else other
+        Card types with higher values win over card types with lower values at the end
+        of the round. With one exception: the princess herself always wins any other
+        card.
+
+        Thus ``card_type_1 < card_type_2`` means that a card of ``card_type_2`` would
+        win over a card of ``card_type_1`` at the end of a round.
+        """
+        if not isinstance(other, CardType):
+            raise TypeError(
+                f"Can't compare with < a {type(self).__name__} "
+                f"with a {type(other).__name__}"
+            )
+        return self.card_class.value < other.card_class.value

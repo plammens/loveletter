@@ -28,9 +28,8 @@ from test_loveletter.utils import (
 )
 
 
-def test_cards_have_unique_nonnegative_value():
-    values = {t.value for t in CardType}
-    assert len(values) == len(CardType)
+def test_cards_have_nonnegative_value():
+    values = {t.card_class.value for t in CardType}
     assert all(type(v) is int for v in values)
     assert all(v >= 0 for v in values)
 
@@ -307,7 +306,7 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert results[0].discarded is victim_card
     assert results[1].eliminated is victim
     assert not victim.alive
-    assert victim.cards_played[-1].value == CardType.PRINCESS
+    assert CardType(victim.cards_played[-1]) == CardType.PRINCESS
     assert list(started_round.deck) == deck_before
 
 

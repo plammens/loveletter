@@ -5,7 +5,7 @@ import pytest
 import pytest_cases
 
 import loveletter.move as move
-from loveletter.cards import Card, CardType
+from loveletter.cards import CardType, Spy
 from test_loveletter.utils import card_from_card_type
 
 
@@ -59,8 +59,7 @@ class CardMockCases:
             yield MagicMock()
             return (move.MoveResult(owner, mock),)
 
-        mock = MagicMock(spec=Card)
-        type(mock).value = 0  # Will look like a Spy, but does nothing
+        mock = MagicMock(spec=Spy())  # Will look like a Spy, but does nothing
         mock.play.side_effect = play
         return mock
 

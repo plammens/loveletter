@@ -286,6 +286,10 @@ class Round:
         """
         Start the round: hand out one card to each player and start the first turn.
 
+        Can only be called once in the lifetime of a round object. If there aren't
+        sufficient cards to start the round or the end condition is met immediately
+        after starting, an error is raised.
+
         :param first_player: First player that will play in this round. None means
                              choose at random.
         """

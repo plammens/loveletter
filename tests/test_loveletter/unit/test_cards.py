@@ -46,6 +46,19 @@ def test_cardTypeOrder_increasingPair_asExpected(card1, card2):
     assert CardType(card1) < CardType(card2)
 
 
+@pytest_cases.parametrize(card_type=card_cases.ALL_TYPES)
+def test_cardType_fromIdenticalSubclass_works(card_type):
+    assert CardType(card_type.card_class) == card_type
+
+
+@pytest_cases.parametrize(card_type=card_cases.ALL_TYPES)
+def test_cardType_fromSubclass_works(card_type):
+    class DummySubclass(card_type.card_class):
+        pass
+
+    assert CardType(DummySubclass) == card_type
+
+
 @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
 @pytest_cases.parametrize_with_cases(
     "player", cases=player_cases.DummyPlayerCases.case_single_card

@@ -24,9 +24,11 @@ import pytest
 from multimethod import multimethod
 
 import loveletter.move as move
+import loveletter.round
 from loveletter import cards as cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
+from loveletter.gameevent import GameEvent, GameResultEvent
 from loveletter.round import Round, RoundState, Turn
 from loveletter.roundplayer import RoundPlayer
 
@@ -109,14 +111,39 @@ def autofill_move(
 
 
 @multimethod
-def autofill_step(step: move.MoveStep):
-    """Fulfill a move step by making a(n arbitrary) choice"""
+def autofill_step(step: GameEvent):
+    """Fulfill a step by making a(n arbitrary) choice"""
     raise TypeError(f"autofill_step not implemented for {type(step)}")
 
 
 @autofill_step.register
-def autofill_step(step: Union[type(None), Mock]):
-    # special case for None and mock steps
+def autofill_step(step: type(None)):
+    # no-op for initial step
+    return step
+
+
+# noinspection PyUnusedLocal
+@autofill_step.register
+def autofill_step(step: GameResultEvent):
+    # no-op for results
+    return None
+
+
+@autofill_step.register
+def autofill_step(step: Mock):
+    # special case for mocks
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: loveletter.round.FirstPlayerChoice):
+    step.choice = random.choice(step.round.players)
+    return step
+
+
+@autofill_step.register
+def autofill_step(step: loveletter.round.PlayerMoveChoice):
+    step.choice = random.choice(list(step.player.hand))
     return step
 
 
@@ -132,7 +159,7 @@ def autofill_step(step: move.OpponentChoice):
     player = step.player
     players = set(game_round.living_players)
     opponents = players - {player} - {p for p in players if p.immune}
-    step.choice = random.choice(list(opponents)) if opponents else None
+    step.choice = random.choice(list(opponents) or [move.OpponentChoice.NO_TARGET])
     return step
 
 

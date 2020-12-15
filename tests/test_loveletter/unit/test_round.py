@@ -5,12 +5,15 @@ import pytest
 import pytest_cases
 import valid8
 
+import loveletter.move
+import loveletter.round
 import test_loveletter.unit.test_cards_cases as card_cases
 import test_loveletter.unit.test_player_cases as player_cases
 from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card
-from loveletter.round import Round, RoundEnd, RoundState, Turn
+from loveletter.gameevent import GameInputRequest
+from loveletter.round import Round, RoundState
 from loveletter.utils import cycle_from
 from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
@@ -108,7 +111,7 @@ def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):
     play_mock_move(started_round.current_player)
     state = started_round.advance_turn()
     assert state.type == RoundState.Type.TURN
-    assert isinstance(state, Turn)
+    assert isinstance(state, loveletter.round.Turn)
 
 
 def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
@@ -119,7 +122,7 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     state = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
     assert started_round.ended
-    assert isinstance(state, RoundEnd)
+    assert isinstance(state, loveletter.round.RoundEnd)
     assert state.winner is winner
 
 
@@ -282,3 +285,40 @@ def test_prevPlayer_immediatePrevDead_returnsLiving(started_round: Round):
     prev_player = started_round.previous_player(player)
     assert prev_player is not victim
     assert prev_player.alive
+
+
+def test_eventGenerator_yieldsCorrectTypes(new_round: Round):
+    round_generator = new_round.play()
+
+    def is_round_start(e):
+        return isinstance(e, RoundState) and e.type == RoundState.Type.TURN
+
+    event = round_generator.send(None)
+    # all input requests until the round starts
+    while not is_round_start(event):
+        assert isinstance(event, GameInputRequest)
+        event = round_generator.send(autofill_step(event))
+
+    # until the round ends, repeat: turn -> player move choice -> move steps -> results
+    while True:
+        # starts with turn event
+        assert isinstance(event, loveletter.round.Turn)
+        # next, the player's move choice
+        event = next(round_generator)
+        assert isinstance(event, loveletter.round.PlayerMoveChoice)
+
+        # the whole move is wrapped in a StopIteration catcher because there are some
+        # moves with 0 steps and 0 results
+        try:
+            # the move starts; move steps
+            event = round_generator.send(autofill_step(event))
+            while isinstance(event, loveletter.move.MoveStep):
+                event = round_generator.send(autofill_step(event))
+            # move has ended; move results
+            while isinstance(event, loveletter.move.MoveResult):
+                event = next(round_generator)
+        except StopIteration as e:
+            results = e.value
+            break
+
+    assert tuple(map(type, results)) == (loveletter.round.RoundEnd,)

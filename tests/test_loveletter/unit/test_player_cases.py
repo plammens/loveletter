@@ -1,7 +1,6 @@
 from typing import Sequence
 
 import pytest_cases
-from pytest_cases import CaseGroupMeta
 
 import test_loveletter.unit.test_cards_cases as card_cases
 from loveletter.cards import Card
@@ -10,26 +9,29 @@ from loveletter.roundplayer import RoundPlayer
 from test_loveletter.utils import make_round_mock
 
 
-class PlayerHandCases(metaclass=CaseGroupMeta):
+class PlayerHandCases:
+    @staticmethod
     @pytest_cases.case()
-    def case_empty_hand(self):
+    def case_empty_hand():
         return []
 
+    @staticmethod
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
-    def case_single_card(self, card):
-        return [card.valuegetter()]
+    def case_single_card(card):
+        return [card]
 
+    @staticmethod
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("card1", cases=card_cases.CardCases)
     @pytest_cases.parametrize_with_cases("card2", cases=card_cases.CardCases)
-    def case_two_cards(self, card1, card2):
-        return [card1.valuegetter(), card2.valuegetter()]
+    def case_two_cards(card1, card2):
+        return [card1, card2]
 
 
-class DummyPlayerCases(metaclass=CaseGroupMeta):
+class DummyPlayerCases:
     @staticmethod
-    def __make_player(hand: Sequence[Card]) -> RoundPlayer:
+    def _make_player(hand: Sequence[Card]) -> RoundPlayer:
         round_mock = make_round_mock()
         player = round_mock.current_player
         player.hand._cards.clear()
@@ -37,23 +39,28 @@ class DummyPlayerCases(metaclass=CaseGroupMeta):
             player.give(card)
         return player
 
+    @staticmethod
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_empty_hand)
-    def case_empty_hand(self, hand):
-        return DummyPlayerCases.__make_player(hand.valuegetter())
+    def case_empty_hand(hand):
+        return DummyPlayerCases._make_player(hand)
 
+    @staticmethod
     @pytest_cases.case()
-    @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_single_card)
-    def case_single_card(self, hand):
-        return DummyPlayerCases.__make_player(hand.valuegetter())
+    @pytest_cases.parametrize_with_cases(
+        "hand", cases=PlayerHandCases.case_single_card, debug=True
+    )
+    def case_single_card(hand):
+        return DummyPlayerCases._make_player(hand)
 
+    @staticmethod
     @pytest_cases.case()
     @pytest_cases.parametrize_with_cases("hand", cases=PlayerHandCases.case_two_cards)
-    def case_two_cards(self, hand):
-        return DummyPlayerCases.__make_player(hand.valuegetter())
+    def case_two_cards(hand):
+        return DummyPlayerCases._make_player(hand)
 
 
-class PlayerCases(metaclass=CaseGroupMeta):
+class PlayerCases:
     @pytest_cases.case()
     def case_first_player(self, started_round: Round):
         return started_round.players[0]
@@ -67,7 +74,7 @@ class PlayerCases(metaclass=CaseGroupMeta):
         return current_player
 
 
-class MaybePlayerCases(metaclass=CaseGroupMeta):
+class MaybePlayerCases:
     PlayerCases = PlayerCases
 
     @pytest_cases.case()

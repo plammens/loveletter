@@ -1,17 +1,19 @@
 import random
 
-import pytest
-import pytest_cases
+import pytest  # noqa
+import pytest_cases  # noqa
 import valid8
 
+# from ... import * imports are needed because of how fixtures are generated;
+# see pytest-cases#174
 import loveletter.cards as cards
 import loveletter.move
-import test_loveletter.unit.test_cards_cases as card_cases
-import test_loveletter.unit.test_player_cases as player_cases
 from loveletter.cardpile import Deck
-from loveletter.cards import CardType
-from loveletter.round import Round, Turn
-from loveletter.roundplayer import RoundPlayer
+from loveletter.cards import CardType  # noqa
+from loveletter.round import Round, Turn  # noqa
+from loveletter.roundplayer import RoundPlayer  # noqa
+from test_loveletter.unit.test_cards_cases import *
+from test_loveletter.unit.test_player_cases import *
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
@@ -40,7 +42,7 @@ def test_cardType_any_isLeqPrincess(card_type):
 
 
 @pytest_cases.parametrize_with_cases(
-    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
+    "card1,card2", cases=CardPairCases.case_ordered_pair
 )
 def test_cardTypeOrder_increasingPair_asExpected(card1, card2):
     assert CardType(card1) < CardType(card2)
@@ -65,10 +67,8 @@ def test_cardType_fromIntValue_raises(value):
         CardType(value)
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
-@pytest_cases.parametrize_with_cases(
-    "player", cases=player_cases.DummyPlayerCases.case_single_card
-)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases)
+@pytest_cases.parametrize_with_cases("player", cases=DummyPlayerCases.case_single_card)
 def test_cardSteps_correspondsToReality(player: RoundPlayer, card: cards.Card):
     move = play_card(player, card, autofill=False)
     step = None
@@ -176,7 +176,7 @@ def test_priest_validOpponent_showsCard(started_round: Round):
 
 
 @pytest_cases.parametrize_with_cases(
-    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
+    "card1,card2", cases=CardPairCases.case_ordered_pair
 )
 def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, card2):
     player = started_round.current_player
@@ -201,7 +201,7 @@ def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, ca
 
 
 @pytest_cases.parametrize_with_cases(
-    "card1,card2", cases=card_cases.CardPairCases.case_ordered_pair
+    "card1,card2", cases=CardPairCases.case_ordered_pair
 )
 def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card2):
     player = started_round.current_player
@@ -224,7 +224,7 @@ def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card
     assert opponent.alive
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases)
 def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
     player = started_round.current_player
     opponent = started_round.next_player(player)
@@ -251,9 +251,7 @@ def test_handmaid_playerBecomesImmune(current_player: RoundPlayer):
     assert current_player.immune
 
 
-@pytest_cases.parametrize_with_cases(
-    "card", card_cases.CardCases.MultiStepCases.TargetCases
-)
+@pytest_cases.parametrize_with_cases("card", CardCases.MultiStepCases.TargetCases)
 def test_targetCard_againstImmunePlayer_raises(started_round: Round, card):
     immune_player = started_round.current_player
     play_card(immune_player, cards.Handmaid())
@@ -292,7 +290,7 @@ def test_handmaid_immunityLastsOneFullRotation_withDeaths(started_round: Round):
 
 
 @pytest_cases.parametrize("card_type", set(CardType) - {CardType.PRINCESS})
-@pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
+@pytest_cases.parametrize_with_cases("target", cases=PlayerCases)
 def test_prince_againstNonPrincess_dealsCard(
     started_round: Round, target: RoundPlayer, card_type
 ):
@@ -341,14 +339,14 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert list(started_round.deck) == deck_before
 
 
-@pytest_cases.parametrize_with_cases("target", cases=player_cases.PlayerCases)
-@pytest_cases.parametrize_with_cases("set_aside", cases=card_cases.CardMockCases)
+@pytest_cases.parametrize_with_cases("target", cases=PlayerCases)
+@pytest_cases.parametrize_with_cases("set_aside", cases=CardMockCases)
 def test_prince_emptyDeck_dealsSetAsideCard(
     current_player: RoundPlayer, target: RoundPlayer, set_aside: cards.Card
 ):
     current_player.round.deck = Deck([], set_aside=set_aside)
 
-    give_card(target, card_cases.CardMockCases().case_generic(), replace=True)
+    give_card(target, CardMockCases().case_generic(), replace=True)
     move = play_card(current_player, cards.Prince())
     target_step = next(move)
     target_step.choice = target
@@ -463,9 +461,7 @@ def test_princess_eliminatesSelf(current_player: RoundPlayer):
     assert not current_player.alive
 
 
-@pytest_cases.parametrize_with_cases(
-    "card", cases=card_cases.CardCases.MultiStepCases.TargetCases
-)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases.MultiStepCases.TargetCases)
 def test_targetCard_chooseSelf_raises(current_player, card):
     with play_card_with_cleanup(current_player, card) as move:
         target_step = next(move)
@@ -474,9 +470,7 @@ def test_targetCard_chooseSelf_raises(current_player, card):
             move.send(target_step)
 
 
-@pytest_cases.parametrize_with_cases(
-    "card", cases=card_cases.CardCases.MultiStepCases.TargetCases
-)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases.MultiStepCases.TargetCases)
 def test_targetCard_allOpponentsImmune_canChooseNone(started_round: Round, card):
     for player in started_round.players:
         if player is not started_round.current_player:

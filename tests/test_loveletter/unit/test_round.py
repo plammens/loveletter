@@ -1,20 +1,21 @@
 import itertools as itt
 import unittest.mock
 
-import pytest
-import pytest_cases
+import pytest  # noqa
+import pytest_cases  # noqa
 import valid8
 
+# from ... import * imports are needed because of how fixtures are generated;
+# see pytest-cases#174
 import loveletter.move
 import loveletter.round
-import test_loveletter.unit.test_cards_cases as card_cases
-import test_loveletter.unit.test_player_cases as player_cases
 from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
-from loveletter.cards import Card
 from loveletter.gameevent import GameInputRequest
-from loveletter.round import Round, RoundState
+from loveletter.round import RoundState
 from loveletter.utils import cycle_from
+from test_loveletter.unit.test_cards_cases import *
+from test_loveletter.unit.test_player_cases import *
 from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
 from test_loveletter.utils import (
     autofill_step,
@@ -141,7 +142,7 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert state.winner is winner
 
 
-@pytest_cases.parametrize_with_cases("set_aside", cases=card_cases.CardMockCases)
+@pytest_cases.parametrize_with_cases("set_aside", cases=CardMockCases)
 def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(
     started_round: Round, set_aside
 ):
@@ -157,7 +158,7 @@ def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(
     assert state.winner is winner
 
 
-@pytest_cases.parametrize_with_cases("from_player", cases=player_cases.PlayerCases)
+@pytest_cases.parametrize_with_cases("from_player", cases=PlayerCases)
 def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_player):
     discard_piles = (
         [cards.Priest(), cards.Prince()],  # total value: 7
@@ -181,7 +182,7 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
     assert end.winner is winner
 
 
-@pytest_cases.parametrize_with_cases("loser", cases=player_cases.MaybePlayerCases)
+@pytest_cases.parametrize_with_cases("loser", cases=MaybePlayerCases)
 def test_roundEnd_totalTie_everyoneWins(started_round: Round, loser):
     losers = {loser} if loser is not None else set()
     winners = set(started_round.players) - losers
@@ -229,7 +230,7 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
     assert (player.hand.card is card) == (len(before) == 0)
 
 
-@pytest_cases.parametrize_with_cases("card", card_cases.CardCases.MultiStepCases)
+@pytest_cases.parametrize_with_cases("card", CardCases.MultiStepCases)
 def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
     player = started_round.current_player
     move = play_card(player, card, autofill=False)

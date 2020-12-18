@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import pytest_cases
-from pytest_cases import CaseGroupMeta
 
 import loveletter.move as move
 from loveletter.cards import CardType, Spy
@@ -20,14 +19,14 @@ TARGET_TYPES = frozenset(
 )
 
 
-class CardCases(metaclass=CaseGroupMeta):
+class CardCases:
     @pytest_cases.case()
     @pytest.mark.parametrize("card_type", DISCARD_TYPES)
     def case_discard_card(self, card_type: CardType):
         return card_from_card_type(card_type)
 
-    class MultiStepCases(metaclass=CaseGroupMeta):
-        class TargetCases(metaclass=CaseGroupMeta):
+    class MultiStepCases:
+        class TargetCases:
             @pytest_cases.case()
             @pytest.mark.parametrize("card_type", TARGET_TYPES - NO_CANCEL_TYPES)
             def case_target_card_cancel(self, card_type: CardType):
@@ -53,7 +52,7 @@ class CardCases(metaclass=CaseGroupMeta):
             return card_from_card_type(card_type)
 
 
-class CardMockCases(metaclass=CaseGroupMeta):
+class CardMockCases:
     @pytest_cases.case()
     def case_generic(self) -> MagicMock:
         def play(owner):
@@ -65,7 +64,8 @@ class CardMockCases(metaclass=CaseGroupMeta):
         return mock
 
 
-class CardPairCases(metaclass=CaseGroupMeta):
+class CardPairCases:
+    @staticmethod
     @pytest_cases.case()
     @pytest.mark.parametrize(
         "type1,type2",
@@ -77,5 +77,5 @@ class CardPairCases(metaclass=CaseGroupMeta):
             (CardType.KING, CardType.COUNTESS),
         ],
     )
-    def case_ordered_pair(self, type1, type2):
+    def case_ordered_pair(type1, type2):
         return type1.card_class(), type2.card_class()

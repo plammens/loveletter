@@ -1,14 +1,16 @@
 import more_itertools as mitt
-import pytest
-import pytest_cases
+import pytest  # noqa
+import pytest_cases  # noqa
 import valid8
 
+# from ... import * imports are needed because of how fixtures are generated;
+# see pytest-cases#174
 import loveletter.cards as cards
-import test_loveletter.unit.test_cards_cases as card_cases
-import test_loveletter.unit.test_player_cases as player_cases
-from loveletter.cards import Card, CardType
+from loveletter.cards import Card, CardType  # noqa
 from loveletter.move import CancelMove
-from loveletter.roundplayer import RoundPlayer
+from loveletter.roundplayer import RoundPlayer  # noqa
+from test_loveletter.unit.test_cards_cases import *
+from test_loveletter.unit.test_player_cases import *
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
@@ -28,19 +30,17 @@ def test_newPlayer_validRound_initsCorrectly(game_round, id: int):
     assert player.id == id
 
 
-@pytest_cases.parametrize_with_cases("dummy_player", player_cases.DummyPlayerCases)
+@pytest_cases.parametrize_with_cases("dummy_player", DummyPlayerCases)
 def test_handCard_isFirstCard(dummy_player: RoundPlayer):
     assert dummy_player.hand.card is mitt.first(dummy_player.hand, None)
 
 
-@pytest_cases.parametrize_with_cases("dummy_player", player_cases.DummyPlayerCases)
+@pytest_cases.parametrize_with_cases("dummy_player", DummyPlayerCases)
 def test_playerHand_len_isAtMostTwo(dummy_player: RoundPlayer):
     assert len(dummy_player.hand) <= 2
 
 
-@pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases.case_single_card
-)
+@pytest_cases.parametrize_with_cases("dummy_player", DummyPlayerCases.case_single_card)
 def test_give_playerWithOneCard_oneCard_works(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
     before = dummy_player.hand.card
@@ -50,7 +50,7 @@ def test_give_playerWithOneCard_oneCard_works(dummy_player: RoundPlayer):
 
 @pytest_cases.parametrize_with_cases(
     "dummy_player",
-    player_cases.DummyPlayerCases.case_two_cards,
+    DummyPlayerCases.case_two_cards,
 )
 def test_give_playerWithTwoCards_oneCard_raises(dummy_player: RoundPlayer):
     card = dummy_player.hand.card
@@ -58,11 +58,9 @@ def test_give_playerWithTwoCards_oneCard_raises(dummy_player: RoundPlayer):
         dummy_player.give(card)
 
 
-@pytest_cases.parametrize_with_cases("right", cases=card_cases.CardMockCases)
-@pytest_cases.parametrize_with_cases("left", cases=card_cases.CardMockCases)
-@pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases.case_empty_hand
-)
+@pytest_cases.parametrize_with_cases("right", cases=CardMockCases)
+@pytest_cases.parametrize_with_cases("left", cases=CardMockCases)
+@pytest_cases.parametrize_with_cases("dummy_player", DummyPlayerCases.case_empty_hand)
 def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
@@ -75,11 +73,9 @@ def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
     assert dummy_player.cards_played[-1] == left
 
 
-@pytest_cases.parametrize_with_cases("right", cases=card_cases.CardMockCases)
-@pytest_cases.parametrize_with_cases("left", cases=card_cases.CardMockCases)
-@pytest_cases.parametrize_with_cases(
-    "dummy_player", player_cases.DummyPlayerCases.case_empty_hand
-)
+@pytest_cases.parametrize_with_cases("right", cases=CardMockCases)
+@pytest_cases.parametrize_with_cases("left", cases=CardMockCases)
+@pytest_cases.parametrize_with_cases("dummy_player", DummyPlayerCases.case_empty_hand)
 def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     dummy_player.give(left)
     dummy_player.give(right)
@@ -92,9 +88,7 @@ def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     assert dummy_player.cards_played[-1] == right
 
 
-@pytest_cases.parametrize_with_cases(
-    "player", player_cases.DummyPlayerCases.case_empty_hand
-)
+@pytest_cases.parametrize_with_cases("player", DummyPlayerCases.case_empty_hand)
 def test_playType_present_works(player: RoundPlayer):
     give_card(player, cards.Prince())
     give_card(player, cards.Prince())
@@ -103,9 +97,7 @@ def test_playType_present_works(player: RoundPlayer):
     assert CardType(player.cards_played[-1]) == card_type
 
 
-@pytest_cases.parametrize_with_cases(
-    "player", player_cases.DummyPlayerCases.case_empty_hand
-)
+@pytest_cases.parametrize_with_cases("player", DummyPlayerCases.case_empty_hand)
 def test_playType_notPresent_raises(player: RoundPlayer):
     give_card(player, cards.Guard())
     give_card(player, cards.Princess())
@@ -113,7 +105,7 @@ def test_playType_notPresent_raises(player: RoundPlayer):
         send_gracious(player.play_type(CardType.PRINCE), None)
 
 
-@pytest_cases.parametrize_with_cases("player", cases=player_cases.PlayerCases)
+@pytest_cases.parametrize_with_cases("player", cases=PlayerCases)
 def test_eliminate_discardsCards(player: RoundPlayer):
     game_round = player.round
     card = player.hand.card
@@ -123,14 +115,14 @@ def test_eliminate_discardsCards(player: RoundPlayer):
     assert len(player.hand) == 0
 
 
-@pytest_cases.parametrize_with_cases("player", cases=player_cases.DummyPlayerCases)
+@pytest_cases.parametrize_with_cases("player", cases=DummyPlayerCases)
 def test_eliminate_deadPlayer_raises(player: RoundPlayer):
     player.eliminate()
     with pytest.raises(valid8.ValidationError):
         player.eliminate()
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases.MultiStepCases)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases.MultiStepCases)
 def test_play_multiStepNoChoice_raises(current_player: RoundPlayer, card: Card):
     move = play_card(current_player, card)
     step = next(move)
@@ -141,7 +133,7 @@ def test_play_multiStepNoChoice_raises(current_player: RoundPlayer, card: Card):
 
 @pytest_cases.parametrize_with_cases(
     "card",
-    cases=card_cases.CardCases.MultiStepCases,
+    cases=CardCases.MultiStepCases,
     glob="*_cancel",
 )
 def test_play_cancelMove_stateResetSuccessfully(

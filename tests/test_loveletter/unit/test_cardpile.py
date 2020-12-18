@@ -1,15 +1,17 @@
-from collections import Counter
+from collections import Counter  # noqa
 
-import more_itertools as mitt
-import pytest
-import pytest_cases
+import more_itertools as mitt  # noqa
+import pytest  # noqa
+import pytest_cases  # noqa
 
+# from ... import * imports are needed because of how fixtures are generated;
+# see pytest-cases#174
 import loveletter.cardpile
 import loveletter.cards as cards
-import test_loveletter.unit.test_cardpile_cases as cardpile_cases
-import test_loveletter.unit.test_cards_cases as card_cases
-from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS
-from loveletter.cards import CardType
+from loveletter.cardpile import CardPile, Deck, STANDARD_DECK_COUNTS  # noqa
+from loveletter.cards import CardType  # noqa
+from test_loveletter.unit.test_cardpile_cases import *
+from test_loveletter.unit.test_cards_cases import *
 from test_loveletter.utils import collect_subclasses, random_card_counts
 
 
@@ -44,16 +46,14 @@ def test_deck_containsSetAside():
     assert set_aside in deck
 
 
-@pytest_cases.parametrize_with_cases("card", cases=card_cases.CardCases)
-@pytest_cases.parametrize_with_cases("deck", cases=cardpile_cases.DeckCases)
+@pytest_cases.parametrize_with_cases("card", cases=CardCases)
+@pytest_cases.parametrize_with_cases("deck", cases=DeckCases)
 def test_deckPlace_card_placesBottom(deck, card):
     deck.place(card)
     assert deck.stack[0] is card
 
 
-@pytest_cases.parametrize_with_cases(
-    "discard_pile", cases=cardpile_cases.DiscardPileCases
-)
+@pytest_cases.parametrize_with_cases("discard_pile", cases=DiscardPileCases)
 def test_discardPileTake_raises(discard_pile):
     with pytest.raises(TypeError):
         discard_pile.take()

@@ -69,7 +69,7 @@ def autoplay_round(game_round: Round):
 
 
 def play_random_move(player):
-    card = random.choice(list(player.hand))
+    card = autofill_step(loveletter.round.PlayerMoveChoice(player)).choice
     autofill_move(player.play_card(card))
     player.round.advance_turn()
 

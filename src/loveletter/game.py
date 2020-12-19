@@ -53,12 +53,12 @@ class Game(GameNode):
         self.points = Counter()
 
     @property
-    def points_threshold(self):
+    def points_threshold(self) -> int:
         """The number of points that must be reached by a player to win."""
         return {2: 7, 3: 5, 4: 4}[self.num_players]
 
     @property
-    def current_round(self):
+    def current_round(self) -> Optional[Round]:
         """The current round being played, or None if not applicable."""
         return getattr(self.state, "round", None)
 

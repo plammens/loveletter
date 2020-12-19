@@ -1,8 +1,10 @@
 import abc
 import enum
 import functools
+from collections import Counter
 from typing import (
     ClassVar,
+    Counter as CounterType,
     Dict,
     Generator,
     Optional,
@@ -84,7 +86,7 @@ class Card(metaclass=abc.ABCMeta):
         return ()
 
     @classmethod
-    def collect_extra_points(cls, game_round: "Round") -> Dict["RoundPlayer", int]:
+    def collect_extra_points(cls, game_round: "Round") -> CounterType["RoundPlayer"]:
         """
         After a round has ended, collect any extra points to award to players.
 
@@ -92,7 +94,7 @@ class Card(metaclass=abc.ABCMeta):
         as a classmethod.
         """
         assert game_round.ended
-        return {}
+        return Counter()
 
     # noinspection PyMethodMayBeStatic
     def _validate_move(self, owner: "RoundPlayer") -> None:

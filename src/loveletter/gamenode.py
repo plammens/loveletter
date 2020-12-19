@@ -66,7 +66,7 @@ class GameNode(metaclass=abc.ABCMeta):
         return self.state.type == GameNodeState.Type.END
 
     @abc.abstractmethod
-    def play(self) -> GameEventGenerator:
+    def play(self, **start_kwargs) -> GameEventGenerator:
         """
         The game event generator for this game node that runs for its duration.
 
@@ -76,6 +76,8 @@ class GameNode(metaclass=abc.ABCMeta):
 
         The return value of the generator is the final state of the game (i.e. a
         :class:`GameNodeEnd` instance).
+
+        :param start_kwargs: Keyword arguments to be passed to :meth:`GameNode.start`.
         """
         valid8.validate(
             "started",

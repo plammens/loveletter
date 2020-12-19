@@ -113,7 +113,7 @@ class Round(GameNode):
         """Get the previous living player in turn order"""
         return self.get_player(player, -1)
 
-    def play(self) -> GameEventGenerator:
+    def play(self, **start_kwargs) -> GameEventGenerator:
         def iteration(self: Round) -> GameEventGenerator:
             # noinspection PyUnresolvedReferences
             card = (yield from PlayerMoveChoice(self.current_player)).choice
@@ -121,9 +121,7 @@ class Round(GameNode):
             return results
 
         yield from super().play()
-        # noinspection PyUnresolvedReferences
-        first_player = (yield from FirstPlayerChoice(self)).choice
-        return (yield from self._play_helper(iteration, first_player=first_player))
+        return (yield from self._play_helper(iteration, **start_kwargs))
 
     def start(self, first_player: RoundPlayer = None) -> "Turn":
         """

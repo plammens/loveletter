@@ -112,9 +112,7 @@ class GameNode(metaclass=abc.ABCMeta):
         """
         Advance from an intermediate state to the next (intermediate or end).
 
-        This base implementation just does some validation, and if the end condition is
-        true it finalizes the game node and returns the end state, otherwise it returns
-        None (implicitly).
+        This base implementation just does some validation.
         """
         valid8.validate(
             "started",
@@ -136,8 +134,6 @@ class GameNode(metaclass=abc.ABCMeta):
             custom=lambda s: s.can_advance,
             help_msg=f"Can't advance {intermediate_name} before previous one has ended",
         )
-        if self._reached_end():
-            return self._finalize()
 
     @abc.abstractmethod
     def _reached_end(self) -> bool:
@@ -173,13 +169,12 @@ class GameNode(metaclass=abc.ABCMeta):
         # yield from
 
         # noinspection PyArgumentList
-        yield self.start(**start_kwargs)
-        yield from (yield from iteration_generator(self))
-        while not self._reached_end():
-            yield self.advance()
+        state = self.start(**start_kwargs)
+        while state.type != GameNodeState.Type.END:
+            yield state
             yield from (yield from iteration_generator(self))
-        end = self.advance()
-        return (end,)
+            state = self.advance()
+        return (state,)
 
 
 @dataclass(frozen=True, eq=False)

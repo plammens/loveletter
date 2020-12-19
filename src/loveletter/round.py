@@ -160,8 +160,9 @@ class Round(GameNode):
 
     def advance(self) -> GameNodeState:
         """Advance to the next turn (supposing it is possible to do so already)."""
-        if (state := super().advance()) is not None:
-            return state
+        super().advance()
+        if self._reached_end():
+            return self._finalize()
 
         current = self.current_player
         assert current is not None

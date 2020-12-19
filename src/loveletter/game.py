@@ -90,12 +90,13 @@ class Game(GameNode):
         return state
 
     def advance(self) -> "GameNodeState":
-        if (state := super().advance()) is not None:
-            return state
+        super().advance()
 
         self.state: PlayingRound
         old_round = self.state.round
         self._collect_points(old_round)
+        if self._reached_end():
+            return self._finalize()
 
         new_round = Round(self.num_players)
         new_round_no = self.state.round_no + 1

@@ -157,7 +157,8 @@ def autofill_step(step: loveletter.round.PlayerMoveChoice):
 
 @autofill_step.register
 def autofill_step(step: move.PlayerChoice):
-    step.choice = random.choice(step.game_round.living_players)
+    options = [p for p in step.game_round.living_players if not p.immune]
+    step.choice = random.choice(options)
     return step
 
 

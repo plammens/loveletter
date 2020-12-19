@@ -94,6 +94,16 @@ def test_advance_roundFinished_pointsUpdateCorrectly(started_game: Game):
     assert sum(int(diff > 1) for diff in diffs.values()) <= 1
 
 
+@pytest_cases.parametrize(winner=[0, 1, 2])
+def test_advance_pointThresholdReached_gameEnds(started_game: Game, winner):
+    winner = started_game.players[winner % started_game.num_players]
+    started_game.points[winner] = started_game.points_threshold
+    force_end_round(started_game.current_round)
+    end = started_game.advance()
+    assert end.type == GameState.Type.END
+    assert end.winner is winner
+
+
 def test_eventGenerator_yieldsCorrectTypes(new_game: Game):
     def is_game_start(e: GameEvent):
         return isinstance(e, GameState) and e.type == GameState.Type.ROUND

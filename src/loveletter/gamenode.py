@@ -247,4 +247,4 @@ class EndState(GameNodeState, metaclass=abc.ABCMeta):
         with valid8.validation(
             "winners", self.winners, help_msg="There is more than one winner"
         ):
-            return more_itertools.only(self.winners)
+            return more_itertools.one(self.winners, too_short=AssertionError)

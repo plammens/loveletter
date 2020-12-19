@@ -197,7 +197,7 @@ class Round(GameNode):
         """End the round and declare the winner(s)."""
         winners = argmax(
             self.living_players,
-            key=lambda p: (p.hand.card.value, sum(c.value for c in p.cards_played)),
+            key=lambda p: (p.hand.card.value, sum(c.value for c in p.discarded_cards)),
         )
         self.state = end = EndState(winners=frozenset(winners))
         return end

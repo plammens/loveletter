@@ -175,7 +175,7 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
         discard_piles,
     ):
         give_card(player, card, replace=True)
-        player.cards_played = discard_pile
+        player.discarded_cards = discard_pile
 
     end = force_next_turn(started_round)
     assert end.type == RoundState.Type.ROUND_END
@@ -190,7 +190,7 @@ def test_roundEnd_totalTie_everyoneWins(started_round: Round, loser):
     started_round.deck.stack.clear()
     for player in winners:
         give_card(player, cards.Princess(), replace=True)
-        player.cards_played.clear()
+        player.discarded_cards.clear()
     for loser in losers:
         give_card(loser, cards.Guard(), replace=True)
 

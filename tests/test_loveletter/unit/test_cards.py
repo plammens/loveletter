@@ -310,7 +310,7 @@ def test_prince_againstNonPrincess_dealsCard(
     assert results[0].target is target
     assert target.alive
     assert target.hand.card is deck_before[-1]
-    assert target.cards_played[-1 if target is not player else -2] is target_card
+    assert target.discarded_cards[-1 if target is not player else -2] is target_card
     # Checking second-to-last as last is the Prince card:
     assert list(started_round.discard_pile)[-2] is target_card
     assert list(started_round.deck) == deck_before[:-1]
@@ -335,7 +335,7 @@ def test_prince_againstPrincess_kills(started_round: Round):
     assert results[0].discarded is victim_card
     assert results[1].eliminated is victim
     assert not victim.alive
-    assert CardType(victim.cards_played[-1]) == CardType.PRINCESS
+    assert CardType(victim.discarded_cards[-1]) == CardType.PRINCESS
     assert list(started_round.deck) == deck_before
 
 

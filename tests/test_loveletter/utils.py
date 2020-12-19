@@ -273,7 +273,7 @@ def assert_state_is_preserved(
                 assert after.alive == before.alive
                 assert list(after.hand) == list(before.hand)
                 assert after.immune == before.immune
-                assert after.cards_played == before.cards_played
+                assert after.discarded_cards == before.discarded_cards
                 if with_mock and after is not current_player:
                     after: Mock
                     after.eliminate.assert_not_called()
@@ -292,7 +292,7 @@ def mock_player(player: RoundPlayer):
     type(mock).alive = PropertyMock(side_effect=lambda: player.alive)
     # Have to make immune a property that tracks the value since bool is immutable
     type(mock).immune = PropertyMock(side_effect=lambda: player.immune)
-    mock.cards_played = player.cards_played
+    mock.discarded_cards = player.discarded_cards
     mock.play_card.side_effect = functools.partial(RoundPlayer.play_card, mock)
     mock._discard_actions.side_effect = functools.partial(
         RoundPlayer._discard_actions, mock

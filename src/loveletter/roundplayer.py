@@ -80,7 +80,7 @@ class RoundPlayer:
 
     round: "Round"
     hand: Hand
-    cards_played: List[Card]
+    discarded_cards: List[Card]
     immune: bool
 
     def __init__(self, round: "Round", player_id: int):
@@ -88,7 +88,7 @@ class RoundPlayer:
         self.id = player_id
         self._alive = True
         self.hand = self.Hand()
-        self.cards_played = []
+        self.discarded_cards = []
         self.immune = False
 
     @property
@@ -178,6 +178,6 @@ class RoundPlayer:
 
     def _discard_actions(self, card: Card) -> Tuple[loveletter.move.MoveResult, ...]:
         self.round.discard_pile.place(card)
-        self.cards_played.append(card)
+        self.discarded_cards.append(card)
         results = card.discard_effects(self)
         return results

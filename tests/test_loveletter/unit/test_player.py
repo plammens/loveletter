@@ -26,7 +26,7 @@ def test_newPlayer_validRound_initsCorrectly(game_round, id: int):
     assert player.round is game_round
     assert player.alive
     assert player.hand.card is None
-    assert len(player.cards_played) == 0
+    assert len(player.discarded_cards) == 0
     assert player.id == id
 
 
@@ -70,7 +70,7 @@ def test_playCard_left_playsLeftCard(dummy_player: RoundPlayer, left, right):
     assert dummy_player.hand.card is right
     assert left not in dummy_player.hand
     dummy_player.round.discard_pile.place.assert_called_once_with(left)
-    assert dummy_player.cards_played[-1] == left
+    assert dummy_player.discarded_cards[-1] == left
 
 
 @pytest_cases.parametrize_with_cases("right", cases=CardMockCases)
@@ -85,7 +85,7 @@ def test_playCard_right_playsRightCard(dummy_player: RoundPlayer, left, right):
     assert dummy_player.hand.card is left
     assert right not in dummy_player.hand
     dummy_player.round.discard_pile.place.assert_called_once_with(right)
-    assert dummy_player.cards_played[-1] == right
+    assert dummy_player.discarded_cards[-1] == right
 
 
 @pytest_cases.parametrize_with_cases("player", DummyPlayerCases.case_empty_hand)
@@ -94,7 +94,7 @@ def test_playType_present_works(player: RoundPlayer):
     give_card(player, cards.Prince())
     autofill_move(player.play_type(card_type := CardType.PRINCE))
     assert len(player.hand) == 1
-    assert CardType(player.cards_played[-1]) == card_type
+    assert CardType(player.discarded_cards[-1]) == card_type
 
 
 @pytest_cases.parametrize_with_cases("player", DummyPlayerCases.case_empty_hand)
@@ -111,7 +111,7 @@ def test_eliminate_discardsCards(player: RoundPlayer):
     card = player.hand.card
     player.eliminate()
     assert game_round.discard_pile.top == card
-    assert player.cards_played[-1] == card
+    assert player.discarded_cards[-1] == card
     assert len(player.hand) == 0
 
 

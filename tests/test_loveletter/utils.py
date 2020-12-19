@@ -19,7 +19,7 @@ from typing import (
 )
 from unittest.mock import MagicMock, Mock, PropertyMock
 
-import more_itertools
+import more_itertools as mitt
 import pytest
 from multimethod import multimethod
 
@@ -143,7 +143,15 @@ def autofill_step(step: loveletter.round.FirstPlayerChoice):
 
 @autofill_step.register
 def autofill_step(step: loveletter.round.PlayerMoveChoice):
-    step.choice = random.choice(list(step.player.hand))
+    hand = step.player.hand
+    card_types = tuple(map(CardType, hand))
+    if CardType.COUNTESS in card_types and (
+        CardType.PRINCE in card_types or CardType.KING in card_types
+    ):
+        # we're forced to play the Countess
+        step.choice = next(c for c in hand if CardType(c) == CardType.COUNTESS)
+    else:
+        step.choice = random.choice(list(hand))
     return step
 
 
@@ -378,7 +386,7 @@ def start_round_from_player_cards(
     :return: A round with the number of players and deck deduced from ``player_cards``.
     """
     player_cards = player_cards[first_player:] + player_cards[:first_player]
-    stack = list(more_itertools.roundrobin(*player_cards))[::-1]
+    stack = list(mitt.roundrobin(*player_cards))[::-1]
     deck = Deck(stack, set_aside=set_aside or cards.Princess())
     round = Round(len(player_cards), deck=deck)
     round.start(first_player=round.players[first_player])

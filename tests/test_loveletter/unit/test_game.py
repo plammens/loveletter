@@ -1,9 +1,35 @@
+from typing import List
+
+import pytest
+import pytest_cases
+import valid8
+
 import loveletter.game
 from loveletter.game import Game, GameState
 from loveletter.gameevent import GameEvent, GameInputRequest
 from loveletter.gamenode import GameNodeState
 from loveletter.round import RoundState
+from test_loveletter.unit.test_game_cases import (
+    INVALID_PLAYER_LIST_CASES,
+    PLAYER_LIST_CASES,
+)
 from test_loveletter.utils import autofill_step
+
+
+@pytest_cases.parametrize(players=PLAYER_LIST_CASES)
+def test_newGame_validPlayerList_works(players: List[str]):
+    game = Game(players)
+    assert len(game.players) == len(players)
+    assert len(set(map(id, game.players))) == len(players)
+    assert all(game.players[i].id == i for i in range(len(players)))
+    assert not game.started
+    assert game.state.type == RoundState.Type.INIT
+
+
+@pytest_cases.parametrize(players=INVALID_PLAYER_LIST_CASES)
+def test_newRound_invalidNumPlayers_raises(players):
+    with pytest.raises(valid8.ValidationError):
+        Game(players)
 
 
 def test_eventGenerator_yieldsCorrectTypes(new_game: Game):

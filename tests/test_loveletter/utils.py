@@ -62,6 +62,8 @@ def random_card_counts() -> Counter[CardType]:
 
 
 def autoplay_round(game_round: Round):
+    if not game_round.started:
+        game_round.start()
     while not game_round.ended:
         play_random_move(game_round.current_player)
 

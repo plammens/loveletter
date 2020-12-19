@@ -57,6 +57,11 @@ class Game(GameNode):
         """The number of points that must be reached by a player to win."""
         return {2: 7, 3: 5, 4: 4}[self.num_players]
 
+    @property
+    def current_round(self):
+        """The current round being played, or None if not applicable."""
+        return getattr(self.state, "round", None)
+
     def play(self, **start_kwargs) -> GameEventGenerator:
         def iteration(self: Game) -> GameEventGenerator:
             # noinspection PyTypeChecker

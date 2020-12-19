@@ -24,6 +24,8 @@ def test_newGame_validPlayerList_works(players: List[str]):
     assert all(game.players[i].id == i for i in range(len(players)))
     assert not game.started
     assert game.state.type == GameState.Type.INIT
+    assert set(game.points).issubset(game.players)
+    assert all(game.points[p] == 0 for p in game.players)
 
 
 @pytest_cases.parametrize(players=INVALID_PLAYER_LIST_CASES)

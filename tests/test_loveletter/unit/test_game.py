@@ -8,7 +8,7 @@ import loveletter.game
 from loveletter.game import Game, GameState
 from loveletter.gameevent import GameEvent, GameInputRequest
 from loveletter.gamenode import GameNodeState
-from loveletter.round import RoundState
+from loveletter.round import Round, RoundState
 from test_loveletter.unit.test_game_cases import (
     INVALID_PLAYER_LIST_CASES,
     PLAYER_LIST_CASES,
@@ -32,6 +32,19 @@ def test_newGame_validPlayerList_works(players: List[str]):
 def test_newRound_invalidNumPlayers_raises(players):
     with pytest.raises(valid8.ValidationError):
         Game(players)
+
+
+def test_start_newGame_setsCorrectGameState(new_game: Game):
+    new_game.start()
+    assert new_game.started
+    assert not new_game.ended
+    assert new_game.state.type == GameState.Type.ROUND
+    # noinspection PyTypeChecker
+    state: loveletter.game.PlayingRound = new_game.state
+    game_round = state.round
+    assert isinstance(game_round, Round)
+    assert not game_round.started
+    assert game_round.num_players == new_game.num_players
 
 
 def test_eventGenerator_yieldsCorrectTypes(new_game: Game):

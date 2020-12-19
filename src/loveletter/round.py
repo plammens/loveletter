@@ -3,128 +3,23 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import FrozenSet, List, Optional, Sequence, TYPE_CHECKING
+from typing import Optional, Sequence, TYPE_CHECKING
 
-import more_itertools
 import valid8
+from valid8.validation_lib import instance_of
 
 from loveletter.cardpile import Deck, DiscardPile
-from loveletter.gameevent import (
-    ChoiceEvent,
-    GameEventGenerator,
-    GameResultEvent,
-)
+from loveletter.gameevent import ChoiceEvent, GameEventGenerator
+from loveletter.gamenode import EndState, GameNode, GameNodeState, IntermediateState
 from loveletter.move import CancelMove
 from loveletter.roundplayer import RoundPlayer
-from loveletter.utils import argmax, cycle_from
+from loveletter.utils import argmax, cycle_from, extend_enum
 
 if TYPE_CHECKING:
     from loveletter.cards import Card
 
 
-@dataclass(frozen=True, eq=False)
-class RoundState(GameResultEvent, metaclass=abc.ABCMeta):
-    """
-    Objects of this class represent the game state of a round.
-
-    A RoundState object can be of one of several types, as specified in
-    :class:`RoundState.Type`. The relationship between round state types and subclasses
-    of RoundState might not necessarily be one-to-one (but it will always be one-to-*).
-
-    When seen as a :class:`GameResultEvent`, a RoundState instance represents the event
-    corresponding to the round entering the state described by said instance.
-
-    The attributes of a RoundState are:
-     - ``type``: the type of round state as described above
-    """
-
-    class Type(enum.Enum):
-        INIT = enum.auto()  # round hasn't started yet
-        TURN = enum.auto()  # some player's turn
-        ROUND_END = enum.auto()  # round has ended
-
-    type: "RoundState.Type"
-
-
-@dataclass(frozen=True, eq=False)
-class Turn(RoundState):
-    """
-    Represents a single turn; enforces turn constraints.
-
-    A player can only make a move if it is their turn. Thus trying to run e.g.
-    :meth:`RoundPlayer.play_card` when it's not the player's turn will raise an
-    error. The round can only move on to the next turn if the previous one has been
-    completed.
-
-    It is used as a context manager that is entered when a player begins a move.
-    While the context is active, it disallows any player in the round (including the
-    one that initiated this move) from starting a new move while this one is still
-    being played. If the context is exited with an exception, the turn either gets
-    reset to its initial state (so that it can start again) or is set to an error
-    state, depending on the type of exception.
-    """
-
-    class Stage(enum.Enum):
-        START = enum.auto()
-        IN_PROGRESS = enum.auto()
-        COMPLETED = enum.auto()
-        INVALID = enum.auto()
-
-    current_player: RoundPlayer
-    type: RoundState.Type = field(default=RoundState.Type.TURN, init=False, repr=False)
-    # stage is the only mutable field (as if with the C++ `mutable` modifier)
-    stage: Stage = field(default=Stage.START, init=False, repr=False, compare=False)
-
-    def __repr__(self):
-        return f"<Turn({self.current_player}) [stage={self.stage.name}]>"
-
-    def __enter__(self):
-        valid8.validate(
-            "turn.stage",
-            self.stage,
-            equals=Turn.Stage.START,
-            help_msg=f"Can't start another move; turn is already {self.stage.name}",
-        )
-        self._set_stage(Turn.Stage.IN_PROGRESS)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        transitions = {
-            None: Turn.Stage.COMPLETED,
-            GeneratorExit: Turn.Stage.START,
-            CancelMove: Turn.Stage.START,
-        }
-        self._set_stage(transitions.get(exc_type, Turn.Stage.INVALID))
-
-    def _set_stage(self, stage: Stage):
-        # circumvent frozen dataclass for mutable field  ``stage``
-        object.__setattr__(self, "stage", stage)
-
-
-@dataclass(frozen=True)
-class RoundEnd(RoundState):
-    """
-    Represents the final state of the round after it has ended.
-
-    Usually there will be only one winner (which can be accessed through the ``winner``
-    property), but sometimes more. In this case, accessing ``winner`` will raise an
-    error. Thus one should always check the ``winners`` attribute first.
-    """
-
-    winners: FrozenSet[RoundPlayer]
-    type: RoundState.Type = field(
-        default=RoundState.Type.ROUND_END, init=False, repr=False
-    )
-
-    @property
-    def winner(self) -> RoundPlayer:
-        """Return the only winner of the round; raise an error if more than one."""
-        with valid8.validation(
-            "winners", self.winners, help_msg="There is more than one winner"
-        ):
-            return more_itertools.only(self.winners)
-
-
-class Round:
+class Round(GameNode):
     """
     A single round of Love Letter.
 
@@ -143,11 +38,10 @@ class Round:
      - ``state``: The current game state, an instance of :class:`RoundState`.
     """
 
-    players: List[RoundPlayer]
     deck: Deck
     discard_pile: DiscardPile
-    state: RoundState
 
+    @valid8.validate_arg("num_players", instance_of(int))
     def __init__(self, num_players: int, deck: Deck = None):
         """
         Initialise a new round.
@@ -155,29 +49,11 @@ class Round:
         :param num_players: Number of players in the round.
         :param deck: Initial deck to start with. None means use the standard deck.
         """
+        players = [RoundPlayer(self, i) for i in range(num_players)]
+        super().__init__(players)
 
-        valid8.validate(
-            "num_players", num_players, instance_of=int, min_value=2, max_value=4
-        )
-        self.players = [RoundPlayer(self, i) for i in range(num_players)]
         self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
-        self.state = RoundState(RoundState.Type.INIT)
-
-    @property
-    def num_players(self):
-        """The total number of players participating in this round."""
-        return len(self.players)
-
-    @property
-    def started(self):
-        """Whether the round has started (first cards dealt and first turn started)."""
-        return self.state.type != RoundState.Type.INIT
-
-    @property
-    def ended(self):
-        """Whether the round has ended."""
-        return self.state.type == RoundState.Type.ROUND_END
 
     @property
     def current_player(self) -> Optional[RoundPlayer]:
@@ -192,40 +68,6 @@ class Round:
     def __repr__(self):
         alive, state = len(self.living_players), self.state
         return f"<Round({self.num_players}) [{alive=}, {state=}] at {id(self):#X}>"
-
-    def play(self) -> GameEventGenerator:
-        """
-        The game event generator for this that runs for the duration of the round.
-
-        This provides a higher-level API to step-by-step methods such as
-        :meth:`Round.advance_turn`. See :class:`loveletter.gameevent.GameEvent` for a
-        description of game event generators.
-
-        The return value of the generator is the final state of the round (i.e. a
-        :class:`RoundEnd` instance).
-        """
-
-        def iteration():
-            # noinspection PyUnresolvedReferences
-            card = (yield from PlayerMoveChoice(self.current_player)).choice
-            results = yield from self.current_player.play_card(card)
-            yield from results  # results is a tuple
-
-        valid8.validate(
-            "started",
-            self.started,
-            equals=False,
-            help_msg="Can't start .play() once the round has already started",
-        )
-        # noinspection PyUnresolvedReferences
-        first_player = (yield from FirstPlayerChoice(self)).choice
-        yield self.start(first_player=first_player)
-        yield from iteration()
-        while not self._reached_end():
-            yield self.advance_turn()
-            yield from iteration()
-        end = self.advance_turn()
-        return (end,)
 
     def get_player(self, player: RoundPlayer, offset: int):
         """
@@ -271,18 +113,19 @@ class Round:
         """Get the previous living player in turn order"""
         return self.get_player(player, -1)
 
-    def deal_card(self, player: RoundPlayer) -> "Card":
-        """Deal a card to a player from the deck and return the dealt card."""
-        valid8.validate(
-            "player",
-            player,
-            is_in=self.players,
-            help_msg=f"Can't deal card to outside player",
-        )
-        player.give(card := self.deck.take())
-        return card
+    def play(self) -> GameEventGenerator:
+        def iteration(self: Round) -> GameEventGenerator:
+            # noinspection PyUnresolvedReferences
+            card = (yield from PlayerMoveChoice(self.current_player)).choice
+            results = yield from self.current_player.play_card(card)
+            return results
 
-    def start(self, first_player: RoundPlayer = None) -> Turn:
+        yield from super().play()
+        # noinspection PyUnresolvedReferences
+        first_player = (yield from FirstPlayerChoice(self)).choice
+        return (yield from self._play_helper(iteration, first_player=first_player))
+
+    def start(self, first_player: RoundPlayer = None) -> "Turn":
         """
         Start the round: hand out one card to each player and start the first turn.
 
@@ -293,9 +136,8 @@ class Round:
         :param first_player: First player that will play in this round. None means
                              choose at random.
         """
-        valid8.validate(
-            "started", self.started, equals=False, help_msg="Round has already started"
-        )
+        super().start()
+
         if first_player is None:
             first_player = random.choice(self.players)
         else:
@@ -313,25 +155,15 @@ class Round:
                 cycle_from(self.players, first_player), None, self.num_players + 1
             ):
                 self.deal_card(player)
-            if self._reached_end():
-                raise ValueError("End condition true immediately upon starting")
+            self._check_post_start()
 
         self.state = turn = Turn(first_player)
         return turn
 
-    @valid8.validate_arg("self", started.fget, help_msg="Round hasn't started yet")
-    def advance_turn(self) -> RoundState:
+    def advance(self) -> GameNodeState:
         """Advance to the next turn (supposing it is possible to do so already)."""
-        valid8.validate(
-            "turn",
-            self.state,
-            custom=lambda t: t.stage == Turn.Stage.COMPLETED,
-            help_msg="Can't start next turn before the previous one is completed",
-        )
-        if self.ended:
-            raise StopIteration
-        if self._reached_end():
-            return self._finalize_round()
+        if (state := super().advance()) is not None:
+            return state
 
         current = self.current_player
         assert current is not None
@@ -341,21 +173,110 @@ class Round:
         if next_player.immune:
             next_player.immune = False
         self.deal_card(next_player)
-        self.state = Turn(next_player)
-        return self.state
+        self.state = turn = Turn(next_player)
+        return turn
+
+    def deal_card(self, player: RoundPlayer) -> "Card":
+        """Deal a card to a player from the deck and return the dealt card."""
+        valid8.validate(
+            "player",
+            player,
+            is_in=self.players,
+            help_msg=f"Can't deal card to outside player",
+        )
+        player.give(card := self.deck.take())
+        return card
+
+    advance_turn = advance  # alias
 
     def _reached_end(self) -> bool:
         """Whether this round has reached to an end."""
         return len(self.living_players) == 1 or len(self.deck.stack) == 0
 
-    def _finalize_round(self) -> RoundEnd:
+    def _finalize(self) -> EndState:
         """End the round and declare the winner(s)."""
         winners = argmax(
             self.living_players,
             key=lambda p: (p.hand.card.value, sum(c.value for c in p.cards_played)),
         )
-        self.state = end = RoundEnd(winners=frozenset(winners))
+        self.state = end = EndState(winners=frozenset(winners))
         return end
+
+
+# ------------------- Round states ----------------------
+
+
+@dataclass(frozen=True, eq=False)
+class RoundState(GameNodeState, metaclass=abc.ABCMeta):
+    """The intermediate ABC for all round states."""
+
+    @extend_enum(GameNodeState.Type)
+    class Type(enum.Enum):
+        TURN = GameNodeState.Type.INTERMEDIATE.value  # alias for "intermediate"
+        ROUND_END = GameNodeState.Type.END.value  # alias for "end"
+
+
+@dataclass(frozen=True, eq=False)
+class Turn(RoundState, IntermediateState):
+    """
+    Represents a single turn; enforces turn constraints.
+
+    A player can only make a move if it is their turn. Thus trying to run e.g.
+    :meth:`RoundPlayer.play_card` when it's not the player's turn will raise an
+    error. The round can only move on to the next turn if the previous one has been
+    completed.
+
+    It is used as a context manager that is entered when a player begins a move.
+    While the context is active, it disallows any player in the round (including the
+    one that initiated this move) from starting a new move while this one is still
+    being played. If the context is exited with an exception, the turn either gets
+    reset to its initial state (so that it can start again) or is set to an error
+    state, depending on the type of exception.
+    """
+
+    name = "turn"
+
+    class Stage(enum.Enum):
+        START = enum.auto()
+        IN_PROGRESS = enum.auto()
+        COMPLETED = enum.auto()
+        INVALID = enum.auto()
+
+    current_player: RoundPlayer
+
+    # stage is the only mutable field (as if with the C++ `mutable` modifier)
+    stage: Stage = field(default=Stage.START, init=False, repr=False, compare=False)
+
+    @IntermediateState.can_advance.getter
+    def can_advance(self) -> bool:
+        return self.stage == self.Stage.COMPLETED
+
+    def __repr__(self):
+        return f"<Turn({self.current_player}) [stage={self.stage.name}]>"
+
+    def __enter__(self):
+        valid8.validate(
+            "turn.stage",
+            self.stage,
+            equals=Turn.Stage.START,
+            help_msg=f"Can't start another move; turn is already {self.stage.name}",
+        )
+        self._set_stage(Turn.Stage.IN_PROGRESS)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        transitions = {
+            None: Turn.Stage.COMPLETED,
+            GeneratorExit: Turn.Stage.START,
+            CancelMove: Turn.Stage.START,
+        }
+        self._set_stage(transitions.get(exc_type, Turn.Stage.INVALID))
+
+    def _set_stage(self, stage: Stage):
+        # circumvent frozen dataclass for mutable field  ``stage``
+        object.__setattr__(self, "stage", stage)
+
+
+# ------------------- Other round events ----------------------
 
 
 class FirstPlayerChoice(ChoiceEvent):

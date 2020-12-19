@@ -12,8 +12,9 @@ import loveletter.round
 from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.gameevent import GameInputRequest
+from loveletter.gamenode import GameNodeState
 from loveletter.round import RoundState
-from loveletter.utils import cycle_from
+from loveletter.utils.misc import cycle_from
 from test_loveletter.unit.test_cards_cases import *
 from test_loveletter.unit.test_player_cases import *
 from test_loveletter.unit.test_round_cases import INVALID_NUM_PLAYERS, VALID_NUM_PLAYERS
@@ -138,7 +139,6 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     state = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
     assert started_round.ended
-    assert isinstance(state, loveletter.round.RoundEnd)
     assert state.winner is winner
 
 
@@ -337,4 +337,4 @@ def test_eventGenerator_yieldsCorrectTypes(new_round: Round):
             results = e.value
             break
 
-    assert tuple(map(type, results)) == (loveletter.round.RoundEnd,)
+    assert tuple(r.type for r in results) == (GameNodeState.Type.END,)

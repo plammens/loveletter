@@ -40,8 +40,12 @@ def test_start_newGame_setsCorrectGameState(new_game: Game):
     assert new_game.started
     assert not new_game.ended
     assert new_game.state.type == GameState.Type.ROUND
+
     # noinspection PyTypeChecker
     state: loveletter.game.PlayingRound = new_game.state
+    assert state.round_no == 1
+    assert state.first_player is None
+
     assert new_game.current_round is state.round
     game_round = new_game.current_round
     assert isinstance(game_round, Round)

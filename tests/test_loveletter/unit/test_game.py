@@ -23,6 +23,7 @@ def test_newGame_validPlayerList_works(players: List[str]):
     assert len(set(map(id, game.players))) == len(players)
     assert all(game.players[i].id == i for i in range(len(players)))
     assert not game.started
+    assert game.current_round is None
     assert game.state.type == GameState.Type.INIT
     assert set(game.points).issubset(game.players)
     assert all(game.points[p] == 0 for p in game.players)
@@ -41,7 +42,8 @@ def test_start_newGame_setsCorrectGameState(new_game: Game):
     assert new_game.state.type == GameState.Type.ROUND
     # noinspection PyTypeChecker
     state: loveletter.game.PlayingRound = new_game.state
-    game_round = state.round
+    assert new_game.current_round is state.round
+    game_round = new_game.current_round
     assert isinstance(game_round, Round)
     assert not game_round.started
     assert game_round.num_players == new_game.num_players

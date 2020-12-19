@@ -29,6 +29,7 @@ from loveletter import cards as cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType
 from loveletter.gameevent import GameEvent, GameResultEvent
+from loveletter.gamenode import EndState
 from loveletter.round import Round, RoundState, Turn
 from loveletter.roundplayer import RoundPlayer
 
@@ -325,6 +326,10 @@ def restart_turn(game_round: Round):
     turn: Turn = game_round.state
     assert turn.type == RoundState.Type.TURN
     turn._set_stage(Turn.Stage.START)
+
+
+def force_end_round(game_round: Round):
+    game_round.state = EndState(frozenset(game_round.players))
 
 
 def send_gracious(gen: Generator, value: Any):

@@ -13,7 +13,7 @@ from test_loveletter.unit.test_game_cases import (
     INVALID_PLAYER_LIST_CASES,
     PLAYER_LIST_CASES,
 )
-from test_loveletter.utils import autofill_step
+from test_loveletter.utils import autofill_step, autoplay_round, force_end_round
 
 
 @pytest_cases.parametrize(players=PLAYER_LIST_CASES)
@@ -51,6 +51,47 @@ def test_start_newGame_setsCorrectGameState(new_game: Game):
     assert isinstance(game_round, Round)
     assert not game_round.started
     assert game_round.num_players == new_game.num_players
+
+
+def test_advance_roundHasEnded_startsNewRound(started_game: Game):
+    game_round = started_game.current_round
+    assert not game_round.ended
+    force_end_round(game_round)
+    new_state: loveletter.game.PlayingRound = started_game.advance()
+    new_round = new_state.round
+    assert new_round is not game_round
+    assert started_game.current_round is new_round
+    assert not new_round.started
+
+
+def test_advance_roundNotEnded_raises(started_game: Game):
+    game_round = started_game.current_round
+    if not game_round.started:
+        game_round.start()
+    with pytest.raises(valid8.ValidationError):
+        started_game.advance()
+
+
+def test_advance_roundFinished_pointsUpdateCorrectly(started_game: Game):
+    game_round = started_game.current_round
+    old_points = started_game.points.copy()
+
+    autoplay_round(game_round)
+    new_state = started_game.advance()
+    assert not new_state.round.started
+    winners = {started_game.players[p.id] for p in game_round.state.winners}
+    new_points = started_game.points
+    diffs = new_points - old_points
+    # no negative points:
+    assert not -new_points
+    # at most one point per player plus the extra spy point:
+    assert all(diff <= 2 for diff in diffs.values())
+    # winners got at least one point each:
+    assert all(diffs[p] >= 1 for p in winners)
+    # at most 1 non-winner positive diff
+    assert len(set(diffs.keys()) - winners) <= 1
+    # at most one diff larger than 1:
+    assert sum(int(diff > 1) for diff in diffs.values()) <= 1
 
 
 def test_eventGenerator_yieldsCorrectTypes(new_game: Game):

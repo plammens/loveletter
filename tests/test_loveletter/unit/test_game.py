@@ -23,7 +23,7 @@ def test_newGame_validPlayerList_works(players: List[str]):
     assert len(set(map(id, game.players))) == len(players)
     assert all(game.players[i].id == i for i in range(len(players)))
     assert not game.started
-    assert game.state.type == RoundState.Type.INIT
+    assert game.state.type == GameState.Type.INIT
 
 
 @pytest_cases.parametrize(players=INVALID_PLAYER_LIST_CASES)

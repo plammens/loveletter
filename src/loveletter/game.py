@@ -2,7 +2,10 @@ import abc
 import enum
 from collections import Counter
 from dataclasses import dataclass
-from typing import Optional, Sequence, Counter as CounterType
+from typing import Counter as CounterType, Optional, Sequence
+
+import valid8
+from valid8.validation_lib import on_all_, instance_of
 
 from loveletter.cards import CardType
 from loveletter.gameevent import GameEventGenerator
@@ -37,6 +40,7 @@ class Game(GameNode):
 
     points: CounterType[Player]  # tokens of affection
 
+    @valid8.validate_arg("players", on_all_(instance_of(str)))
     def __init__(self, players: Sequence[str]):
         """
         Initialise a new game.

@@ -44,6 +44,7 @@ class UnionEnumMeta(enum.EnumMeta):
     union.
     """
 
+    # noinspection PyProtectedMember
     @classmethod
     def make_union(
         mcs, *subenums: enum.EnumMeta, name: Union[str, Literal[AUTO], None] = AUTO
@@ -60,8 +61,50 @@ class UnionEnumMeta(enum.EnumMeta):
         :param name: Name to use for the enum class. AUTO will result in a combination
                      of the names of all subenums, None will result in "UnionEnum".
         :return: An enum class which is the union of the given subenums.
+
+        Example (using the :func:`enum_union` alias defined below):
+
+        >>> class EnumA(enum.Enum):
+        ...    A = 1
+        >>> class EnumB(enum.Enum):
+        ...    B = 2
+        ...    ALIAS = 1
+        >>> UnionAB = enum_union(EnumA, EnumB)
+        >>> UnionAB.__members__
+        mappingproxy({'A': <EnumA.A: 1>, 'B': <EnumB.B: 2>, 'ALIAS': <EnumA.A: 1>})
+
+        >>> list(UnionAB)
+        [<EnumA.A: 1>, <EnumB.B: 2>]
+
+        >>> EnumA.A in UnionAB
+        True
+
+        >>> EnumB.ALIAS in UnionAB
+        True
+
+        >>> isinstance(EnumB.B, UnionAB)
+        True
+
+        >>> issubclass(UnionAB, enum.Enum)
+        True
+
+        >>> class EnumC(enum.Enum):
+        ...    C = 3
+        >>> enum_union(UnionAB, EnumC) == enum_union(EnumA, EnumB, EnumC)
+        True
+
+        >>> UnionABC = enum_union(UnionAB, EnumC)
+        >>> UnionABC.__members__
+        mappingproxy({'A': <EnumA.A: 1>,
+                      'B': <EnumB.B: 2>,
+                      'ALIAS': <EnumA.A: 1>,
+                      'C': <EnumC.C: 3>})
+
+        >>> set(UnionAB).issubset(UnionABC)
+        True
         """
         subenums = mcs._normalize_subenums(subenums)
+        mcs._check_duplicates(subenums)
 
         class UnionEnum(enum.Enum, metaclass=mcs):
             pass
@@ -69,18 +112,17 @@ class UnionEnumMeta(enum.EnumMeta):
         union_enum = UnionEnum
         union_enum._subenums_ = subenums
 
-        if duplicate_names := reduce(
-            set.intersection, (set(subenum.__members__) for subenum in subenums)
-        ):
-            raise ValueError(
-                f"Found duplicate member names in enum union: {duplicate_names}"
-            )
-
         # If aliases are defined, the canonical member will be the one that appears
-        # first in the sequence of subenums.
-        # dict union keeps last key so we have to do it in reverse:
+        # first in the sequence of subenums; dict union keeps the last key so we have
+        # to do it in reverse.
+        # Dict union might be inefficient for large numbers of
+        # subenums, but this is intended to be used with "manual-scale" numbers of
+        # enums (2, 3, 5 or so) and being an operator it's a better match for reduce
+        # since it's a pure function and won't mutate any of the dictionaries.
         union_enum._value2member_map_ = value2member_map = reduce(
-            operator.or_, (subenum._value2member_map_ for subenum in reversed(subenums))
+            operator.or_,  # dict union (PEP 584)
+            (subenum._value2member_map_ for subenum in reversed(subenums)),
+            {},  # identity element
         )
         # union of the _member_map_'s but using the canonical member always:
         union_enum._member_map_ = member_map = {
@@ -97,6 +139,7 @@ class UnionEnumMeta(enum.EnumMeta):
             )
         )
 
+        # set the __name__ attribute of the enum
         if name is AUTO:
             name = (
                 "".join(subenum.__name__.removesuffix("Enum") for subenum in subenums)
@@ -105,14 +148,22 @@ class UnionEnumMeta(enum.EnumMeta):
             UnionEnum.__name__ = name
         elif name is not None:
             UnionEnum.__name__ = name
+        else:
+            pass  # keep default name ("UnionEnum")
 
         return union_enum
 
     def __repr__(cls):
-        return f"<union of {', '.join(map(str, cls._subenums_))}>"
+        return f"<union enum of {cls._subenums_}>"
 
     def __instancecheck__(cls, instance):
         return any(isinstance(instance, subenum) for subenum in cls._subenums_)
+
+    def __eq__(cls, other):
+        """Equality based on the tuple of subenums (order-sensitive)."""
+        if not isinstance(other, UnionEnumMeta):
+            return NotImplemented
+        return cls._subenums_ == other._subenums_
 
     @classmethod
     def _normalize_subenums(mcs, subenums):
@@ -126,10 +177,18 @@ class UnionEnumMeta(enum.EnumMeta):
         subenums = mitt.unique_everseen(subenums)
         return tuple(subenums)
 
+    @classmethod
+    def _check_duplicates(mcs, subenums):
+        names, duplicates = set(), set()
+        for subenum in subenums:
+            for name in subenum.__members__:
+                (duplicates if name in names else names).add(name)
+        if duplicates:
+            raise ValueError(f"Found duplicate member names: {duplicates}")
 
-def enum_union(*enums, **kwargs):
-    """Alias for :meth:`UnionEnumMeta.make_union`."""
-    return UnionEnumMeta.make_union(*enums, **kwargs)
+
+# alias
+enum_union = UnionEnumMeta.make_union
 
 
 def extend_enum(base_enum: enum.EnumMeta):
@@ -154,7 +213,9 @@ def extend_enum(base_enum: enum.EnumMeta):
     ...     ALIAS = 1
     ...     B = 2
     >>> ExtendedEnum.__members__
-    {}
+    mappingproxy({'A': <BaseEnum.A: 1>,
+                  'ALIAS': <BaseEnum.A: 1>,
+                  'B': <ExtendedEnum.B: 2>})
     """
 
     def decorator(extension_enum: enum.EnumMeta):

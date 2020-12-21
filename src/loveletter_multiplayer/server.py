@@ -29,15 +29,14 @@ class LoveletterPartyServer:
 
     host: str
     port: int
-    backend: Optional[asyncio.AbstractServer]
     game: Optional[Game]
 
     def __init__(self, host, port):
         self.host = host
         self.port = port
-        self.backend = None
         self.game = None
 
+        self._server: Optional[asyncio.AbstractServer] = None
         self._client_semaphore = SemaphoreWithCount(value=self.MAX_CLIENTS)
         self._serializer = MessageSerializer()
         self._deserializer = MessageDeserializer()
@@ -48,7 +47,7 @@ class LoveletterPartyServer:
         return self._client_semaphore.count
 
     async def run_server(self):
-        self.backend = server = await asyncio.start_server(
+        self._server = server = await asyncio.start_server(
             self.connection_handler,
             host=self.host,
             port=self.port,

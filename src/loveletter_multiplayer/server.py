@@ -3,7 +3,6 @@ import logging
 from typing import ClassVar, Optional
 
 from loveletter.game import Game
-from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.message import (
     ErrorMessage,
     MessageDeserializer,
@@ -13,9 +12,6 @@ from loveletter_multiplayer.utils import SemaphoreWithCount
 
 
 logger = logging.getLogger(__name__)
-
-HOST = ""
-PORT = 48888
 
 
 class LoveletterPartyServer:
@@ -36,7 +32,7 @@ class LoveletterPartyServer:
     backend: Optional[asyncio.AbstractServer]
     game: Optional[Game]
 
-    def __init__(self, host=HOST, port=PORT):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         self.backend = None
@@ -84,12 +80,3 @@ class LoveletterPartyServer:
             await asyncio.sleep(10)
             logger.info(f"Releasing connection from {address}")
             writer.write_eof()
-
-
-def main():
-    setup_logging(logging.DEBUG)
-    asyncio.run(LoveletterPartyServer(HOST, PORT).run_server())
-
-
-if __name__ == "__main__":
-    main()

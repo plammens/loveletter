@@ -6,6 +6,7 @@ import valid8
 
 import loveletter.move
 from loveletter.cards import Card, CardType, MoveStepGenerator
+from loveletter.utils.misc import minirepr
 
 if TYPE_CHECKING:
     from loveletter.round import Round
@@ -96,7 +97,7 @@ class RoundPlayer:
         return self._alive
 
     def __repr__(self):
-        return f"<RoundPlayer {self.id} of <Round at {id(self.round):#X}>>"
+        return f"<RoundPlayer {self.id} of {minirepr(self.round)}>"
 
     def __str__(self):
         return f"player-{self.id}"

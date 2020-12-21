@@ -54,3 +54,8 @@ def argmax(iterable: Iterable[T], key: Callable[[T], Any] = None) -> List[T]:
             args.append(x)
 
     return args
+
+
+def minirepr(obj) -> str:
+    """Returns a repr string for a given object like object.__repr__ but shorter"""
+    return f"<{type(obj).__name__} 0x{id(obj):X}>"

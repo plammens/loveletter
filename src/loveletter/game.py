@@ -2,7 +2,7 @@ import abc
 import enum
 from collections import Counter
 from dataclasses import dataclass
-from typing import Counter as CounterType, Optional, Sequence
+from typing import Any, Counter as CounterType, Dict, Optional, Sequence
 
 import valid8
 from valid8.validation_lib import on_all_, instance_of
@@ -136,6 +136,12 @@ class Game(GameNode):
         for card_type in CardType:
             points.update(card_type.card_class.collect_extra_points(game_round))
         self.points.update({self.players[p.id]: pts for p, pts in points.items()})
+
+    def _repr_hook(self) -> Dict[str, Any]:
+        attrs = super()._repr_hook()
+        attrs["players"] = [player.username for player in self.players]
+        attrs["points"] = {p.username: self.points[p] for p in self.players}
+        return attrs
 
 
 @dataclass(frozen=True, eq=False)

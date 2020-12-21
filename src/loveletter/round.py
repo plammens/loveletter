@@ -3,7 +3,7 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, TYPE_CHECKING
 
 import valid8
 from valid8.validation_lib import instance_of
@@ -64,10 +64,6 @@ class Round(GameNode):
     def living_players(self) -> Sequence[RoundPlayer]:
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
-
-    def __repr__(self):
-        alive, state = len(self.living_players), self.state
-        return f"<Round({self.num_players}) [{alive=}, {state=}] at {id(self):#X}>"
 
     def get_player(self, player: RoundPlayer, offset: int):
         """
@@ -200,6 +196,13 @@ class Round(GameNode):
         )
         self.state = end = EndState(winners=frozenset(winners))
         return end
+
+    def _repr_hook(self) -> Dict[str, Any]:
+        attrs = super()._repr_hook()
+        del attrs["players"]  # no useful information other than the number
+        attrs["num_players"] = self.num_players
+        attrs["alive"] = len(self.living_players)
+        return attrs
 
 
 # ------------------- Round states ----------------------

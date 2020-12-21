@@ -3,7 +3,7 @@
 import abc
 import enum
 from dataclasses import dataclass
-from typing import Callable, ClassVar, FrozenSet, List, Sequence, TypeVar
+from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Sequence, TypeVar
 
 import more_itertools
 import valid8
@@ -64,6 +64,11 @@ class GameNode(metaclass=abc.ABCMeta):
     def ended(self):
         """Whether the game has ended."""
         return self.state.type == GameNodeState.Type.END
+
+    def __repr__(self):
+        attrs = self._repr_hook()
+        formatted_attrs = ", ".join(f"{key}={value}" for key, value in attrs.items())
+        return f"<{self.__class__.__name__} 0x{id(self):X} with {formatted_attrs}>"
 
     @abc.abstractmethod
     def play(self, **start_kwargs) -> GameEventGenerator:
@@ -175,6 +180,10 @@ class GameNode(metaclass=abc.ABCMeta):
             yield from (yield from iteration_generator(self))
             state = self.advance()
         return (state,)
+
+    def _repr_hook(self) -> Dict[str, Any]:
+        """Return an ordered mapping of name to value pairs to use in __repr__."""
+        return {"players": self.players, "state": self.state}
 
 
 @dataclass(frozen=True, eq=False)

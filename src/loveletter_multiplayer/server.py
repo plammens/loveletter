@@ -1,7 +1,9 @@
 import asyncio
+import logging
 from typing import ClassVar, Optional
 
 from loveletter.game import Game
+from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.message import (
     ErrorMessage,
     MessageDeserializer,
@@ -9,6 +11,8 @@ from loveletter_multiplayer.message import (
 )
 from loveletter_multiplayer.utils import SemaphoreWithCount
 
+
+logger = logging.getLogger(__name__)
 
 HOST = ""
 PORT = 48888
@@ -64,22 +68,28 @@ class LoveletterPartyServer:
         address = writer.get_extra_info("peername")
         if self._client_semaphore.locked():
             # max clients reached; politely refuse the connection
-            print(f"Refusing connection from {address}")
+            logger.info(f"Refusing connection from {address} (limit reached)")
             message = ErrorMessage(
                 ErrorMessage.Code.MAX_CAPACITY,
                 f"Maximum capacity for a party ({self.MAX_CLIENTS}) reached",
             )
+            logger.debug(f"Sending refusal message to {address} and closing connection")
             writer.write(self._serializer.serialize(message))
             await writer.drain()
             writer.write_eof()
             return
 
         async with self._client_semaphore:
-            print(f"Received connection from {address}")
+            logger.info(f"Received connection from {address}")
             await asyncio.sleep(10)
-            print(f"Releasing connection from {address}")
+            logger.info(f"Releasing connection from {address}")
             writer.write_eof()
 
 
-if __name__ == "__main__":
+def main():
+    setup_logging(logging.DEBUG)
     asyncio.run(LoveletterPartyServer(HOST, PORT).run_server())
+
+
+if __name__ == "__main__":
+    main()

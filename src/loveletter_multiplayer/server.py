@@ -8,7 +8,7 @@ from loveletter_multiplayer.message import (
     MessageDeserializer,
     MessageSerializer,
 )
-from loveletter_multiplayer.utils import SemaphoreWithCount
+from loveletter_multiplayer.utils import SemaphoreWithCount, close_stream_at_exit
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class LoveletterPartyServer:
 
     async def run_server(self):
         self.backend = server = await asyncio.start_server(
-            self.client_handler,
+            self.connection_handler,
             host=self.host,
             port=self.port,
             backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
@@ -58,25 +58,51 @@ class LoveletterPartyServer:
         async with server:
             await server.serve_forever()
 
-    async def client_handler(
+    async def connection_handler(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
-        address = writer.get_extra_info("peername")
-        if self._client_semaphore.locked():
-            # max clients reached; politely refuse the connection
-            logger.info(f"Refusing connection from {address} (limit reached)")
-            message = ErrorMessage(
-                ErrorMessage.Code.MAX_CAPACITY,
-                f"Maximum capacity for a party ({self.MAX_CLIENTS}) reached",
-            )
-            logger.debug(f"Sending refusal message to {address} and closing connection")
-            writer.write(self._serializer.serialize(message))
-            await writer.drain()
-            writer.write_eof()
-            return
+        async with close_stream_at_exit(writer):
+            if self._client_semaphore.locked():
+                # max clients reached; politely refuse the connection
+                await self._refuse_connection(writer)
+                return
 
-        async with self._client_semaphore:
-            logger.info(f"Received connection from {address}")
+            async with self._client_semaphore:
+                address = writer.get_extra_info("peername")
+                logger.info(f"Received connection from %s", address)
+                try:
+                    # where the actual session is managed
+                    await self.ClientSessionManager(self, reader, writer).manage()
+                except Exception as e:
+                    logger.critical("Unhandled exception in client handler", exc_info=e)
+                finally:
+                    logger.info(f"Releasing connection from %s", address)
+
+    class ClientSessionManager:
+        """Manages a single connection with a client."""
+
+        def __init__(
+            self,
+            server: "LoveletterPartyServer",
+            reader: asyncio.StreamReader,
+            writer: asyncio.StreamWriter,
+        ):
+            self.server = server
+            self.reader = reader
+            self.writer = writer
+            self.client_address = writer.get_extra_info("peername")
+
+        async def manage(self):
             await asyncio.sleep(10)
-            logger.info(f"Releasing connection from {address}")
-            writer.write_eof()
+
+    async def _refuse_connection(self, writer):
+        address = writer.get_extra_info("peername")
+        logger.info(f"Refusing connection from %s (limit reached)", address)
+        message = ErrorMessage(
+            ErrorMessage.Code.MAX_CAPACITY,
+            f"Maximum capacity for a party ({self.MAX_CLIENTS}) reached",
+        )
+        logger.debug(f"Sending refusal message to %s and closing connection", address)
+        writer.write(self._serializer.serialize(message))
+        await writer.drain()
+        writer.write_eof()

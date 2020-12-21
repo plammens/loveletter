@@ -1,7 +1,12 @@
 import asyncio
+import contextlib
 import enum
+import logging
 import typing
 from typing import ContextManager, TypeVar
+
+
+logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T", bound=ContextManager)
@@ -49,3 +54,14 @@ class EnumPostInitMixin:
                 raise LookupError(
                     f"Couldn't get the enum member in {enum_class} for {value}"
                 ) from None
+
+
+@contextlib.asynccontextmanager
+async def close_stream_at_exit(writer: asyncio.StreamWriter):
+    """Like contextlib.closing but specifically for asyncio.StreamWriter"""
+    try:
+        yield writer
+    finally:
+        logger.debug("Closing stream %s", writer)
+        writer.close()
+        await writer.wait_closed()

@@ -8,7 +8,11 @@ from loveletter_multiplayer.message import (
     MessageDeserializer,
     MessageSerializer,
 )
-from loveletter_multiplayer.utils import SemaphoreWithCount, close_stream_at_exit
+from loveletter_multiplayer.utils import (
+    InnerClassMeta,
+    SemaphoreWithCount,
+    close_stream_at_exit,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -97,7 +101,8 @@ class LoveletterPartyServer:
 
                 address = writer.get_extra_info("peername")
                 logger.info(f"Received connection from %s", address)
-                with self.ClientSessionManager(self, reader, writer) as session:
+                # noinspection PyArgumentList
+                with self.ClientSessionManager(reader, writer) as session:
                     try:
                         # where the actual session is managed; this suspends this
                         # coroutine until the session ends in some way
@@ -109,7 +114,7 @@ class LoveletterPartyServer:
                     finally:
                         logger.info(f"Releasing connection from %s", address)
 
-    class ClientSessionManager:
+    class ClientSessionManager(metaclass=InnerClassMeta):
         """
         Manages a single connection with a client.
 

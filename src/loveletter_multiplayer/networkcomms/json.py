@@ -3,6 +3,7 @@ import enum
 import json
 from typing import Any, Dict
 
+from loveletter.utils import collect_subclasses
 from . import message as msg
 from .message import Message
 
@@ -46,9 +47,7 @@ class MessageDeserializer(json.JSONDecoder):
         # noinspection PyTypeChecker
         return self.decode(message.rstrip(b"\0").decode())
 
-    _type_map = {
-        Message.Type.ERROR: msg.ErrorMessage,
-    }
+    _type_map = {cls.type: cls for cls in collect_subclasses(Message, msg)}
 
     @classmethod
     def _reconstruct_message(cls, json_dict: Dict[str, Any]):

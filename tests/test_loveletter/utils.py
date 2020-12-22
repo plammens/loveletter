@@ -2,7 +2,6 @@ import collections
 import contextlib
 import copy
 import functools
-import inspect
 import math
 import random
 import unittest.mock
@@ -13,8 +12,6 @@ from typing import (
     Generator,
     Sequence,
     Tuple,
-    Type,
-    TypeVar,
     Union,
 )
 from unittest.mock import MagicMock, Mock, PropertyMock
@@ -32,20 +29,7 @@ from loveletter.gameevent import GameEvent, GameResultEvent
 from loveletter.gamenode import EndState
 from loveletter.round import Round, RoundState, Turn
 from loveletter.roundplayer import RoundPlayer
-
-
-_T = TypeVar("_T")
-
-
-def collect_subclasses(base_class: Type[_T], module) -> Collection[Type[_T]]:
-    def is_strict_subclass(obj):
-        return (
-            inspect.isclass(obj)
-            and issubclass(obj, base_class)
-            and obj is not base_class
-        )
-
-    return list(filter(is_strict_subclass, vars(module).values()))
+from loveletter.utils import collect_subclasses  # noqa
 
 
 def random_card_counts() -> Counter[CardType]:

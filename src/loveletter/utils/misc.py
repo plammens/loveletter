@@ -1,5 +1,16 @@
+import inspect
 import itertools
-from typing import Any, Callable, Iterable, Iterator, List, Optional, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+)
 
 
 def safe_is_subclass(value, cls):
@@ -59,3 +70,17 @@ def argmax(iterable: Iterable[T], key: Callable[[T], Any] = None) -> List[T]:
 def minirepr(obj) -> str:
     """Returns a repr string for a given object like object.__repr__ but shorter"""
     return f"<{type(obj).__name__} 0x{id(obj):X}>"
+
+
+_T = TypeVar("_T")
+
+
+def collect_subclasses(base_class: Type[_T], module) -> Collection[Type[_T]]:
+    def is_strict_subclass(obj):
+        return (
+            inspect.isclass(obj)
+            and issubclass(obj, base_class)
+            and obj is not base_class
+        )
+
+    return [m for n, m in inspect.getmembers(module, is_strict_subclass)]

@@ -7,6 +7,8 @@ from loveletter_multiplayer.networkcomms import (
     ErrorMessage,
     MessageDeserializer,
     MessageSerializer,
+    receive_message,
+    send_message,
 )
 from loveletter_multiplayer.utils import (
     InnerClassMeta,
@@ -107,8 +109,6 @@ class LoveletterPartyServer:
                         logger.critical(
                             "Unhandled exception in client handler", exc_info=exc
                         )
-                    finally:
-                        logger.info(f"Releasing connection from %s", address)
 
     class ClientSessionManager(metaclass=InnerClassMeta):
         """
@@ -131,6 +131,7 @@ class LoveletterPartyServer:
             self.client_address = writer.get_extra_info("peername")
 
             self._attached = False
+            self._manage_task = None
 
         def __enter__(self):
             logger.info("Starting session for %s", self.client_address)
@@ -152,7 +153,27 @@ class LoveletterPartyServer:
             """
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
+            self._manage_task = asyncio.current_task()
+            asyncio.create_task(self._receive_loop())
             await self.server._ready_to_play.wait()
+
+        async def _receive_loop(self):
+            try:
+                while True:
+                    message = await receive_message(self.reader)
+                    if not message:
+                        break
+                    logger.debug(
+                        "Received a message from %s: %s", self.client_address, message
+                    )
+
+                logger.info("Client %s closed the connection", self.client_address)
+            except ConnectionResetError:
+                logger.warning(
+                    "Connection from %s forcibly closed by client", self.client_address
+                )
+            finally:
+                self._manage_task.cancel()
 
     async def _init_async(self):
         """Initialize asyncio-related attributes that need an active event loop."""
@@ -182,7 +203,5 @@ class LoveletterPartyServer:
         address = writer.get_extra_info("peername")
         logger.info(f"Refusing connection from %s (%s)", address, reason)
         message = ErrorMessage(error_code, reason)
-        logger.debug(f"Sending refusal message to %s and closing connection", address)
-        writer.write(self._serializer.serialize(message))
-        await writer.drain()
+        await send_message(writer, message)
         writer.write_eof()

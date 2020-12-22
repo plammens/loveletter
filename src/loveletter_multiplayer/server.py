@@ -132,13 +132,13 @@ class LoveletterPartyServer:
             self._attached = False
 
         def __enter__(self):
-            logging.info("Starting session for %s", self.client_address)
+            logger.info("Starting session for %s", self.client_address)
             self.server._client_sessions.append(self)
             self._attached = True
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            logging.info(f"Session with %s has ended", self.client_address)
+            logger.info(f"Session with %s has ended", self.client_address)
             self.server._client_sessions.remove(self)
             self._attached = False
 

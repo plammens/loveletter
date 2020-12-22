@@ -40,14 +40,15 @@ class LoveletterPartyServer:
         self.port = port
         self.game = None
 
-        self._server: Optional[asyncio.AbstractServer] = None
         self._client_sessions: List[LoveletterPartyServer.ClientSessionManager] = []
 
         self._serializer = MessageSerializer()
         self._deserializer = MessageDeserializer()
 
-        self._client_semaphore = SemaphoreWithCount(value=self.MAX_CLIENTS)
-        self._ready_to_start = asyncio.Event()
+        # to be initialized in self._init_async:
+        self._server: asyncio.AbstractServer
+        self._client_semaphore: SemaphoreWithCount
+        self._ready_to_play: asyncio.Event
 
     @property
     def num_connected_clients(self) -> int:
@@ -55,16 +56,10 @@ class LoveletterPartyServer:
         return self._client_semaphore.count
 
     async def run_server(self):
-        self._server = server = await asyncio.start_server(
-            self.connection_handler,
-            host=self.host,
-            port=self.port,
-            backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
-        )
-
-        async with server:
+        await self._init_async()
+        async with self._server:
             asyncio.create_task(self._start_game_when_ready())
-            await server.serve_forever()
+            await self._server.serve_forever()
 
     async def connection_handler(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -85,7 +80,7 @@ class LoveletterPartyServer:
                     writer,
                     reason=f"Maximum capacity ({self.MAX_CLIENTS} players) reached",
                 )
-            elif self._ready_to_start.is_set():
+            elif self._ready_to_play.is_set():
                 # game already started or in process of starting; refuse other conns.
                 return await self._refuse_connection(
                     writer,
@@ -156,10 +151,22 @@ class LoveletterPartyServer:
             """
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
-            await self.server._ready_to_start.wait()
+            await self.server._ready_to_play.wait()
+
+    async def _init_async(self):
+        """Initialize asyncio-related attributes that need an active event loop."""
+        self._server = await asyncio.start_server(
+            self.connection_handler,
+            host=self.host,
+            port=self.port,
+            backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
+            start_serving=False,
+        )
+        self._client_semaphore = SemaphoreWithCount(value=self.MAX_CLIENTS)
+        self._ready_to_play = asyncio.Event()
 
     async def _start_game_when_ready(self):
-        await self._ready_to_start.wait()
+        await self._ready_to_play.wait()
 
     async def _refuse_connection(
         self,

@@ -11,7 +11,8 @@ PORT = 48888
 
 def main():
     setup_logging(logging.DEBUG)
-    asyncio.run(LoveletterPartyServer(HOST, PORT).run_server())
+    server = LoveletterPartyServer(HOST, PORT)
+    asyncio.run(server.run_server())
 
 
 if __name__ == "__main__":

@@ -45,8 +45,6 @@ class MessageDeserializer(json.JSONDecoder):
         super().__init__(object_hook=self._reconstruct_message)
 
     def deserialize(self, message: bytes) -> Message:
-        if not message:
-            return message
         # noinspection PyTypeChecker
         return self.decode(message.decode())
 

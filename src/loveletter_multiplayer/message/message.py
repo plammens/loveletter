@@ -27,7 +27,7 @@ class ErrorMessage(Message):
     class Code(enum.Enum):
         """Enum for error codes."""
 
-        MAX_CAPACITY = enum.auto()
+        CONNECTION_REFUSED = enum.auto()
 
     error_code: Code
     message: str

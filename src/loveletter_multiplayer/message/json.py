@@ -31,9 +31,7 @@ class MessageSerializer(json.JSONEncoder):
 
     @staticmethod
     def _make_serializable(message: Message):
-        d = dataclasses.asdict(message)
-        d["type"] = message.type.value
-        return d
+        return {"type": message.type.value} | dataclasses.asdict(message)
 
 
 class MessageDeserializer(json.JSONDecoder):

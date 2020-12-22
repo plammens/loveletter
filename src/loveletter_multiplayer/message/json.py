@@ -19,7 +19,7 @@ class MessageSerializer(json.JSONEncoder):
 
     def serialize(self, message: Message) -> bytes:
         json_string = self.encode(message)
-        return json_string.encode()
+        return json_string.encode() + b"\0"
 
     def default(self, o: Any) -> Any:
         if isinstance(o, Message):
@@ -44,7 +44,7 @@ class MessageDeserializer(json.JSONDecoder):
 
     def deserialize(self, message: bytes) -> Message:
         # noinspection PyTypeChecker
-        return self.decode(message.decode())
+        return self.decode(message.rstrip(b"\0").decode())
 
     _type_map = {
         Message.Type.ERROR: msg.ErrorMessage,

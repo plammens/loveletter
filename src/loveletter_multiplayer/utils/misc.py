@@ -64,4 +64,9 @@ async def close_stream_at_exit(writer: asyncio.StreamWriter):
     finally:
         logger.debug("Closing stream %s", writer)
         writer.close()
-        await writer.wait_closed()
+        try:
+            await writer.wait_closed()
+        except ConnectionResetError:
+            # the underlying transport has already been closed by an exception
+            if not writer.transport.is_closing():
+                raise

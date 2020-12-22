@@ -49,6 +49,7 @@ class LoveletterPartyServer:
         self._server: asyncio.AbstractServer
         self._client_semaphore: SemaphoreWithCount
         self._ready_to_play: asyncio.Event
+        self._game_ready: asyncio.Event
 
     @property
     def num_connected_clients(self) -> int:
@@ -138,9 +139,9 @@ class LoveletterPartyServer:
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            logger.info(f"Session with %s has ended", self.client_address)
             self.server._client_sessions.remove(self)
             self._attached = False
+            logger.info(f"Session with %s has ended", self.client_address)
 
         async def manage(self):
             """
@@ -164,9 +165,12 @@ class LoveletterPartyServer:
         )
         self._client_semaphore = SemaphoreWithCount(value=self.MAX_CLIENTS)
         self._ready_to_play = asyncio.Event()
+        self._game_ready = asyncio.Event()
 
     async def _start_game_when_ready(self):
         await self._ready_to_play.wait()
+        # TODO: instantiate game
+        self._game_ready.set()
 
     async def _refuse_connection(
         self,

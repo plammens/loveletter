@@ -1,8 +1,13 @@
 import asyncio
+import logging
 from typing import Optional
 
+from . import MessageSerializer
 from .json import MessageDeserializer
 from .message import Message
+
+
+logger = logging.getLogger(__name__)
 
 
 MESSAGE_SEPARATOR = b"\0"
@@ -25,9 +30,23 @@ async def receive_message(
     """
     try:
         serialized = await reader.readuntil(MESSAGE_SEPARATOR)
-        return deserializer.deserialize(serialized)
+        logger.debug("Received bytes: %s", serialized)
+        message = deserializer.deserialize(serialized)
+        logger.debug("Parsed message: %s", message)
+        return message
     except asyncio.IncompleteReadError as exc:
         if exc.partial == b"":
             return None  # end of stream
         else:
+            logger.error("Received incomplete message: %s", exc.partial)
             raise
+
+
+async def send_message(
+    writer: asyncio.StreamWriter, message: Message, serializer=MessageSerializer()
+):
+    logger.debug("Sending to %s: %s", writer.get_extra_info("peername"), message)
+    serialized = serializer.serialize(message)
+    logger.debug("Sending bytes: %s", serialized)
+    writer.write(serialized)
+    await writer.drain()

@@ -1,10 +1,9 @@
 import asyncio
 import logging
-from asyncio import IncompleteReadError
 from typing import Optional
 
 from loveletter.utils.misc import minirepr
-from loveletter_multiplayer.networkcomms import MESSAGE_SEPARATOR, MessageDeserializer
+from loveletter_multiplayer.networkcomms import receive_message
 from loveletter_multiplayer.utils import InnerClassMeta, close_stream_at_exit
 
 logger = logging.getLogger(__name__)
@@ -13,8 +12,6 @@ logger = logging.getLogger(__name__)
 class LoveletterClient:
     def __init__(self):
         self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
-
-        self._deserializer = MessageDeserializer()
 
     __repr__ = minirepr
 
@@ -76,22 +73,11 @@ class LoveletterClient:
 
         async def _receive_loop(self):
             while True:
-                message = await self._receive_one_encoded()
+                message = await receive_message(self.reader)
                 if not message:
                     break
-                message = self.client._deserializer.deserialize(message)
                 logger.debug(
                     "%s received a message from the server: %s", self.client, message
                 )
 
             logger.info("Server closed the connection to %s", self.client)
-
-        async def _receive_one_encoded(self) -> bytes:
-            """Receive a single message (as bytes); return empty bytes if closed."""
-            try:
-                return await self.reader.readuntil(MESSAGE_SEPARATOR)
-            except IncompleteReadError as incomplete:
-                if incomplete.partial == b"":
-                    return b""
-                else:
-                    raise

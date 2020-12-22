@@ -1,0 +1,1 @@
+MESSAGE_SEPARATOR = b"\0"

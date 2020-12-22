@@ -3,7 +3,7 @@ import logging
 from typing import ClassVar, List, Optional
 
 from loveletter.game import Game
-from loveletter_multiplayer.message import (
+from loveletter_multiplayer.networkcomms import (
     ErrorMessage,
     MessageDeserializer,
     MessageSerializer,

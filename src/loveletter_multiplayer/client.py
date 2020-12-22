@@ -4,7 +4,7 @@ from asyncio import IncompleteReadError
 from typing import Optional
 
 from loveletter.utils.misc import minirepr
-from loveletter_multiplayer.message import MessageDeserializer, SEPARATOR
+from loveletter_multiplayer.networkcomms import MESSAGE_SEPARATOR, MessageDeserializer
 from loveletter_multiplayer.utils import InnerClassMeta, close_stream_at_exit
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class LoveletterClient:
         async def _receive_one_encoded(self) -> bytes:
             """Receive a single message (as bytes); return empty bytes if closed."""
             try:
-                return await self.reader.readuntil(SEPARATOR)
+                return await self.reader.readuntil(MESSAGE_SEPARATOR)
             except IncompleteReadError as incomplete:
                 if incomplete.partial == b"":
                     return b""

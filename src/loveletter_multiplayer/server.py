@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import ClassVar, List, Optional
+from dataclasses import dataclass
+from typing import ClassVar, List, Optional, Tuple
 
 from loveletter.game import Game
 from loveletter_multiplayer.networkcomms import (
@@ -43,6 +44,7 @@ class LoveletterPartyServer:
         self.game = None
 
         self._client_sessions: List[LoveletterPartyServer.ClientSessionManager] = []
+        self._has_host = False
 
         self._serializer = MessageSerializer()
         self._deserializer = MessageDeserializer()
@@ -128,21 +130,31 @@ class LoveletterPartyServer:
             self.server = server
             self.reader = reader
             self.writer = writer
-            self.client_address = writer.get_extra_info("peername")
+            self.client_info = self._make_client_info(writer)
 
             self._attached = False
             self._manage_task = None
 
         def __enter__(self):
-            logger.info("Starting session for %s", self.client_address)
+            logger.info("Starting session for %s", self.client_info)
             self.server._client_sessions.append(self)
             self._attached = True
+            if self.client_info.is_host:
+                self.server._has_host = True
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             self.server._client_sessions.remove(self)
             self._attached = False
-            logger.info(f"Session with %s has ended", self.client_address)
+            if self.client_info.is_host:
+                self.server._has_host = False
+            logger.info(f"Session with %s has ended", self.client_info)
+
+        def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
+            address = writer.get_extra_info("peername")
+            client = ClientInfo(address, False)
+            client.is_host = self.server._is_host(client)
+            return client
 
         async def manage(self):
             """
@@ -164,13 +176,13 @@ class LoveletterPartyServer:
                     if not message:
                         break
                     logger.debug(
-                        "Received a message from %s: %s", self.client_address, message
+                        "Received a message from %s: %s", self.client_info, message
                     )
 
-                logger.info("Client %s closed the connection", self.client_address)
+                logger.info("Client %s closed the connection", self.client_info)
             except ConnectionResetError:
                 logger.warning(
-                    "Connection from %s forcibly closed by client", self.client_address
+                    "Connection from %s forcibly closed by client", self.client_info
                 )
             finally:
                 self._manage_task.cancel()
@@ -205,3 +217,39 @@ class LoveletterPartyServer:
         message = ErrorMessage(error_code, reason)
         await send_message(writer, message)
         writer.write_eof()
+
+    def _is_host(self, client: "ClientInfo") -> bool:
+        """
+        Check whether a newly connected client is the host of the party.
+
+        The host is determined as the first localhost client to successfully
+        connect to the server.
+        """
+        if self._has_host:
+            return False  # we already have a host; only one host
+        return client.address[0] == "127.0.0.1"
+
+
+@dataclass
+class ClientInfo:
+    address: Tuple[str, int]
+    is_host: bool = False  # host of the party; has privileges to configure the server
+    username: Optional[str] = None
+
+    @property
+    def has_logged_on(self):
+        """Whether the client has identified themselves to the server."""
+        return self.username is not None
+
+    def __repr__(self):
+        username, is_host = self.username, self.is_host
+        return (
+            f"<client with {username=}, {is_host=}>"
+            if self.has_logged_on
+            else f"<unidentified client at {self._format_address(self.address)}>"
+        )
+
+    @staticmethod
+    def _format_address(address):
+        host, port = address
+        return f"{host}:{port}"

@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 MESSAGE_SEPARATOR = b"\0"
 
 
+async def send_message(
+    writer: asyncio.StreamWriter, message: Message, serializer=MessageSerializer()
+):
+    logger.debug("Sending to %s: %s", writer.get_extra_info("peername"), message)
+    serialized = serializer.serialize(message)
+    logger.debug("Sending bytes: %s", serialized)
+    writer.write(serialized)
+    await writer.drain()
+
+
 async def receive_message(
     reader: asyncio.StreamReader, deserializer=MessageDeserializer()
 ) -> Optional[Message]:
@@ -40,13 +50,3 @@ async def receive_message(
         else:
             logger.error("Received incomplete message: %s", exc.partial)
             raise
-
-
-async def send_message(
-    writer: asyncio.StreamWriter, message: Message, serializer=MessageSerializer()
-):
-    logger.debug("Sending to %s: %s", writer.get_extra_info("peername"), message)
-    serialized = serializer.serialize(message)
-    logger.debug("Sending bytes: %s", serialized)
-    writer.write(serialized)
-    await writer.drain()

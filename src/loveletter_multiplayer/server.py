@@ -212,14 +212,23 @@ class LoveletterPartyServer:
         async def handle_message(self, message: msg.Error):
             raise NotImplementedError
 
+        # noinspection PyUnusedLocal
         @handle_message.register
         async def handle_message(self, message: msg.Logon):
-            # the client is identifying themselves
             LOGGER.warning("Received duplicate logon from %s", self.client_info)
             await self._send_error_response(
                 msg.Error.Code.LOGON_ERROR,
                 "Can only log on to the party once",
             )
+
+        # noinspection PyUnusedLocal
+        @handle_message.register
+        async def handle_message(self, message: msg.ReadyToPlay):
+            if self.client_info.is_host:
+                self.server._ready_to_play.set()
+                await self._reply_ok()
+            else:
+                await self._reply_permission_denied(message)
 
         async def _receive_loop(self):
             try:
@@ -242,8 +251,19 @@ class LoveletterPartyServer:
             finally:
                 self._manage_task.cancel()
 
+        async def _reply_ok(self):
+            await self.server._reply_ok(self.writer)
+
         async def _send_error_response(self, code, reason):
             await self.server._send_error_response(self.writer, code, reason)
+
+        async def _reply_permission_denied(self, cause):
+            LOGGER.warning(
+                "Received unauthorized request form %s: ", self.client_info, cause
+            )
+            await self._send_error_response(
+                msg.Error.Code.PERMISSION_DENIED, reason="Only the host can do this"
+            )
 
     async def _start_game_when_ready(self):
         while True:
@@ -349,15 +369,15 @@ class LoveletterPartyServer:
             and client.username == self._party_host_username
         )
 
+    async def _reply_ok(self, writer):
+        message = msg.OkMessage()
+        await send_message(writer, message)
+
     @staticmethod
     async def _send_error_response(writer, code, reason):
         address = writer.get_extra_info("peername")
         message = msg.Error(code, reason)
         LOGGER.debug("Sending error response to %s: %s", address, message)
-        await send_message(writer, message)
-
-    async def _reply_ok(self, writer):
-        message = msg.OkMessage()
         await send_message(writer, message)
 
 

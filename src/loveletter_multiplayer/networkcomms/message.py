@@ -12,6 +12,7 @@ class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
         OK = enum.auto()
         LOGON = enum.auto()
         ERROR = enum.auto()
+        READY = enum.auto()
 
     type: ClassVar[Type]
 
@@ -40,6 +41,14 @@ class Error(Message):
 
         CONNECTION_REFUSED = enum.auto()
         LOGON_ERROR = enum.auto()
+        PERMISSION_DENIED = enum.auto()
 
     error_code: Code
     message: str
+
+
+@dataclass(frozen=True)
+class ReadyToPlay(Message):
+    """Sent by the party host to indicate that the party is ready to play."""
+
+    type = Message.Type.READY

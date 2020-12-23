@@ -20,8 +20,9 @@ LOGGER = logging.getLogger(__name__)
 class LoveletterClient:
     username: str
 
-    def __init__(self, username: str):
+    def __init__(self, username: str, is_host: bool = False):
         self.username = username
+        self.is_host = is_host
 
         self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
 
@@ -46,6 +47,14 @@ class LoveletterClient:
                     )
                     # the client does raise; indeed the caller can retry connecting
                     raise
+
+    async def ready(self):
+        """Send a message to the server indicating that this client is ready to play."""
+        if self.is_host:
+            message = msg.ReadyToPlay()
+            await send_message(self._server_conn.writer, message)
+        else:
+            pass  # for now just ignore this
 
     class ServerConnectionManager(metaclass=InnerClassMeta):
         """

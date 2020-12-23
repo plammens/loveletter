@@ -183,12 +183,6 @@ class LoveletterPartyServer:
             self._attached = False
             logger.info(f"Session with %s has ended", self.client_info)
 
-        def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
-            address = writer.get_extra_info("peername")
-            client = ClientInfo(address)
-            client.is_host = self.server._is_host(client)
-            return client
-
         async def manage(self):
             """
             Manage this client session.
@@ -201,6 +195,12 @@ class LoveletterPartyServer:
             self._manage_task = asyncio.current_task()
             asyncio.create_task(self._receive_loop())
             await self.server._ready_to_play.wait()
+
+        def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
+            address = writer.get_extra_info("peername")
+            client = ClientInfo(address)
+            client.is_host = self.server._is_host(client)
+            return client
 
         async def _receive_loop(self):
             try:

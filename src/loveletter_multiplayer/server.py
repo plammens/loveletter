@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import socket
 from collections import namedtuple
 from dataclasses import dataclass
 from typing import ClassVar, Dict, Optional
@@ -43,13 +44,20 @@ class LoveletterPartyServer:
     port: int
     game: Optional[Game]
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, party_host_username: str):
+        """
+
+        :param host: IP (or domain name) to bind the server to.
+        :param port: Port number to bind the server to.
+        :param party_host_username: The username of the player that will host this party
+                                    (has additional privileges to configure the party).
+        """
         self.host = host
         self.port = port
         self.game = None
 
         self._client_sessions: ClientSessions = {}
-        self._has_host = False
+        self._party_host_username = party_host_username
 
         self._serializer = MessageSerializer()
         self._deserializer = MessageDeserializer()
@@ -64,6 +72,19 @@ class LoveletterPartyServer:
     def num_connected_clients(self) -> int:
         """The number of clients currently being served by the server."""
         return len(self._client_sessions)
+
+    @property
+    def party_host(self) -> Optional["ClientInfo"]:
+        """Get the ClientInfo corresponding to the host of this party, if present."""
+        it = (session.client_info for session in self._client_sessions.values())
+        result = None
+        for c in it:
+            if c.is_host:
+                result = c
+                break
+        for c in it:
+            assert not c.is_host, "More than one party host"
+        return result
 
     async def run_server(self):
         await self._init_async()
@@ -149,8 +170,6 @@ class LoveletterPartyServer:
             self.client_info.id = len(self.server._client_sessions)
             self.server._client_sessions[address] = self
             self._attached = True
-            if self.client_info.is_host:
-                self.server._has_host = True
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
@@ -162,8 +181,6 @@ class LoveletterPartyServer:
                 )
             del self.server._client_sessions[address]
             self._attached = False
-            if self.client_info.is_host:
-                self.server._has_host = False
             logger.info(f"Session with %s has ended", self.client_info)
 
         def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
@@ -238,12 +255,15 @@ class LoveletterPartyServer:
         """
         Check whether a newly connected client is the host of the party.
 
-        The host is determined as the first localhost client to successfully
-        connect to the server.
+        The host is determined as the first localhost client with the correct username
+        to successfully connect to the server.
         """
-        if self._has_host:
+        if self.party_host is not None:
             return False  # we already have a host; only one host
-        return client.address.host == "127.0.0.1"
+        return (
+            socket.gethostbyname(client.address.host) == "127.0.0.1"
+            and client.username == self._party_host_username
+        )
 
 
 @dataclass

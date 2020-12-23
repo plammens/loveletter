@@ -246,18 +246,25 @@ class LoveletterPartyServer:
             await self.server._send_error_response(self.writer, code, reason)
 
     async def _start_game_when_ready(self):
-        await self._ready_to_play.wait()
-        logging.debug("Received ready to play signal")
-        # acquire lock to make sure the number of connected clients is final
-        # (there could be one last client in the process of connecting)
-        async with self._sessions_lock:
-            usernames = [
-                session.client_info.username
-                for session in self._client_sessions.values()
-            ]
-        self.game = Game(usernames)
-        logging.info("Ready to play; created game: %s", self.game)
-        self._game_ready.set()
+        while True:
+            try:
+                await self._ready_to_play.wait()
+                logger.debug("Received ready to play signal")
+                # acquire lock to make sure the number of connected clients is final
+                # (there could be one last client in the process of connecting)
+                async with self._sessions_lock:
+                    usernames = [
+                        session.client_info.username
+                        for session in self._client_sessions.values()
+                    ]
+                self.game = Game(usernames)
+                logging.info("Ready to play; created game: %s", self.game)
+                self._game_ready.set()
+                break
+            except Exception as e:
+                logger.error("Exception while trying to create game", exc_info=e)
+                self._ready_to_play.clear()
+                continue
 
     async def _refuse_connection(
         self,

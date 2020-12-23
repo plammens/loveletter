@@ -9,6 +9,7 @@ from loveletter_multiplayer.utils import EnumPostInitMixin
 @dataclass(frozen=True)
 class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
     class Type(enum.Enum):
+        OK = enum.auto()
         LOGON = enum.auto()
         ERROR = enum.auto()
 
@@ -24,8 +25,14 @@ class Logon(Message):
     username: str
 
 
+class OkMessage(Message):
+    """An "acknowledgement" response message."""
+
+    type = Message.Type.OK
+
+
 @dataclass(frozen=True)
-class ErrorMessage(Message):
+class Error(Message):
     type = Message.Type.ERROR
 
     class Code(enum.Enum):

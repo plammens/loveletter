@@ -2,15 +2,20 @@ import asyncio
 import logging
 from typing import Optional
 
+import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.utils.misc import minirepr
-from loveletter_multiplayer.networkcomms import receive_message
+from loveletter_multiplayer.networkcomms import Message, receive_message, send_message
 from loveletter_multiplayer.utils import InnerClassMeta, close_stream_at_exit
 
 logger = logging.getLogger(__name__)
 
 
 class LoveletterClient:
-    def __init__(self):
+    username: str
+
+    def __init__(self, username: str):
+        self.username = username
+
         self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
 
     __repr__ = minirepr
@@ -69,7 +74,31 @@ class LoveletterClient:
         async def manage(self):
             if self.client._server_conn is not self:
                 raise RuntimeError("Can't manage a detached connection")
+            await self._logon()
             await self._receive_loop()
+
+        async def request(self, message: Message) -> Message:
+            """
+            Send a request to the server and await for the reply.
+
+            Raises a ConnectionError if the server closes the connection without
+            sending a response.
+
+            :param message: Any message that expects a reply.
+            :return: The response from the server.
+            """
+            await send_message(self.writer, message)
+            response = await receive_message(self.reader)
+            if response is None:
+                raise ConnectionError("Server closed the connection after request")
+            return response
+
+        async def _logon(self):
+            """Identify oneself to the server."""
+            message = msg.Logon(self.client.username)
+            response = await self.request(message)
+            if response.type != Message.Type.OK:
+                raise RuntimeError("Logon failed")
 
         async def _receive_loop(self):
             while True:

@@ -205,7 +205,7 @@ class LoveletterPartyServer:
             raise NotImplementedError
 
         @handle_message.register
-        async def handle_message(self, message: msg.ErrorMessage):
+        async def handle_message(self, message: msg.Error):
             raise NotImplementedError
 
         @handle_message.register
@@ -215,7 +215,7 @@ class LoveletterPartyServer:
             if client.has_logged_on:
                 logging.warning("Received duplicate logon from %s", self.client_info)
                 await self._error_reply(
-                    msg.ErrorMessage.Code.LOGON_ERROR,
+                    msg.Error.Code.LOGON_ERROR,
                     "You can only log on to the party once",
                 )
             else:
@@ -250,7 +250,7 @@ class LoveletterPartyServer:
                 self._manage_task.cancel()
 
         async def _error_reply(self, code, reason):
-            message = msg.ErrorMessage(code, reason)
+            message = msg.Error(code, reason)
             logging.debug("Sending error reply to %s: %s", self.client_info, message)
             await send_message(self.writer, message)
 
@@ -277,11 +277,11 @@ class LoveletterPartyServer:
         writer,
         *,
         reason: str,
-        error_code: msg.ErrorMessage.Code = msg.ErrorMessage.Code.CONNECTION_REFUSED,
+        error_code: msg.Error.Code = msg.Error.Code.CONNECTION_REFUSED,
     ):
         address = writer.get_extra_info("peername")
         logger.info(f"Refusing connection from %s (%s)", address, reason)
-        message = msg.ErrorMessage(error_code, reason)
+        message = msg.Error(error_code, reason)
         await send_message(writer, message)
         writer.write_eof()
 

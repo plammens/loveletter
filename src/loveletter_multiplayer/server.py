@@ -215,7 +215,7 @@ class LoveletterPartyServer:
         @handle_message.register
         async def handle_message(self, message: msg.Logon):
             # the client is identifying themselves
-            logging.warning("Received duplicate logon from %s", self.client_info)
+            logger.warning("Received duplicate logon from %s", self.client_info)
             await self._send_error_response(
                 msg.Error.Code.LOGON_ERROR,
                 "Can only log on to the party once",
@@ -258,7 +258,7 @@ class LoveletterPartyServer:
                         for session in self._client_sessions.values()
                     ]
                 self.game = Game(usernames)
-                logging.info("Ready to play; created game: %s", self.game)
+                logger.info("Ready to play; created game: %s", self.game)
                 self._game_ready.set()
                 break
             except Exception as e:
@@ -353,7 +353,7 @@ class LoveletterPartyServer:
     async def _send_error_response(writer, code, reason):
         address = writer.get_extra_info("peername")
         message = msg.Error(code, reason)
-        logging.debug("Sending error response to %s: %s", address, message)
+        logger.debug("Sending error response to %s: %s", address, message)
         await send_message(writer, message)
 
     async def _reply_ok(self, writer):

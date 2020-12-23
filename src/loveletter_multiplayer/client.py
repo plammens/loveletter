@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 import loveletter_multiplayer.networkcomms.message as msg
@@ -10,7 +11,7 @@ from loveletter_multiplayer.networkcomms import (
     receive_message,
     send_message,
 )
-from loveletter_multiplayer.utils import InnerClassMeta, close_stream_at_exit
+from loveletter_multiplayer.utils import Address, InnerClassMeta, close_stream_at_exit
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,13 @@ class LoveletterClient:
 
     async def connect(self, host, port):
         reader, writer = await asyncio.open_connection(host=host, port=port)
-        logger.info(f"Successfully connected to {writer.get_extra_info('peername')}")
         async with close_stream_at_exit(writer):
+            address = writer.get_extra_info("peername")
+            logger.info(f"Successfully connected to {address}")
+
+            server_info = ServerInfo(address)
             # noinspection PyArgumentList
-            with self.ServerConnectionManager(reader, writer) as conn:
+            with self.ServerConnectionManager(server_info, reader, writer) as conn:
                 try:
                     await conn.manage()
                 except Exception as exc:
@@ -55,16 +59,16 @@ class LoveletterClient:
         an RuntimeError will be raised.
         """
 
-        def __init__(self, client: "LoveletterClient", reader, writer):
+        def __init__(
+            self, client: "LoveletterClient", server_info: "ServerInfo", reader, writer
+        ):
             self.client: LoveletterClient = client
+            self.server_info = server_info
             self.reader: asyncio.StreamReader = reader
             self.writer: asyncio.StreamWriter = writer
 
-            # TODO: Extract ServerInfo dataclass
-            self.server_address = writer.get_extra_info("peername")
-
         def __repr__(self):
-            return f"<connection from {self.client} to {self.server_address}>"
+            return f"<connection from {self.client} to {self.server_info}>"
 
         def __enter__(self):
             logger.info("Activating %s", self)
@@ -118,3 +122,8 @@ class LoveletterClient:
                 )
 
             logger.info("Server closed the connection to %s", self.client)
+
+
+@dataclass(frozen=True)
+class ServerInfo:
+    address: Address

@@ -3,6 +3,7 @@ import contextlib
 import enum
 import logging
 import typing
+from collections import namedtuple
 from typing import ContextManager, TypeVar
 
 
@@ -70,3 +71,6 @@ async def close_stream_at_exit(writer: asyncio.StreamWriter):
             # the underlying transport has already been closed by an exception
             if not writer.transport.is_closing():
                 raise
+
+
+Address = namedtuple("Address", ["host", "port"])

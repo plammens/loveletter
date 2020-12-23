@@ -2,7 +2,6 @@ import asyncio
 import dataclasses
 import logging
 import socket
-from collections import namedtuple
 from dataclasses import dataclass
 from typing import ClassVar, Dict, Optional
 
@@ -20,6 +19,7 @@ from loveletter_multiplayer.networkcomms import (
     send_message,
 )
 from loveletter_multiplayer.utils import (
+    Address,
     InnerClassMeta,
     close_stream_at_exit,
 )
@@ -27,8 +27,6 @@ from loveletter_multiplayer.utils import (
 
 logger = logging.getLogger(__name__)
 
-
-Address = namedtuple("Address", ["host", "port"])
 ClientSessions = Dict[Address, "LoveletterPartyServer.ClientSessionManager"]
 
 

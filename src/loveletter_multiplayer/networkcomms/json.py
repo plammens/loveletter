@@ -47,7 +47,11 @@ class MessageDeserializer(json.JSONDecoder):
         # noinspection PyTypeChecker
         return self.decode(message.rstrip(b"\0").decode())
 
-    _type_map = {cls.type: cls for cls in collect_subclasses(Message, msg)}
+    _type_map = {
+        cls.type: cls
+        for cls in collect_subclasses(Message, msg)
+        if hasattr(cls, "type")  # only concrete subclasses
+    }
 
     @classmethod
     def _reconstruct_message(cls, json_dict: Dict[str, Any]):

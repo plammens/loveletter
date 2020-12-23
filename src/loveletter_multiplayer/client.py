@@ -13,7 +13,8 @@ from loveletter_multiplayer.networkcomms import (
 )
 from loveletter_multiplayer.utils import Address, InnerClassMeta, close_stream_at_exit
 
-logger = logging.getLogger(__name__)
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LoveletterClient:
@@ -30,7 +31,7 @@ class LoveletterClient:
         reader, writer = await asyncio.open_connection(host=host, port=port)
         async with close_stream_at_exit(writer):
             address = writer.get_extra_info("peername")
-            logger.info(f"Successfully connected to {address}")
+            LOGGER.info(f"Successfully connected to {address}")
 
             server_info = ServerInfo(address)
             # noinspection PyArgumentList
@@ -38,7 +39,7 @@ class LoveletterClient:
                 try:
                     await conn.manage()
                 except Exception as exc:
-                    logger.error(
+                    LOGGER.error(
                         "Unhandled exception in %s",
                         conn,
                         exc_info=exc,
@@ -71,7 +72,7 @@ class LoveletterClient:
             return f"<connection from {self.client} to {self.server_info}>"
 
         def __enter__(self):
-            logger.info("Activating %s", self)
+            LOGGER.info("Activating %s", self)
             if self.client._server_conn is not None:
                 raise RuntimeError("There is already an active connection")
             self.client._server_conn = self
@@ -79,7 +80,7 @@ class LoveletterClient:
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             self.client._server_conn = None
-            logger.info("Deactivated %s", self)
+            LOGGER.info("Deactivated %s", self)
 
         async def manage(self):
             if self.client._server_conn is not self:
@@ -117,11 +118,11 @@ class LoveletterClient:
                 message = await receive_message(self.reader)
                 if not message:
                     break
-                logger.debug(
+                LOGGER.debug(
                     "%s received a message from the server: %s", self.client, message
                 )
 
-            logger.info("Server closed the connection to %s", self.client)
+            LOGGER.info("Server closed the connection to %s", self.client)
 
 
 @dataclass(frozen=True)

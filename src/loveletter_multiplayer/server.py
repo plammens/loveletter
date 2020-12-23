@@ -25,7 +25,7 @@ from loveletter_multiplayer.utils import (
 )
 
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 ClientSessions = Dict[Address, "LoveletterPartyServer.ClientSessionManager"]
 
@@ -139,7 +139,7 @@ class LoveletterPartyServer:
                     )
 
                 address = writer.get_extra_info("peername")
-                logger.info(f"Received connection from %s", address)
+                LOGGER.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
                 except (ProtocolError, asyncio.TimeoutError):
@@ -155,7 +155,7 @@ class LoveletterPartyServer:
                     # coroutine until the session ends in some way
                     await session.manage()
                 except Exception as exc:
-                    logger.critical(
+                    LOGGER.critical(
                         "Unhandled exception in client handler", exc_info=exc
                     )
 
@@ -215,7 +215,7 @@ class LoveletterPartyServer:
         @handle_message.register
         async def handle_message(self, message: msg.Logon):
             # the client is identifying themselves
-            logger.warning("Received duplicate logon from %s", self.client_info)
+            LOGGER.warning("Received duplicate logon from %s", self.client_info)
             await self._send_error_response(
                 msg.Error.Code.LOGON_ERROR,
                 "Can only log on to the party once",
@@ -227,16 +227,16 @@ class LoveletterPartyServer:
                     message = await receive_message(self.reader)
                     if not message:
                         break
-                    logger.debug(
+                    LOGGER.debug(
                         "Received a message from %s: %s", self.client_info, message
                     )
                     asyncio.create_task(
                         self.handle_message(message), name="handle_message"
                     )
 
-                logger.info("Client %s closed the connection", self.client_info)
+                LOGGER.info("Client %s closed the connection", self.client_info)
             except ConnectionResetError:
-                logger.warning(
+                LOGGER.warning(
                     "Connection from %s forcibly closed by client", self.client_info
                 )
             finally:
@@ -249,7 +249,7 @@ class LoveletterPartyServer:
         while True:
             try:
                 await self._ready_to_play.wait()
-                logger.debug("Received ready to play signal")
+                LOGGER.debug("Received ready to play signal")
                 # acquire lock to make sure the number of connected clients is final
                 # (there could be one last client in the process of connecting)
                 async with self._sessions_lock:
@@ -258,11 +258,11 @@ class LoveletterPartyServer:
                         for session in self._client_sessions.values()
                     ]
                 self.game = Game(usernames)
-                logger.info("Ready to play; created game: %s", self.game)
+                LOGGER.info("Ready to play; created game: %s", self.game)
                 self._game_ready.set()
                 break
             except Exception as e:
-                logger.error("Exception while trying to create game", exc_info=e)
+                LOGGER.error("Exception while trying to create game", exc_info=e)
                 self._ready_to_play.clear()
                 continue
 
@@ -274,13 +274,13 @@ class LoveletterPartyServer:
         error_code: msg.Error.Code = msg.Error.Code.CONNECTION_REFUSED,
     ):
         address = writer.get_extra_info("peername")
-        logger.info(f"Refusing connection from %s (%s)", address, reason)
+        LOGGER.info(f"Refusing connection from %s (%s)", address, reason)
         await self._send_error_response(writer, error_code, reason)
         writer.write_eof()
 
     def _attach(self, session: ClientSessionManager):
         # this context manager is not async so no need to lock read/write accesses
-        logger.info("Starting session for %s", session.client_info)
+        LOGGER.info("Starting session for %s", session.client_info)
         address = session.client_info.address
         if address in self._client_sessions:
             raise RuntimeError("There is already a session for %s", address)
@@ -296,7 +296,7 @@ class LoveletterPartyServer:
             )
         del self._client_sessions[address]
         session._attached = False
-        logger.info(f"Session with %s has ended", session.client_info)
+        LOGGER.info(f"Session with %s has ended", session.client_info)
 
     async def _receive_logon(self, reader, writer) -> "ClientInfo":
         address = Address(*writer.get_extra_info("peername"))
@@ -305,16 +305,16 @@ class LoveletterPartyServer:
             # need a timeout because we're holding a lock that is blocking other conns.
             message = await asyncio.wait_for(receive_message(reader), timeout=3.0)
         except asyncio.TimeoutError:
-            logger.warning("Client at %s: logon timed out", address)
+            LOGGER.warning("Client at %s: logon timed out", address)
             raise
         if message is None:
-            logger.warning(
+            LOGGER.warning(
                 "Client at %s closed the connection before logging on",
                 address,
             )
             raise ConnectionClosedError
         if not isinstance(message, msg.Logon):
-            logger.warning(
+            LOGGER.warning(
                 "Expected a logon message from %s, received: %s",
                 address,
                 message,
@@ -353,7 +353,7 @@ class LoveletterPartyServer:
     async def _send_error_response(writer, code, reason):
         address = writer.get_extra_info("peername")
         message = msg.Error(code, reason)
-        logger.debug("Sending error response to %s: %s", address, message)
+        LOGGER.debug("Sending error response to %s: %s", address, message)
         await send_message(writer, message)
 
     async def _reply_ok(self, writer):

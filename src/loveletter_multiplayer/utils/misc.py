@@ -7,7 +7,7 @@ from collections import namedtuple
 from typing import ContextManager, TypeVar
 
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 T = TypeVar("T", bound=ContextManager)
@@ -63,7 +63,7 @@ async def close_stream_at_exit(writer: asyncio.StreamWriter):
     try:
         yield writer
     finally:
-        logger.debug("Closing stream %s", writer)
+        LOGGER.debug("Closing stream %s", writer)
         writer.close()
         try:
             await writer.wait_closed()

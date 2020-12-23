@@ -142,7 +142,7 @@ class LoveletterPartyServer:
                 logger.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
-                except ProtocolError:
+                except (ProtocolError, asyncio.TimeoutError):
                     return
                 # noinspection PyArgumentList
                 session = self.ClientSessionManager(client_info, reader, writer)
@@ -292,7 +292,12 @@ class LoveletterPartyServer:
     async def _receive_logon(self, reader, writer) -> "ClientInfo":
         address = Address(*writer.get_extra_info("peername"))
 
-        message = await receive_message(reader)
+        try:
+            # need a timeout because we're holding a lock that is blocking other conns.
+            message = await asyncio.wait_for(receive_message(reader), timeout=3.0)
+        except asyncio.TimeoutError:
+            logger.warning("Client at %s: logon timed out", address)
+            raise
         if message is None:
             logger.warning(
                 "Client at %s closed the connection before logging on",

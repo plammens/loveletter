@@ -1,7 +1,8 @@
 import asyncio
 import logging
+from collections import namedtuple
 from dataclasses import dataclass
-from typing import ClassVar, List, Optional, Tuple
+from typing import ClassVar, Dict, Optional
 
 from loveletter.game import Game
 from loveletter_multiplayer.networkcomms import (
@@ -19,6 +20,10 @@ from loveletter_multiplayer.utils import (
 
 
 logger = logging.getLogger(__name__)
+
+
+Address = namedtuple("Address", ["host", "port"])
+ClientSessions = Dict[Address, "LoveletterPartyServer.ClientSessionManager"]
 
 
 class LoveletterPartyServer:
@@ -43,7 +48,7 @@ class LoveletterPartyServer:
         self.port = port
         self.game = None
 
-        self._client_sessions: List[LoveletterPartyServer.ClientSessionManager] = []
+        self._client_sessions: ClientSessions = {}
         self._has_host = False
 
         self._serializer = MessageSerializer()
@@ -58,7 +63,7 @@ class LoveletterPartyServer:
     @property
     def num_connected_clients(self) -> int:
         """The number of clients currently being served by the server."""
-        return self._client_semaphore.count
+        return len(self._client_sessions)
 
     async def run_server(self):
         await self._init_async()
@@ -136,15 +141,26 @@ class LoveletterPartyServer:
             self._manage_task = None
 
         def __enter__(self):
+            # this context manager is not async so no need to lock read/write accesses
             logger.info("Starting session for %s", self.client_info)
-            self.server._client_sessions.append(self)
+            address = self.client_info.address
+            if address in self.server._client_sessions:
+                raise RuntimeError("There is already a session for %s", address)
+            self.client_info.id = len(self.server._client_sessions)
+            self.server._client_sessions[address] = self
             self._attached = True
             if self.client_info.is_host:
                 self.server._has_host = True
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            self.server._client_sessions.remove(self)
+            # this context manager is not async so no need to lock read/write accesses
+            address = self.client_info.address
+            if address not in self.server._client_sessions:
+                raise RuntimeError(
+                    "Trying to detach an already detached connection %s", address
+                )
+            del self.server._client_sessions[address]
             self._attached = False
             if self.client_info.is_host:
                 self.server._has_host = False
@@ -152,7 +168,7 @@ class LoveletterPartyServer:
 
         def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
             address = writer.get_extra_info("peername")
-            client = ClientInfo(address, False)
+            client = ClientInfo(address)
             client.is_host = self.server._is_host(client)
             return client
 
@@ -227,14 +243,15 @@ class LoveletterPartyServer:
         """
         if self._has_host:
             return False  # we already have a host; only one host
-        return client.address[0] == "127.0.0.1"
+        return client.address.host == "127.0.0.1"
 
 
 @dataclass
 class ClientInfo:
-    address: Tuple[str, int]
-    is_host: bool = False  # host of the party; has privileges to configure the server
+    address: Address
+    id: Optional[int] = None
     username: Optional[str] = None
+    is_host: bool = False  # host of the party; has privileges to configure the server
 
     @property
     def has_logged_on(self):

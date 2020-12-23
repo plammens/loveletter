@@ -50,3 +50,17 @@ async def receive_message(
         else:
             logger.error("Received incomplete message: %s", exc.partial)
             raise
+
+
+class ProtocolError(RuntimeError):
+    """Raised when one of the two sides didn't follow the protocol."""
+
+    pass
+
+
+class UnexpectedMessageError(ProtocolError):
+    pass
+
+
+class ConnectionClosedError(ProtocolError):
+    pass

@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import logging
 import socket
 from collections import namedtuple
@@ -10,14 +11,16 @@ from multimethod import multimethod
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.game import Game
 from loveletter_multiplayer.networkcomms import (
+    ConnectionClosedError,
     MessageDeserializer,
     MessageSerializer,
+    ProtocolError,
+    UnexpectedMessageError,
     receive_message,
     send_message,
 )
 from loveletter_multiplayer.utils import (
     InnerClassMeta,
-    SemaphoreWithCount,
     close_stream_at_exit,
 )
 
@@ -66,9 +69,22 @@ class LoveletterPartyServer:
 
         # to be initialized in self._init_async:
         self._server: asyncio.AbstractServer
-        self._client_semaphore: SemaphoreWithCount
+        self._sessions_lock: asyncio.Lock
         self._ready_to_play: asyncio.Event
         self._game_ready: asyncio.Event
+
+    async def _init_async(self):
+        """Initialize asyncio-related attributes that need an active event loop."""
+        self._server = await asyncio.start_server(
+            self.connection_handler,
+            host=self.host,
+            port=self.port,
+            backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
+            start_serving=False,
+        )
+        self._sessions_lock = asyncio.Lock()
+        self._ready_to_play = asyncio.Event()
+        self._game_ready = asyncio.Event()
 
     @property
     def num_connected_clients(self) -> int:
@@ -109,38 +125,45 @@ class LoveletterPartyServer:
         sent to the connected client and the connection is shut down and closed.
         """
         async with close_stream_at_exit(writer):
-            if self._client_semaphore.locked():
-                # max clients reached; politely refuse the connection
-                return await self._refuse_connection(
-                    writer,
-                    reason=f"Maximum capacity ({self.MAX_CLIENTS} players) reached",
-                )
-            elif self._ready_to_play.is_set():
-                # game already started or in process of starting; refuse other conns.
-                return await self._refuse_connection(
-                    writer,
-                    reason="A game is already in progress",
-                )
-
-            async with self._client_semaphore:
-                # note: we use an additional semaphore instead of just checking the
-                # count of active sessions (``len(self._client_sessions)``) because
-                # it is more robust; consider what would happen if an ``await`` were
-                # added before the session is instantiated and attached (the ``with``
-                # statement below).
+            # hold the lock until we attach the session (or refuse the connection)
+            async with self._sessions_lock:
+                # Note: if we refuse the connection now, there is no need to wait for
+                # the logon message since we would have rejected in any case.
+                # Also, we create _refuse_connection tasks without awaiting them to
+                # avoid holding on to the lock for too long.
+                if self.num_connected_clients >= self.MAX_CLIENTS:
+                    coroutine = self._refuse_connection(
+                        writer,
+                        reason=f"Maximum capacity ({self.MAX_CLIENTS} players) reached",
+                    )
+                    asyncio.create_task(coroutine)
+                    return
+                if self._ready_to_play.is_set():
+                    coroutine = self._refuse_connection(
+                        writer,
+                        reason="A game is already in progress",
+                    )
+                    asyncio.create_task(coroutine)
+                    return
 
                 address = writer.get_extra_info("peername")
                 logger.info(f"Received connection from %s", address)
+                try:
+                    client_info = await self._receive_logon(reader, writer)
+                except ProtocolError:
+                    return
                 # noinspection PyArgumentList
-                with self.ClientSessionManager(reader, writer) as session:
-                    try:
-                        # where the actual session is managed; this suspends this
-                        # coroutine until the session ends in some way
-                        await session.manage()
-                    except Exception as exc:
-                        logger.critical(
-                            "Unhandled exception in client handler", exc_info=exc
-                        )
+                session = self.ClientSessionManager(client_info, reader, writer)
+
+            with session:
+                try:
+                    # where the actual session is managed; this suspends this
+                    # coroutine until the session ends in some way
+                    await session.manage()
+                except Exception as exc:
+                    logger.critical(
+                        "Unhandled exception in client handler", exc_info=exc
+                    )
 
     class ClientSessionManager(metaclass=InnerClassMeta):
         """
@@ -154,38 +177,25 @@ class LoveletterPartyServer:
         def __init__(
             self,
             server: "LoveletterPartyServer",
+            client_info: "ClientInfo",
             reader: asyncio.StreamReader,
             writer: asyncio.StreamWriter,
         ):
             self.server = server
             self.reader = reader
             self.writer = writer
-            self.client_info = self._make_client_info(writer)
+            self.client_info = client_info
 
             self._attached = False
             self._manage_task = None
 
         def __enter__(self):
-            # this context manager is not async so no need to lock read/write accesses
-            logger.info("Starting session for %s", self.client_info)
-            address = self.client_info.address
-            if address in self.server._client_sessions:
-                raise RuntimeError("There is already a session for %s", address)
-            self.client_info.id = len(self.server._client_sessions)
-            self.server._client_sessions[address] = self
-            self._attached = True
+            if self.client_info.address not in self.server._client_sessions:
+                self.server._attach(self)
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            # this context manager is not async so no need to lock read/write accesses
-            address = self.client_info.address
-            if address not in self.server._client_sessions:
-                raise RuntimeError(
-                    "Trying to detach an already detached connection %s", address
-                )
-            del self.server._client_sessions[address]
-            self._attached = False
-            logger.info(f"Session with %s has ended", self.client_info)
+            self.server._detach(self)
 
         async def manage(self):
             """
@@ -211,22 +221,11 @@ class LoveletterPartyServer:
         @handle_message.register
         async def handle_message(self, message: msg.Logon):
             # the client is identifying themselves
-            client = self.client_info
-            if client.has_logged_on:
-                logging.warning("Received duplicate logon from %s", self.client_info)
-                await self._error_reply(
-                    msg.Error.Code.LOGON_ERROR,
-                    "You can only log on to the party once",
-                )
-            else:
-                client.username = message.username
-                logging.info("Client at %s logged in: %s", client.address, client)
-
-        def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
-            address = Address(*writer.get_extra_info("peername"))
-            client = ClientInfo(address)
-            client.is_host = self.server._is_host(client)
-            return client
+            logging.warning("Received duplicate logon from %s", self.client_info)
+            await self._send_error_response(
+                msg.Error.Code.LOGON_ERROR,
+                "Can only log on to the party once",
+            )
 
         async def _receive_loop(self):
             try:
@@ -249,23 +248,8 @@ class LoveletterPartyServer:
             finally:
                 self._manage_task.cancel()
 
-        async def _error_reply(self, code, reason):
-            message = msg.Error(code, reason)
-            logging.debug("Sending error reply to %s: %s", self.client_info, message)
-            await send_message(self.writer, message)
-
-    async def _init_async(self):
-        """Initialize asyncio-related attributes that need an active event loop."""
-        self._server = await asyncio.start_server(
-            self.connection_handler,
-            host=self.host,
-            port=self.port,
-            backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
-            start_serving=False,
-        )
-        self._client_semaphore = SemaphoreWithCount(value=self.MAX_CLIENTS)
-        self._ready_to_play = asyncio.Event()
-        self._game_ready = asyncio.Event()
+        async def _send_error_response(self, code, reason):
+            await self.server._send_error_response(self.writer, code, reason)
 
     async def _start_game_when_ready(self):
         await self._ready_to_play.wait()
@@ -281,9 +265,65 @@ class LoveletterPartyServer:
     ):
         address = writer.get_extra_info("peername")
         logger.info(f"Refusing connection from %s (%s)", address, reason)
-        message = msg.Error(error_code, reason)
-        await send_message(writer, message)
+        await self._send_error_response(writer, error_code, reason)
         writer.write_eof()
+
+    @staticmethod
+    async def _send_error_response(writer, code, reason):
+        address = writer.get_extra_info("peername")
+        message = msg.Error(code, reason)
+        logging.debug("Sending error response to %s: %s", address, message)
+        await send_message(writer, message)
+
+    def _attach(self, session: ClientSessionManager):
+        # this context manager is not async so no need to lock read/write accesses
+        logger.info("Starting session for %s", session.client_info)
+        address = session.client_info.address
+        if address in self._client_sessions:
+            raise RuntimeError("There is already a session for %s", address)
+        self._client_sessions[address] = session
+        session._attached = True
+        return session
+
+    def _detach(self, session: ClientSessionManager):
+        address = session.client_info.address
+        if address not in self._client_sessions:
+            raise RuntimeError(
+                "Trying to detach an already detached connection %s", address
+            )
+        del self._client_sessions[address]
+        session._attached = False
+        logger.info(f"Session with %s has ended", session.client_info)
+
+    async def _receive_logon(self, reader, writer) -> "ClientInfo":
+        address = Address(*writer.get_extra_info("peername"))
+
+        message = await receive_message(reader)
+        if message is None:
+            logger.warning(
+                "Client at %s closed the connection before logging on",
+                address,
+            )
+            raise ConnectionClosedError
+        if not isinstance(message, msg.Logon):
+            logger.warning(
+                "Expected a logon message from %s, received: %s",
+                address,
+                message,
+            )
+            await self._refuse_connection(
+                writer, reason="Didn't receive the expected logon message"
+            )
+            raise UnexpectedMessageError(message)
+
+        client_info = ClientInfo(
+            address=address,
+            id=len(self._client_sessions),
+            username=message.username,
+        )
+        if self._is_host(client_info):
+            client_info = dataclasses.replace(client_info, is_host=True)
+        return client_info
 
     def _is_host(self, client: "ClientInfo") -> bool:
         """
@@ -300,27 +340,9 @@ class LoveletterPartyServer:
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ClientInfo:
     address: Address
-    id: Optional[int] = None
-    username: Optional[str] = None
+    id: Optional[int]
+    username: Optional[str]
     is_host: bool = False  # host of the party; has privileges to configure the server
-
-    @property
-    def has_logged_on(self):
-        """Whether the client has identified themselves to the server."""
-        return self.username is not None
-
-    def __repr__(self):
-        username, is_host = self.username, self.is_host
-        return (
-            f"<client with {username=}, {is_host=}>"
-            if self.has_logged_on
-            else f"<unidentified client at {self._format_address(self.address)}>"
-        )
-
-    @staticmethod
-    def _format_address(address):
-        host, port = address
-        return f"{host}:{port}"

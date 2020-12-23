@@ -5,9 +5,11 @@ from collections import namedtuple
 from dataclasses import dataclass
 from typing import ClassVar, Dict, Optional
 
+from multimethod import multimethod
+
+import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.game import Game
 from loveletter_multiplayer.networkcomms import (
-    ErrorMessage,
     MessageDeserializer,
     MessageSerializer,
     receive_message,
@@ -89,7 +91,9 @@ class LoveletterPartyServer:
     async def run_server(self):
         await self._init_async()
         async with self._server:
-            asyncio.create_task(self._start_game_when_ready())
+            asyncio.create_task(
+                self._start_game_when_ready(), name="start_game_when_ready"
+            )
             await self._server.serve_forever()
 
     async def connection_handler(
@@ -193,8 +197,29 @@ class LoveletterPartyServer:
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
             self._manage_task = asyncio.current_task()
-            asyncio.create_task(self._receive_loop())
+            asyncio.create_task(self._receive_loop(), name="receive_loop")
             await self.server._ready_to_play.wait()
+
+        @multimethod
+        async def handle_message(self, message: msg.Message):
+            raise NotImplementedError
+
+        @handle_message.register
+        async def handle_message(self, message: msg.ErrorMessage):
+            raise NotImplementedError
+
+        @handle_message.register
+        async def handle_message(self, message: msg.Logon):
+            # the client is identifying themselves
+            client = self.client_info
+            if client.has_logged_on:
+                logging.warning("Received duplicate logon from %s", self.client_info)
+                await self._error_reply(
+                    msg.ErrorMessage.Code.LOGON_ERROR,
+                    "You can only log on to the party once",
+                )
+            else:
+                client.username = message.username
 
         def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
             address = writer.get_extra_info("peername")
@@ -211,6 +236,9 @@ class LoveletterPartyServer:
                     logger.debug(
                         "Received a message from %s: %s", self.client_info, message
                     )
+                    asyncio.create_task(
+                        self.handle_message(message), name="handle_message"
+                    )
 
                 logger.info("Client %s closed the connection", self.client_info)
             except ConnectionResetError:
@@ -219,6 +247,11 @@ class LoveletterPartyServer:
                 )
             finally:
                 self._manage_task.cancel()
+
+        async def _error_reply(self, code, reason):
+            message = msg.ErrorMessage(code, reason)
+            logging.debug("Sending error reply to %s: %s", self.client_info, message)
+            await send_message(self.writer, message)
 
     async def _init_async(self):
         """Initialize asyncio-related attributes that need an active event loop."""
@@ -243,11 +276,11 @@ class LoveletterPartyServer:
         writer,
         *,
         reason: str,
-        error_code: ErrorMessage.Code = ErrorMessage.Code.CONNECTION_REFUSED,
+        error_code: msg.ErrorMessage.Code = msg.ErrorMessage.Code.CONNECTION_REFUSED,
     ):
         address = writer.get_extra_info("peername")
         logger.info(f"Refusing connection from %s (%s)", address, reason)
-        message = ErrorMessage(error_code, reason)
+        message = msg.ErrorMessage(error_code, reason)
         await send_message(writer, message)
         writer.write_eof()
 

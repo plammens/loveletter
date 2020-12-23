@@ -9,15 +9,19 @@ from loveletter_multiplayer.utils import EnumPostInitMixin
 @dataclass(frozen=True)
 class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
     class Type(enum.Enum):
-        PING = enum.auto()
+        LOGON = enum.auto()
         ERROR = enum.auto()
 
     type: ClassVar[Type]
 
 
 @dataclass(frozen=True)
-class Ping(Message):
-    type = Message.Type.PING
+class Logon(Message):
+    """A client logging on to the server."""
+
+    type = Message.Type.LOGON
+
+    username: str
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,7 @@ class ErrorMessage(Message):
         """Enum for error codes."""
 
         CONNECTION_REFUSED = enum.auto()
+        LOGON_ERROR = enum.auto()
 
     error_code: Code
     message: str

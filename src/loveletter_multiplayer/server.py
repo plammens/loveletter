@@ -271,13 +271,6 @@ class LoveletterPartyServer:
         await self._send_error_response(writer, error_code, reason)
         writer.write_eof()
 
-    @staticmethod
-    async def _send_error_response(writer, code, reason):
-        address = writer.get_extra_info("peername")
-        message = msg.Error(code, reason)
-        logging.debug("Sending error response to %s: %s", address, message)
-        await send_message(writer, message)
-
     def _attach(self, session: ClientSessionManager):
         # this context manager is not async so no need to lock read/write accesses
         logger.info("Starting session for %s", session.client_info)
@@ -331,6 +324,8 @@ class LoveletterPartyServer:
         )
         if self._is_host(client_info):
             client_info = dataclasses.replace(client_info, is_host=True)
+
+        await self._reply_ok(writer)
         return client_info
 
     def _is_host(self, client: "ClientInfo") -> bool:
@@ -346,6 +341,17 @@ class LoveletterPartyServer:
             socket.gethostbyname(client.address.host) == "127.0.0.1"
             and client.username == self._party_host_username
         )
+
+    @staticmethod
+    async def _send_error_response(writer, code, reason):
+        address = writer.get_extra_info("peername")
+        message = msg.Error(code, reason)
+        logging.debug("Sending error response to %s: %s", address, message)
+        await send_message(writer, message)
+
+    async def _reply_ok(self, writer):
+        message = msg.OkMessage()
+        await send_message(writer, message)
 
 
 @dataclass(frozen=True)

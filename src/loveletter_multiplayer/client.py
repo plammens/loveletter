@@ -98,7 +98,7 @@ class LoveletterClient:
             :return: The response from the server.
             """
             await send_message(self.writer, message)
-            response = await receive_message(self.reader)
+            response = await asyncio.wait_for(receive_message(self.reader), timeout=5.0)
             if response is None:
                 raise ConnectionClosedError(
                     "Server closed the connection after request"

@@ -4,7 +4,12 @@ from typing import Optional
 
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.utils.misc import minirepr
-from loveletter_multiplayer.networkcomms import Message, receive_message, send_message
+from loveletter_multiplayer.networkcomms import (
+    ConnectionClosedError,
+    Message,
+    receive_message,
+    send_message,
+)
 from loveletter_multiplayer.utils import InnerClassMeta, close_stream_at_exit
 
 logger = logging.getLogger(__name__)
@@ -55,6 +60,7 @@ class LoveletterClient:
             self.reader: asyncio.StreamReader = reader
             self.writer: asyncio.StreamWriter = writer
 
+            # TODO: Extract ServerInfo dataclass
             self.server_address = writer.get_extra_info("peername")
 
         def __repr__(self):
@@ -90,7 +96,9 @@ class LoveletterClient:
             await send_message(self.writer, message)
             response = await receive_message(self.reader)
             if response is None:
-                raise ConnectionError("Server closed the connection after request")
+                raise ConnectionClosedError(
+                    "Server closed the connection after request"
+                )
             return response
 
         async def _logon(self):
@@ -98,7 +106,7 @@ class LoveletterClient:
             message = msg.Logon(self.client.username)
             response = await self.request(message)
             if response.type != Message.Type.OK:
-                raise RuntimeError("Logon failed")
+                raise RuntimeError(f"Logon failed, received response: {response}")
 
         async def _receive_loop(self):
             while True:

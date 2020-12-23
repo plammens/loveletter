@@ -129,22 +129,16 @@ class LoveletterPartyServer:
             async with self._sessions_lock:
                 # Note: if we refuse the connection now, there is no need to wait for
                 # the logon message since we would have rejected in any case.
-                # Also, we create _refuse_connection tasks without awaiting them to
-                # avoid holding on to the lock for too long.
                 if self.num_connected_clients >= self.MAX_CLIENTS:
-                    coroutine = self._refuse_connection(
+                    return await self._refuse_connection(
                         writer,
                         reason=f"Maximum capacity ({self.MAX_CLIENTS} players) reached",
                     )
-                    asyncio.create_task(coroutine)
-                    return
                 if self._ready_to_play.is_set():
-                    coroutine = self._refuse_connection(
+                    return await self._refuse_connection(
                         writer,
                         reason="A game is already in progress",
                     )
-                    asyncio.create_task(coroutine)
-                    return
 
                 address = writer.get_extra_info("peername")
                 logger.info(f"Received connection from %s", address)
@@ -154,6 +148,8 @@ class LoveletterPartyServer:
                     return
                 # noinspection PyArgumentList
                 session = self.ClientSessionManager(client_info, reader, writer)
+                # attach before releasing the lock:
+                self._attach(session)
 
             with session:
                 try:

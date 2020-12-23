@@ -15,8 +15,9 @@ async def start_clients(clients):
 
 
 def main():
+    usernames = ["Alice", "Bob", "Charlie", "Anakhand", "Eve"]
     setup_logging(logging.DEBUG)
-    clients = [LoveletterClient() for _ in range(5)]
+    clients = [LoveletterClient(username) for username in usernames]
     asyncio.run(start_clients(clients))
 
 

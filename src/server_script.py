@@ -58,7 +58,7 @@ def start_server_thread(server):
 
 def main():
     setup_logging(logging.DEBUG)
-    server = LoveletterPartyServer(HOST, PORT)
+    server = LoveletterPartyServer(HOST, PORT, "Anakhand")
     server_thread = start_server_thread(server)
     server_thread.join()
 

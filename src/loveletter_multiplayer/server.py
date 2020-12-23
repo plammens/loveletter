@@ -202,7 +202,7 @@ class LoveletterPartyServer:
                 raise RuntimeError("Cannot manage a detached session")
             self._manage_task = asyncio.current_task()
             asyncio.create_task(self._receive_loop(), name="receive_loop")
-            await self.server._ready_to_play.wait()
+            await self.server._game_ready.wait()
 
         @multimethod
         async def handle_message(self, message: msg.Message):
@@ -247,7 +247,16 @@ class LoveletterPartyServer:
 
     async def _start_game_when_ready(self):
         await self._ready_to_play.wait()
-        # TODO: instantiate game
+        logging.debug("Received ready to play signal")
+        # acquire lock to make sure the number of connected clients is final
+        # (there could be one last client in the process of connecting)
+        async with self._sessions_lock:
+            usernames = [
+                session.client_info.username
+                for session in self._client_sessions.values()
+            ]
+        self.game = Game(usernames)
+        logging.info("Ready to play; created game: %s", self.game)
         self._game_ready.set()
 
     async def _refuse_connection(

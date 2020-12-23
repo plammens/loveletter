@@ -220,9 +220,10 @@ class LoveletterPartyServer:
                 )
             else:
                 client.username = message.username
+                logging.info("Client at %s logged in: %s", client.address, client)
 
         def _make_client_info(self, writer: asyncio.StreamWriter) -> "ClientInfo":
-            address = writer.get_extra_info("peername")
+            address = Address(*writer.get_extra_info("peername"))
             client = ClientInfo(address)
             client.is_host = self.server._is_host(client)
             return client

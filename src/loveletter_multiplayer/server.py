@@ -14,6 +14,7 @@ from loveletter_multiplayer.networkcomms import (
     MessageDeserializer,
     MessageSerializer,
     ProtocolError,
+    RestartSession,
     UnexpectedMessageError,
     receive_message,
     send_message,
@@ -71,6 +72,7 @@ class LoveletterPartyServer:
         self._sessions_lock: asyncio.Lock
         self._ready_to_play: asyncio.Event
         self._game_ready: asyncio.Event
+        self._server_task: Optional[asyncio.Task] = None
 
     async def _init_async(self):
         """Initialize asyncio-related attributes that need an active event loop."""
@@ -110,11 +112,16 @@ class LoveletterPartyServer:
 
     async def run_server(self):
         await self._init_async()
+        self._server_task = asyncio.current_task()
         async with self._server:
             asyncio.create_task(
                 self._start_game_when_ready(), name="start_game_when_ready"
             )
-            await self._server.serve_forever()
+            try:
+                await self._server.serve_forever()
+            finally:
+                LOGGER.info("Server shutting down")
+                self._server_task = None
 
     async def connection_handler(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -129,6 +136,10 @@ class LoveletterPartyServer:
         sent to the connected client and the connection is shut down and closed.
         """
         async with close_stream_at_exit(writer):
+            address = writer.get_extra_info("peername")
+            task = asyncio.current_task()
+            task.set_name(f"<connection handler for {address}>")
+
             # hold the lock until we attach the session (or refuse the connection)
             async with self._sessions_lock:
                 # Note: if we refuse the connection now, there is no need to wait for
@@ -144,7 +155,6 @@ class LoveletterPartyServer:
                         reason="A game is already in progress",
                     )
 
-                address = writer.get_extra_info("peername")
                 LOGGER.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
@@ -187,7 +197,11 @@ class LoveletterPartyServer:
             self.client_info = client_info
 
             self._attached = False
-            self._manage_task = None
+            self._session_task = None
+            self._receive_loop_task = None
+
+        def __repr__(self):
+            return f"<session manager for {self.client_info}>"
 
         def __enter__(self):
             if self.client_info.address not in self.server._client_sessions:
@@ -206,10 +220,33 @@ class LoveletterPartyServer:
             """
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
-            self._manage_task = asyncio.current_task()
-            recv_loop = asyncio.create_task(self._receive_loop(), name="receive_loop")
-            await self.server._game_ready.wait()
-            await recv_loop
+            self._session_task = asyncio.current_task()
+            self._receive_loop_task = asyncio.create_task(
+                self._receive_loop(), name="receive_loop"
+            )
+            while True:
+                try:
+                    await self.server._game_ready.wait()
+                    await self._receive_loop_task
+                    return
+                except RestartSession as exc:
+                    await self._send_error_response(
+                        msg.Error.Code.RESTART_SESSION, str(exc)
+                    )
+                    continue
+
+        async def abort(self):
+            """Abort this session."""
+            LOGGER.info("Aborting session with %s", self.client_info)
+            current_task = asyncio.current_task()
+            for task in self._receive_loop_task, self._session_task:
+                if task is current_task:
+                    raise RuntimeError(f"Can't abort from within {task}")
+                task.cancel()
+                try:
+                    await task  # wait for the task to die
+                except asyncio.CancelledError:
+                    pass
 
         @multimethod
         async def handle_message(self, message: msg.Message):
@@ -262,6 +299,7 @@ class LoveletterPartyServer:
                 return
 
         async def _receive_loop(self):
+            cancelled = False
             try:
                 while True:
                     message = await receive_message(self.reader)
@@ -274,13 +312,20 @@ class LoveletterPartyServer:
                         self.handle_message(message), name="handle_message"
                     )
 
-                LOGGER.info("Client %s closed the connection", self.client_info)
+                LOGGER.info("Client closed the connection: %s", self.client_info)
             except ConnectionResetError:
                 LOGGER.warning(
-                    "Connection from %s forcibly closed by client", self.client_info
+                    "Connection forcibly closed by client: %s", self.client_info
                 )
+            except asyncio.CancelledError:
+                cancelled = True
+                raise
             finally:
-                self._manage_task.cancel()
+                if not cancelled:
+                    asyncio.create_task(
+                        self._connection_closed_by_client(),
+                        name="connection_closed_handler",
+                    )
 
         async def _reply_ok(self):
             await self.server._reply_ok(self.writer)
@@ -295,6 +340,22 @@ class LoveletterPartyServer:
             await self._send_error_response(
                 msg.Error.Code.PERMISSION_DENIED, reason="Only the host can do this"
             )
+
+        async def _connection_closed_by_client(self):
+            """Callback for when the connection is closed/reset from the client side."""
+            LOGGER.debug(f"Handling connection closed by client {self.client_info}")
+            await self.abort()
+            server = self.server
+            if self.client_info.is_host:
+                # host left; abort all sessions
+                reason = "Host disconnected"
+                await server._abort_server(reason)
+            elif server._ready_to_play.is_set():
+                # a game was in progress;
+                # for now just abort the game and restart all sessions
+                server._abort_current_game(
+                    f"Player {self.client_info.username} disconnected"
+                )
 
     async def _start_game_when_ready(self):
         while True:
@@ -418,6 +479,28 @@ class LoveletterPartyServer:
         message = msg.Error(code, reason)
         LOGGER.debug("Sending error response to %s: %s", address, message)
         await send_message(writer, message)
+
+    def _abort_current_game(self, reason: str):
+        server = self
+        LOGGER.warning(
+            f"Aborting game and restarting remaining sessions "
+            f"({len(self._client_sessions)})"
+        )
+        server.game = None
+        server._ready_to_play.clear()
+        server._game_ready.clear()
+        exc = RestartSession(reason)
+        for session in server._client_sessions.values():
+            coro = session._session_task.get_coro()
+            coro.throw(exc)
+        asyncio.create_task(self._start_game_when_ready(), name="start_game_when_ready")
+
+    async def _abort_server(self, reason: str):
+        LOGGER.critical("Aborting server: %s", reason)
+        for session in self._client_sessions.values():
+            await session._send_error_response(msg.Error.Code.SESSION_ABORTED, reason)
+            await session.abort()
+        self._server_task.cancel()
 
 
 @dataclass(frozen=True)

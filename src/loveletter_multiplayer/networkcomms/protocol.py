@@ -64,3 +64,14 @@ class UnexpectedMessageError(ProtocolError):
 
 class ConnectionClosedError(ProtocolError):
     pass
+
+
+class RestartSession(BaseException):
+    """
+    Used to indicate that a client session should be restarted.
+
+    Not a "normal" exception, hence this inherits from BaseException and not Exception
+    (similarly to StopIteration, asyncio.CancelledError, etc.).
+    """
+
+    pass

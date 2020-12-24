@@ -49,6 +49,8 @@ class Error(Message):
         ATTRIBUTE_ERROR = enum.auto()
         SERIALIZE_ERROR = enum.auto()
         EXCEPTION = enum.auto()
+        RESTART_SESSION = enum.auto()
+        SESSION_ABORTED = enum.auto()
 
     error_code: Code
     message: str

@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 import loveletter_multiplayer.networkcomms.message as msg
-from loveletter.utils.misc import minirepr
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     Message,
+    RestartSession,
     UnexpectedMessageError,
     receive_message,
     send_message,
@@ -32,7 +32,9 @@ class LoveletterClient:
     def game(self) -> Optional[RemoteGameShadowCopy]:
         return self._server_conn.game if self._server_conn is not None else None
 
-    __repr__ = minirepr
+    def __repr__(self):
+        username, is_host = self.username, self.is_host
+        return f"<{self.__class__.__name__} with {username=}, {is_host=}>"
 
     async def connect(self, host, port):
         reader, writer = await asyncio.open_connection(host=host, port=port)
@@ -101,11 +103,19 @@ class LoveletterClient:
             LOGGER.info("Deactivated %s", self)
 
         async def manage(self):
+            task = asyncio.current_task()
+            task.set_name(repr(self))
             if self.client._server_conn is not self:
                 raise RuntimeError("Can't manage a detached connection")
             await self._logon()
-            await self._wait_for_game()
-            await self._receive_loop()
+            while True:
+                try:
+                    await self._wait_for_game()
+                    await self._receive_loop()
+                    return
+                except RestartSession:
+                    LOGGER.info("Restarting session")
+                    continue
 
         async def request(self, message: Message) -> Message:
             """
@@ -141,11 +151,20 @@ class LoveletterClient:
                 raise ConnectionClosedError(
                     "Server closed the connection while expecting a message"
                 )
+            self._maybe_raise(message)
             if message_type is not None and not message.type == message_type:
                 raise UnexpectedMessageError(
                     f"Expected {message_type.name}, got {message}"
                 )
             return message
+
+        def _maybe_raise(self, message):
+            if (
+                message.type == Message.Type.ERROR
+                and message.error_code == msg.Error.Code.RESTART_SESSION
+            ):
+                LOGGER.error("Received signal to restart session: %s", message.message)
+                raise RestartSession(message.message)
 
         async def _logon(self):
             """Identify oneself to the server."""
@@ -168,6 +187,8 @@ class LoveletterClient:
                 message = await receive_message(self.reader)
                 if not message:
                     break
+                # noinspection PyTypeChecker
+                self._maybe_raise(message)
                 LOGGER.debug(
                     "%s received a message from the server: %s", self.client, message
                 )

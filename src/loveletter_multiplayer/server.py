@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import logging
 import socket
+import traceback
 from dataclasses import dataclass
 from typing import ClassVar, Dict, Optional
 
@@ -203,6 +204,7 @@ class LoveletterPartyServer:
             self._manage_task = asyncio.current_task()
             asyncio.create_task(self._receive_loop(), name="receive_loop")
             await self.server._game_ready.wait()
+            await asyncio.sleep(float("+inf"))  # placeholder
 
         @multimethod
         async def handle_message(self, message: msg.Message):
@@ -229,6 +231,30 @@ class LoveletterPartyServer:
                 await self._reply_ok()
             else:
                 await self._reply_permission_denied(message)
+
+        @handle_message.register
+        async def handle_message(self, message: msg.ReadRequest):
+            attrs = message.request.split(".")[::-1]
+            try:
+                obj = self.server
+                while attrs:
+                    obj = getattr(obj, attrs.pop())
+            except AttributeError as e:
+                await self._send_error_response(
+                    msg.Error.Code.ATTRIBUTE_ERROR,
+                    traceback.format_exception_only(type(e), e)[0],
+                )
+                return
+
+            message = msg.DataMessage(obj)
+            try:
+                await send_message(self.writer, message)
+            except TypeError:
+                await self._send_error_response(
+                    msg.Error.Code.SERIALIZE_ERROR,
+                    reason="Requested object can't be serialized",
+                )
+                return
 
         async def _receive_loop(self):
             try:

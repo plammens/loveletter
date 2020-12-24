@@ -1,7 +1,7 @@
 import abc
 import enum
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from loveletter_multiplayer.utils import EnumPostInitMixin
 
@@ -13,6 +13,8 @@ class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
         LOGON = enum.auto()
         ERROR = enum.auto()
         READY = enum.auto()
+        READ_REQUEST = enum.auto()
+        DATA = enum.auto()
 
     type: ClassVar[Type]
 
@@ -42,6 +44,8 @@ class Error(Message):
         CONNECTION_REFUSED = enum.auto()
         LOGON_ERROR = enum.auto()
         PERMISSION_DENIED = enum.auto()
+        ATTRIBUTE_ERROR = enum.auto()
+        SERIALIZE_ERROR = enum.auto()
 
     error_code: Code
     message: str
@@ -52,3 +56,26 @@ class ReadyToPlay(Message):
     """Sent by the party host to indicate that the party is ready to play."""
 
     type = Message.Type.READY
+
+
+@dataclass(frozen=True)
+class ReadRequest(Message):
+    """
+    Attribute access on a remote game object.
+
+    The request string must be of the form ``game.<attr>.<subattr>.[...]``, i.e. a
+    nested attribute access expression with the top-level name being ``game``.
+    """
+
+    type = Message.Type.READ_REQUEST
+
+    request: str
+
+
+@dataclass(frozen=True)
+class DataMessage(Message):
+    """A message containing some data (e.g., as a response to a ReadRequest)."""
+
+    type = Message.Type.DATA
+
+    data: Any

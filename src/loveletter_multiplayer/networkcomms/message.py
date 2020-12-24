@@ -1,8 +1,9 @@
 import abc
 import enum
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, List
 
+from loveletter.game import Game
 from loveletter_multiplayer.utils import EnumPostInitMixin
 
 
@@ -15,6 +16,7 @@ class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
         READY = enum.auto()
         READ_REQUEST = enum.auto()
         DATA = enum.auto()
+        GAME_CREATED = enum.auto()
 
     type: ClassVar[Type]
 
@@ -46,6 +48,7 @@ class Error(Message):
         PERMISSION_DENIED = enum.auto()
         ATTRIBUTE_ERROR = enum.auto()
         SERIALIZE_ERROR = enum.auto()
+        EXCEPTION = enum.auto()
 
     error_code: Code
     message: str
@@ -79,3 +82,12 @@ class DataMessage(Message):
     type = Message.Type.DATA
 
     data: Any
+
+
+@dataclass(frozen=True)
+class GameCreated(Message):
+    """A message sent from the server to indicate that a game has been created."""
+
+    type = Message.Type.GAME_CREATED
+
+    players: List[Game.Player]

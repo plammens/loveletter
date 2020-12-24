@@ -2,7 +2,6 @@ import asyncio
 import dataclasses
 import logging
 import socket
-import traceback
 from dataclasses import dataclass
 from typing import ClassVar, Dict, Optional
 
@@ -23,6 +22,7 @@ from loveletter_multiplayer.utils import (
     Address,
     InnerClassMeta,
     close_stream_at_exit,
+    format_exception,
 )
 
 
@@ -102,6 +102,11 @@ class LoveletterPartyServer:
         for c in it:
             assert not c.is_host, "More than one party host"
         return result
+
+    @property
+    def party_host_session(self) -> Optional["ClientSessionManager"]:
+        client = self.party_host
+        return self._client_sessions[client.address] if client is not None else None
 
     async def run_server(self):
         await self._init_async()
@@ -202,9 +207,9 @@ class LoveletterPartyServer:
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
             self._manage_task = asyncio.current_task()
-            asyncio.create_task(self._receive_loop(), name="receive_loop")
+            recv_loop = asyncio.create_task(self._receive_loop(), name="receive_loop")
             await self.server._game_ready.wait()
-            await asyncio.sleep(float("+inf"))  # placeholder
+            await recv_loop
 
         @multimethod
         async def handle_message(self, message: msg.Message):
@@ -228,7 +233,7 @@ class LoveletterPartyServer:
         async def handle_message(self, message: msg.ReadyToPlay):
             if self.client_info.is_host:
                 self.server._ready_to_play.set()
-                await self._reply_ok()
+                # reply will be sent by _start_game_when_ready
             else:
                 await self._reply_permission_denied(message)
 
@@ -242,7 +247,7 @@ class LoveletterPartyServer:
             except AttributeError as e:
                 await self._send_error_response(
                     msg.Error.Code.ATTRIBUTE_ERROR,
-                    traceback.format_exception_only(type(e), e)[0],
+                    format_exception(e),
                 )
                 return
 
@@ -305,11 +310,19 @@ class LoveletterPartyServer:
                     ]
                 self.game = Game(usernames)
                 LOGGER.info("Ready to play; created game: %s", self.game)
+                message = msg.GameCreated(self.game.players)
+                for session in self._client_sessions.values():
+                    await send_message(session.writer, message)
                 self._game_ready.set()
                 break
             except Exception as e:
                 LOGGER.error("Exception while trying to create game", exc_info=e)
                 self._ready_to_play.clear()
+                await self._send_error_response(
+                    self.party_host_session.writer,
+                    msg.Error.Code.EXCEPTION,
+                    f"Exception while trying to create game: {format_exception(e)}",
+                )
                 continue
 
     async def _refuse_connection(

@@ -8,9 +8,11 @@ from loveletter.utils.misc import minirepr
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     Message,
+    UnexpectedMessageError,
     receive_message,
     send_message,
 )
+from loveletter_multiplayer.remoteobj import RemoteGameShadowCopy
 from loveletter_multiplayer.utils import Address, InnerClassMeta, close_stream_at_exit
 
 
@@ -25,6 +27,10 @@ class LoveletterClient:
         self.is_host = is_host
 
         self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
+
+    @property
+    def game(self) -> Optional[RemoteGameShadowCopy]:
+        return self._server_conn.game if self._server_conn is not None else None
 
     __repr__ = minirepr
 
@@ -69,6 +75,8 @@ class LoveletterClient:
         an RuntimeError will be raised.
         """
 
+        game: Optional[RemoteGameShadowCopy]
+
         def __init__(
             self, client: "LoveletterClient", server_info: "ServerInfo", reader, writer
         ):
@@ -76,6 +84,7 @@ class LoveletterClient:
             self.server_info = server_info
             self.reader: asyncio.StreamReader = reader
             self.writer: asyncio.StreamWriter = writer
+            self.game = None
 
         def __repr__(self):
             return f"<connection from {self.client} to {self.server_info}>"
@@ -95,6 +104,7 @@ class LoveletterClient:
             if self.client._server_conn is not self:
                 raise RuntimeError("Can't manage a detached connection")
             await self._logon()
+            await self._wait_for_game()
             await self._receive_loop()
 
         async def request(self, message: Message) -> Message:
@@ -108,12 +118,34 @@ class LoveletterClient:
             :return: The response from the server.
             """
             await send_message(self.writer, message)
-            response = await asyncio.wait_for(receive_message(self.reader), timeout=5.0)
-            if response is None:
-                raise ConnectionClosedError(
-                    "Server closed the connection after request"
-                )
+            response = await self._expect_message(timeout=5.0)
             return response
+
+        async def _expect_message(
+            self,
+            timeout: Optional[float] = None,
+            message_type: Optional[Message.Type] = None,
+        ) -> Message:
+            """
+            Wait for an expected message from the server.
+
+            Raises a ConnectionError if the server closes the connection without
+            sending a message.
+
+            :param timeout: Optional timeout for receiving a message.
+            :param message_type: If not None, check that the received message is of that
+                                 type.
+            """
+            message = await asyncio.wait_for(receive_message(self.reader), timeout)
+            if message is None:
+                raise ConnectionClosedError(
+                    "Server closed the connection while expecting a message"
+                )
+            if message_type is not None and not message.type == message_type:
+                raise UnexpectedMessageError(
+                    f"Expected {message_type.name}, got {message}"
+                )
+            return message
 
         async def _logon(self):
             """Identify oneself to the server."""
@@ -121,6 +153,15 @@ class LoveletterClient:
             response = await self.request(message)
             if response.type != Message.Type.OK:
                 raise RuntimeError(f"Logon failed, received response: {response}")
+
+        async def _wait_for_game(self):
+            """Wait for the server to create the game."""
+            # noinspection PyTypeChecker
+            message: msg.GameCreated = await self._expect_message(
+                message_type=Message.Type.GAME_CREATED
+            )
+            LOGGER.info("Remote game created; creating local copy")
+            self.game = RemoteGameShadowCopy.from_server_message(message)
 
         async def _receive_loop(self):
             while True:

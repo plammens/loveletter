@@ -4,6 +4,7 @@ import enum
 import importlib
 import logging
 import threading
+import traceback
 import typing
 from collections import namedtuple
 from functools import lru_cache
@@ -162,3 +163,7 @@ def _extract_module_from_qualname(qualname: str):
             continue
     else:
         raise ImportError(f"Couldn't find the module in {repr(qualname)}")
+
+
+def format_exception(exc: Exception):
+    return traceback.format_exception_only(type(exc), exc)[0]

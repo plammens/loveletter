@@ -1,11 +1,13 @@
 import asyncio
 import contextlib
 import enum
+import importlib
 import logging
 import threading
 import typing
 from collections import namedtuple
-from typing import ClassVar, ContextManager, Optional, TypeVar
+from functools import lru_cache
+from typing import Any, ClassVar, ContextManager, Optional, TypeVar
 
 
 LOGGER = logging.getLogger(__name__)
@@ -112,3 +114,51 @@ class StoppableAsyncioThread(threading.Thread):
             await target(*args, **kwargs)
         except asyncio.CancelledError:
             return
+
+
+def import_from_qualname(qualname: str) -> Any:
+    """
+    Import an arbitrary global object accessible from the top-level of a module.
+
+    Raises ImportError if no prefix in the qualname can be imported as a module or
+    if any of the nested attribute accesses fails.
+
+    :param qualname: Fully qualified name of the object.
+    :return: The loaded object.
+    """
+    module, attrs = _extract_module_from_qualname(qualname)
+    attrs = list(attrs)
+    try:
+        obj = module
+        while attrs:
+            obj = getattr(obj, attrs.pop())
+        return obj
+    except AttributeError as e:
+        raise ImportError(qualname) from e
+
+
+@lru_cache
+def _extract_module_from_qualname(qualname: str):
+    """
+    Split a qualified name into a module and the rest of attributes.
+
+    Starts searching in reversed order (i.e. checking first whether the whole qualname
+    is a module path), and stops at the longest prefix of the qualname which can be
+    imported as a module. Raises ImportError if no prefix of the given qualname is a
+    module.
+
+    :param qualname: Qualified name of the object to import.
+    :return: The module object and a LIFO stack of attributes to get one from the other.
+    """
+    module_path = qualname
+    attrs = []
+    while "." in module_path:
+        try:
+            module = importlib.import_module(module_path)
+            return module, tuple(attrs)
+        except ImportError:
+            module_path, attr = module_path.rsplit(".", maxsplit=1)
+            attrs.append(attr)
+            continue
+    else:
+        raise ImportError(f"Couldn't find the module in {repr(qualname)}")

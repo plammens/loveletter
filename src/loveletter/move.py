@@ -1,10 +1,16 @@
 import abc
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Tuple
 
 import valid8
 
-from loveletter.gameevent import ChoiceEvent, GameInputRequest, GameResultEvent
+from loveletter.gameevent import (
+    ChoiceEvent,
+    GameInputRequest,
+    GameResultEvent,
+    Serializable,
+)
 
 
 if TYPE_CHECKING:
@@ -41,6 +47,15 @@ class CardGuess(ChoiceStep):
 
         super(CardGuess, type(self)).choice.fset(self, CardType(value))
 
+    def to_serializable(self) -> Serializable:
+        super().to_serializable()
+        return self.choice.value
+
+    def from_serializable(self, value: Serializable) -> None:
+        from loveletter.cards import CardType
+
+        return CardType(value)
+
     def _validate_choice(self, value):
         # Validation and setter implemented in one step with CardType.__new__
         pass
@@ -55,6 +70,14 @@ class PlayerChoice(ChoiceStep):
         self._valid_choices = {
             p for p in self.game_round.players if p.alive and not p.immune
         }
+
+    def to_serializable(self) -> int:
+        super().to_serializable()
+        choice: RoundPlayer = self.choice
+        return choice.id
+
+    def from_serializable(self, value: Serializable) -> "RoundPlayer":
+        return self.game_round.players[value]
 
     def _validate_choice(self, value):
         valid8.validate(
@@ -99,6 +122,14 @@ class ChooseOneCard(ChoiceStep):
         super().__init__()
         self.options = options
 
+    def to_serializable(self) -> int:
+        super().to_serializable()
+        choice: Card = self.choice
+        return self.options.index(choice)
+
+    def from_serializable(self, value: Serializable) -> "Card":
+        return self.options[value]
+
     def _validate_choice(self, value):
         valid8.validate(
             "choice",
@@ -119,12 +150,22 @@ class ChooseOrderForDeckBottom(ChoiceStep):
         super().__init__()
         self.cards = cards
 
+    def to_serializable(self) -> Tuple[int, ...]:
+        super().to_serializable()
+        choice: Tuple["Card", ...] = self.choice
+        cards = self.cards
+        return tuple(cards.index(c) for c in choice)
+
+    def from_serializable(self, value: Serializable) -> Tuple["Card", ...]:
+        cards = self.cards
+        return tuple(cards[i] for i in value)
+
     def _validate_choice(self, value):
         valid8.validate("choice", value, instance_of=tuple)
         valid8.validate(
             "choice",
-            set(value),
-            equals=set(self.cards),
+            Counter(value),
+            equals=Counter(self.cards),
             help_msg="Chosen cards don't match cards to be ordered",
         )
 

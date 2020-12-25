@@ -9,7 +9,7 @@ import valid8
 from valid8.validation_lib import instance_of
 
 from loveletter.cardpile import Deck, DiscardPile
-from loveletter.gameevent import ChoiceEvent, GameEventGenerator
+from loveletter.gameevent import ChoiceEvent, GameEventGenerator, Serializable
 from loveletter.gamenode import (
     EndState,
     GameNode,
@@ -308,6 +308,14 @@ class FirstPlayerChoice(ChoiceEvent):
         super().__init__()
         self.round = game_round
 
+    def to_serializable(self) -> int:
+        super().to_serializable()
+        choice: RoundPlayer = self.choice
+        return choice.id
+
+    def from_serializable(self, value: Serializable) -> RoundPlayer:
+        return self.round.players[value]
+
     def _validate_choice(self, value):
         valid8.validate(
             "choice",
@@ -323,6 +331,14 @@ class PlayerMoveChoice(ChoiceEvent):
     def __init__(self, player: RoundPlayer):
         super().__init__()
         self.player = player
+
+    def to_serializable(self) -> int:
+        super().to_serializable()
+        choice: Card = self.choice
+        return list(self.player.hand).index(choice)
+
+    def from_serializable(self, value: Serializable) -> "Card":
+        return list(self.player.hand)[value]
 
     def _validate_choice(self, value):
         valid8.validate(

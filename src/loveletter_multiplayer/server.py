@@ -3,12 +3,15 @@ import dataclasses
 import logging
 import socket
 from dataclasses import dataclass
-from typing import ClassVar, Dict, Optional
+from typing import ClassVar, List, Optional
 
 from multimethod import multimethod
 
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.game import Game
+from loveletter.gameevent import GameEvent, GameInputRequest, GameResultEvent
+from loveletter.gamenode import GameNodeState
+from loveletter.move import MoveStep
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     MessageDeserializer,
@@ -29,7 +32,7 @@ from loveletter_multiplayer.utils import (
 
 LOGGER = logging.getLogger(__name__)
 
-ClientSessions = Dict[Address, "LoveletterPartyServer.ClientSessionManager"]
+ClientSessions = List["LoveletterPartyServer.ClientSessionManager"]
 
 
 class LoveletterPartyServer:
@@ -61,7 +64,7 @@ class LoveletterPartyServer:
         self.port = port
         self.game = None
 
-        self._client_sessions: ClientSessions = {}
+        self._client_sessions: ClientSessions = []
         self._party_host_username = party_host_username
 
         self._serializer = MessageSerializer()
@@ -95,7 +98,7 @@ class LoveletterPartyServer:
     @property
     def party_host(self) -> Optional["ClientInfo"]:
         """Get the ClientInfo corresponding to the host of this party, if present."""
-        it = (session.client_info for session in self._client_sessions.values())
+        it = (session.client_info for session in self._client_sessions)
         result = None
         for c in it:
             if c.is_host:
@@ -108,14 +111,14 @@ class LoveletterPartyServer:
     @property
     def party_host_session(self) -> Optional["ClientSessionManager"]:
         client = self.party_host
-        return self._client_sessions[client.address] if client is not None else None
+        return self._client_sessions[client.id] if client is not None else None
 
     async def run_server(self):
         await self._init_async()
         self._server_task = asyncio.current_task()
         async with self._server:
             asyncio.create_task(
-                self._start_game_when_ready(), name="start_game_when_ready"
+                self.create_game_when_ready(), name="start_game_when_ready"
             )
             try:
                 await self._server.serve_forever()
@@ -199,12 +202,13 @@ class LoveletterPartyServer:
             self._attached = False
             self._session_task = None
             self._receive_loop_task = None
+            self._game_message_queue = asyncio.Queue()
 
         def __repr__(self):
             return f"<session manager for {self.client_info}>"
 
         def __enter__(self):
-            if self.client_info.address not in self.server._client_sessions:
+            if self not in self.server._client_sessions:
                 self.server._attach(self)
             return self
 
@@ -270,7 +274,7 @@ class LoveletterPartyServer:
         async def handle_message(self, message: msg.ReadyToPlay):
             if self.client_info.is_host:
                 self.server._ready_to_play.set()
-                # reply will be sent by _start_game_when_ready
+                # reply will be sent by create_game_when_ready
             else:
                 await self._reply_permission_denied(message)
 
@@ -297,6 +301,10 @@ class LoveletterPartyServer:
                     reason="Requested object can't be serialized",
                 )
                 return
+
+        @handle_message.register
+        async def handle_message(self, message: msg.FulfilledGameInputMessage):
+            await self._game_message_queue.put(message)
 
         async def _receive_loop(self):
             cancelled = False
@@ -357,7 +365,7 @@ class LoveletterPartyServer:
                     f"Player {self.client_info.username} disconnected"
                 )
 
-    async def _start_game_when_ready(self):
+    async def create_game_when_ready(self):
         while True:
             try:
                 await self._ready_to_play.wait()
@@ -367,12 +375,12 @@ class LoveletterPartyServer:
                 async with self._sessions_lock:
                     usernames = [
                         session.client_info.username
-                        for session in self._client_sessions.values()
+                        for session in self._client_sessions
                     ]
                 self.game = Game(usernames)
                 LOGGER.info("Ready to play; created game: %s", self.game)
                 message = msg.GameCreated(self.game.players)
-                for session in self._client_sessions.values():
+                for session in self._client_sessions:
                     await send_message(session.writer, message)
                 self._game_ready.set()
                 break
@@ -402,19 +410,20 @@ class LoveletterPartyServer:
         # this context manager is not async so no need to lock read/write accesses
         LOGGER.info("Starting session for %s", session.client_info)
         address = session.client_info.address
-        if address in self._client_sessions:
+        if address in (s.client_info.address for s in self._client_sessions):
             raise RuntimeError("There is already a session for %s", address)
-        self._client_sessions[address] = session
+        object.__setattr__(session.client_info, "id", len(self._client_sessions))
+        self._client_sessions.append(session)
         session._attached = True
         return session
 
     def _detach(self, session: ClientSessionManager):
         address = session.client_info.address
-        if address not in self._client_sessions:
+        if session not in self._client_sessions:
             raise RuntimeError(
                 "Trying to detach an already detached connection %s", address
             )
-        del self._client_sessions[address]
+        self._client_sessions.remove(session)
         session._attached = False
         LOGGER.info(f"Session with %s has ended", session.client_info)
 
@@ -490,14 +499,14 @@ class LoveletterPartyServer:
         server._ready_to_play.clear()
         server._game_ready.clear()
         exc = RestartSession(reason)
-        for session in server._client_sessions.values():
+        for session in server._client_sessions:
             coro = session._session_task.get_coro()
             coro.throw(exc)
-        asyncio.create_task(self._start_game_when_ready(), name="start_game_when_ready")
+        asyncio.create_task(self.create_game_when_ready(), name="start_game_when_ready")
 
     async def _abort_server(self, reason: str):
         LOGGER.critical("Aborting server: %s", reason)
-        for session in self._client_sessions.values():
+        for session in self._client_sessions:
             await session._send_error_response(msg.Error.Code.SESSION_ABORTED, reason)
             await session.abort()
         self._server_task.cancel()

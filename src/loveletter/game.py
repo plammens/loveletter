@@ -5,11 +5,17 @@ from dataclasses import dataclass
 from typing import Any, Counter as CounterType, Dict, Optional, Sequence
 
 import valid8
-from valid8.validation_lib import on_all_, instance_of
+from valid8.validation_lib import instance_of, on_all_
 
 from loveletter.cards import CardType
 from loveletter.gameevent import GameEventGenerator
-from loveletter.gamenode import EndState, GameNode, GameNodeState, IntermediateState
+from loveletter.gamenode import (
+    EndState,
+    GameNode,
+    GameNodeState,
+    InitState,
+    IntermediateState,
+)
 from loveletter.round import FirstPlayerChoice, Round
 from loveletter.utils import extend_enum
 
@@ -115,18 +121,22 @@ class Game(GameNode):
 
     advance_round = advance
 
+    @classmethod
+    def _make_init_state(cls):
+        return InitGameState()
+
     def _reached_end(self) -> bool:
         """Whether this game has reached to an end."""
         return any(p >= self.points_threshold for p in self.points.values())
 
-    def _finalize(self) -> EndState:
+    def _finalize(self) -> "GameEnd":
         """End the game and declare the winner(s)."""
         winners = frozenset(
             player
             for player, points in self.points.items()
             if points >= self.points_threshold
         )
-        self.state = end = EndState(winners=winners)
+        self.state = end = GameEnd(winners=winners)
         return end
 
     def _collect_points(self, game_round: Round):
@@ -154,6 +164,11 @@ class GameState(GameNodeState, metaclass=abc.ABCMeta):
         ROUND = GameNodeState.Type.INTERMEDIATE.value
 
 
+@dataclass(frozen=True)
+class InitGameState(GameState, InitState):
+    pass
+
+
 @dataclass(frozen=True, eq=False)
 class PlayingRound(GameState, IntermediateState):
     """
@@ -172,3 +187,8 @@ class PlayingRound(GameState, IntermediateState):
     @IntermediateState.can_advance.getter
     def can_advance(self) -> bool:
         return self.round.ended
+
+
+@dataclass(frozen=True)
+class GameEnd(GameState, EndState):
+    pass

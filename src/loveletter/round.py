@@ -10,7 +10,13 @@ from valid8.validation_lib import instance_of
 
 from loveletter.cardpile import Deck, DiscardPile
 from loveletter.gameevent import ChoiceEvent, GameEventGenerator
-from loveletter.gamenode import EndState, GameNode, GameNodeState, IntermediateState
+from loveletter.gamenode import (
+    EndState,
+    GameNode,
+    GameNodeState,
+    InitState,
+    IntermediateState,
+)
 from loveletter.move import CancelMove
 from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import argmax, cycle_from, extend_enum
@@ -184,17 +190,21 @@ class Round(GameNode):
 
     advance_turn = advance  # alias
 
+    @classmethod
+    def _make_init_state(cls):
+        return InitRoundState()
+
     def _reached_end(self) -> bool:
         """Whether this round has reached to an end."""
         return len(self.living_players) == 1 or len(self.deck.stack) == 0
 
-    def _finalize(self) -> EndState:
+    def _finalize(self) -> "RoundEnd":
         """End the round and declare the winner(s)."""
         winners = argmax(
             self.living_players,
             key=lambda p: (p.hand.card.value, sum(c.value for c in p.discarded_cards)),
         )
-        self.state = end = EndState(winners=frozenset(winners))
+        self.state = end = RoundEnd(winners=frozenset(winners))
         return end
 
     def _repr_hook(self) -> Dict[str, Any]:
@@ -216,6 +226,11 @@ class RoundState(GameNodeState, metaclass=abc.ABCMeta):
     class Type(enum.Enum):
         TURN = GameNodeState.Type.INTERMEDIATE.value  # alias for "intermediate"
         ROUND_END = GameNodeState.Type.END.value  # alias for "end"
+
+
+@dataclass(frozen=True)
+class InitRoundState(RoundState, InitState):
+    pass
 
 
 @dataclass(frozen=True, eq=False)
@@ -276,6 +291,11 @@ class Turn(RoundState, IntermediateState):
     def _set_stage(self, stage: Stage):
         # circumvent frozen dataclass for mutable field  ``stage``
         object.__setattr__(self, "stage", stage)
+
+
+@dataclass(frozen=True)
+class RoundEnd(RoundState, EndState):
+    pass
 
 
 # ------------------- Other round events ----------------------

@@ -50,7 +50,7 @@ class GameNode(metaclass=abc.ABCMeta):
         :param players: The list of player objects.
         """
         self.players = list(players)
-        self.state = InitState()
+        self.state = self._make_init_state()
 
     @property
     def num_players(self):
@@ -141,6 +141,11 @@ class GameNode(metaclass=abc.ABCMeta):
             custom=lambda s: s.can_advance,
             help_msg=f"Can't advance {intermediate_name} before previous one has ended",
         )
+
+    @classmethod
+    @abc.abstractmethod
+    def _make_init_state(cls):
+        return InitState()
 
     @abc.abstractmethod
     def _reached_end(self) -> bool:

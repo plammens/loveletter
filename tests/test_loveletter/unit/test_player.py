@@ -14,6 +14,7 @@ from test_loveletter.unit.test_player_cases import *
 from test_loveletter.utils import (
     assert_state_is_preserved,
     autofill_move,
+    autofill_step,
     give_card,
     play_card,
     send_gracious,
@@ -144,3 +145,20 @@ def test_play_cancelMove_stateResetSuccessfully(
         autofill_move(move, num_steps=len(card.steps) - 1)
         with pytest.raises(StopIteration):
             move.throw(CancelMove)
+
+
+@pytest_cases.parametrize_with_cases("card", cases=CardCases)
+def test_play_choiceFromSerializable_inverseOfToSerializable(
+    current_player: RoundPlayer, card: Card
+):
+    move_ = play_card(current_player, card, autofill=False)
+    step = None
+    while True:
+        try:
+            step = autofill_step(step)
+            if isinstance(step, move.ChoiceStep):
+                choice = step.choice
+                assert step.from_serializable(step.to_serializable()) == choice
+            step = move_.send(step)
+        except StopIteration:
+            break

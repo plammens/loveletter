@@ -26,16 +26,6 @@ def test_pileFromCounts_counts_hasCorrectCards(pile_class, counts):
     assert pile.get_counts() == empiric_counts
 
 
-@pytest_cases.parametrize_with_cases("card_pile")
-def test_pileEq_equivalentToCountEq(card_pile):
-    counts: Counter = card_pile.get_counts()
-    assert card_pile == type(card_pile).from_counts(counts)
-    counts[CardType.SPY] += 1
-    assert card_pile != type(card_pile).from_counts(counts)
-    with pytest.raises(TypeError):
-        assert card_pile == counts
-
-
 def test_deckFromCounts_default_isStandardDeck():
     deck = Deck.from_counts()
     assert Counter(map(CardType, deck)) == STANDARD_DECK_COUNTS

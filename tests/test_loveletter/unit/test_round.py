@@ -48,7 +48,7 @@ def test_newRound_invalidNumPlayers_raises(num_players):
 @pytest.mark.parametrize("num_players", VALID_NUM_PLAYERS)
 def test_newRound_validNumPlayers_hasStandardDeck(num_players: int):
     game_round = Round(num_players=num_players)
-    assert game_round.deck == Deck.from_counts(STANDARD_DECK_COUNTS)
+    assert game_round.deck.get_counts() == STANDARD_DECK_COUNTS
 
 
 @pytest_cases.parametrize(first=[None, 0, 1, 3])

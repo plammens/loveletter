@@ -71,13 +71,13 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
         return x in self.stack
 
     def __eq__(self, o: object) -> bool:
-        """Two piles are equal if they contain the same distribution of cards."""
-        if not isinstance(o, self.__class__):
-            raise TypeError(f"{self} and {o} not comparable")
-        return self.get_counts() == o.get_counts()
+        """Two piles are equal if their stacks (and any other cards) are equal."""
+        if not isinstance(o, type(self)):
+            return NotImplemented
+        return self.stack == o.stack
 
     def __repr__(self):
-        return f"{self.__class__.__name__}.from_counts({self.get_counts()})"
+        return f"{self.__class__.__name__}({self.stack})"
 
     @property
     def top(self) -> Optional[Card]:
@@ -119,6 +119,16 @@ class Deck(CardPile):
     def __contains__(self, x: object) -> bool:
         return super().__contains__(x) or (
             self.set_aside is not None and x == self.set_aside
+        )
+
+    def __eq__(self, o: object) -> bool:
+        if (result := super().__eq__(o)) is NotImplemented:
+            return NotImplemented
+        return result and self.set_aside == o.set_aside
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}({self.stack}, set_aside={repr(self.set_aside)})"
         )
 
     def take(self) -> Card:

@@ -9,11 +9,9 @@ from multimethod import multimethod
 
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.game import Game
-from loveletter.gameevent import GameEvent, GameInputRequest, GameResultEvent
-from loveletter.gamenode import GameNodeState
-from loveletter.move import MoveStep
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
+    Message,
     MessageDeserializer,
     MessageSerializer,
     ProtocolError,
@@ -252,6 +250,12 @@ class LoveletterPartyServer:
                 except asyncio.CancelledError:
                     pass
 
+        async def send_message(self, message: Message):
+            await self.server.send_message(self.writer, message)
+
+        async def receive_message(self) -> Message:
+            return await self.server.receive_message(self.reader)
+
         @multimethod
         async def handle_message(self, message: msg.Message):
             raise NotImplementedError
@@ -294,7 +298,7 @@ class LoveletterPartyServer:
 
             message = msg.DataMessage(obj)
             try:
-                await send_message(self.writer, message)
+                await self.send_message(message)
             except TypeError:
                 await self._send_error_response(
                     msg.Error.Code.SERIALIZE_ERROR,
@@ -310,7 +314,7 @@ class LoveletterPartyServer:
             cancelled = False
             try:
                 while True:
-                    message = await receive_message(self.reader)
+                    message = await self.receive_message()
                     if not message:
                         break
                     LOGGER.debug(
@@ -380,8 +384,8 @@ class LoveletterPartyServer:
                 self.game = Game(usernames)
                 LOGGER.info("Ready to play; created game: %s", self.game)
                 message = msg.GameCreated(self.game.players)
-                for session in self._client_sessions:
-                    await send_message(session.writer, message)
+                tasks = (s.send_message(message) for s in self._client_sessions)
+                await asyncio.gather(*tasks)
                 self._game_ready.set()
                 break
             except Exception as e:
@@ -393,6 +397,12 @@ class LoveletterPartyServer:
                     f"Exception while trying to create game: {format_exception(e)}",
                 )
                 continue
+
+    async def send_message(self, writer: asyncio.StreamWriter, message: Message):
+        await send_message(writer, message, serializer=self._serializer)
+
+    async def receive_message(self, reader: asyncio.StreamReader) -> Message:
+        return await receive_message(reader, deserializer=self._deserializer)
 
     async def _refuse_connection(
         self,
@@ -432,7 +442,7 @@ class LoveletterPartyServer:
 
         try:
             # need a timeout because we're holding a lock that is blocking other conns.
-            message = await asyncio.wait_for(receive_message(reader), timeout=3.0)
+            message = await asyncio.wait_for(self.receive_message(reader), timeout=3.0)
         except asyncio.TimeoutError:
             LOGGER.warning("Client at %s: logon timed out", address)
             raise
@@ -480,14 +490,13 @@ class LoveletterPartyServer:
 
     async def _reply_ok(self, writer):
         message = msg.OkMessage()
-        await send_message(writer, message)
+        await self.send_message(writer, message)
 
-    @staticmethod
-    async def _send_error_response(writer, code, reason):
+    async def _send_error_response(self, writer, code, reason):
         address = writer.get_extra_info("peername")
         message = msg.Error(code, reason)
         LOGGER.debug("Sending error response to %s: %s", address, message)
-        await send_message(writer, message)
+        await self.send_message(writer, message)
 
     def _abort_current_game(self, reason: str):
         server = self

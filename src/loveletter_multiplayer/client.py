@@ -60,7 +60,7 @@ class LoveletterClient:
         """Send a message to the server indicating that this client is ready to play."""
         if self.is_host:
             message = msg.ReadyToPlay()
-            await send_message(self._server_conn.writer, message)
+            await self._server_conn.send_message(message)
         else:
             pass  # for now just ignore this
 
@@ -127,9 +127,15 @@ class LoveletterClient:
             :param message: Any message that expects a reply.
             :return: The response from the server.
             """
-            await send_message(self.writer, message)
+            await self.send_message(message)
             response = await self._expect_message(timeout=5.0)
             return response
+
+        async def send_message(self, message: Message) -> None:
+            await send_message(self.writer, message)
+
+        async def receive_message(self) -> Message:
+            return await receive_message(self.reader)
 
         async def _expect_message(
             self,
@@ -146,7 +152,7 @@ class LoveletterClient:
             :param message_type: If not None, check that the received message is of that
                                  type.
             """
-            message = await asyncio.wait_for(receive_message(self.reader), timeout)
+            message = await asyncio.wait_for(self.receive_message(), timeout)
             if message is None:
                 raise ConnectionClosedError(
                     "Server closed the connection while expecting a message"
@@ -184,7 +190,7 @@ class LoveletterClient:
 
         async def _receive_loop(self):
             while True:
-                message = await receive_message(self.reader)
+                message = await self.receive_message()
                 if not message:
                     break
                 # noinspection PyTypeChecker

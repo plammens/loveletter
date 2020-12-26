@@ -10,7 +10,6 @@ from loveletter.gameevent import ChoiceEvent, GameInputRequest, GameResultEvent
 if TYPE_CHECKING:
     from loveletter.cards import Card
     from loveletter.roundplayer import RoundPlayer
-    from loveletter.round import Round
 
 
 class CancelMove(BaseException):
@@ -25,7 +24,10 @@ class CancellationError(RuntimeError):
 
 
 class MoveStep(GameInputRequest, metaclass=abc.ABCMeta):
-    pass
+    def __init__(self, player: "RoundPlayer", card_played: "Card"):
+        super().__init__()
+        self.player = player  #: who is making this move
+        self.card_played = card_played
 
 
 class ChoiceStep(MoveStep, ChoiceEvent, metaclass=abc.ABCMeta):
@@ -49,11 +51,11 @@ class CardGuess(ChoiceStep):
 class PlayerChoice(ChoiceStep):
     """Make the player choose a player"""
 
-    def __init__(self, game_round: "Round"):
-        super().__init__()
-        self.game_round = game_round
+    def __init__(self, player: "RoundPlayer", card_played: "Card"):
+        super().__init__(player, card_played)
+        game_round = self.player.round
         self._valid_choices = {
-            p for p in self.game_round.players if p.alive and not p.immune
+            p for p in game_round.players if p.alive and not p.immune
         }
 
     def _validate_choice(self, value):
@@ -71,10 +73,9 @@ class OpponentChoice(PlayerChoice):
     # special value for when no player can be targeted because they're all immune
     NO_TARGET = object()
 
-    def __init__(self, player: "RoundPlayer"):
-        super().__init__(player.round)
-        self.player: "RoundPlayer" = player
-        self._valid_choices = self._valid_choices - {player}
+    def __init__(self, player: "RoundPlayer", card_played: "Card"):
+        super().__init__(player, card_played)
+        self._valid_choices = self._valid_choices - {self.player}
 
     def _validate_choice(self, value):
         if self._valid_choices:
@@ -95,8 +96,10 @@ class OpponentChoice(PlayerChoice):
 
 
 class ChooseOneCard(ChoiceStep):
-    def __init__(self, options: Tuple["Card", ...]):
-        super().__init__()
+    def __init__(
+        self, player: "RoundPlayer", card_played: "Card", options: Tuple["Card", ...]
+    ):
+        super().__init__(player, card_played)
         self.options = options
 
     def _validate_choice(self, value):
@@ -115,8 +118,10 @@ class ChooseOrderForDeckBottom(ChoiceStep):
     The choice should be a tuple of the given cards, ordered from bottommost to topmost.
     """
 
-    def __init__(self, cards: Tuple["Card", ...]):
-        super().__init__()
+    def __init__(
+        self, player: "RoundPlayer", card_played: "Card", cards: Tuple["Card", ...]
+    ):
+        super().__init__(player, card_played)
         self.cards = cards
 
     def _validate_choice(self, value):

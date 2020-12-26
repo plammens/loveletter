@@ -21,6 +21,8 @@
         <list>
           <option value="matplotlib.ticker" />
           <option value="dict.__or__" />
+          <option value="None.choice" />
+          <option value="choice" />
         </list>
       </option>
     </inspection_tool>

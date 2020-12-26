@@ -144,14 +144,14 @@ def autofill_step(step: loveletter.round.PlayerMoveChoice):
 
 @autofill_step.register
 def autofill_step(step: move.PlayerChoice):
-    options = [p for p in step.game_round.living_players if not p.immune]
+    options = [p for p in step.player.round.living_players if not p.immune]
     step.choice = random.choice(options)
     return step
 
 
 @autofill_step.register
 def autofill_step(step: move.OpponentChoice):
-    game_round = step.game_round
+    game_round = step.player.round
     player = step.player
     players = set(game_round.living_players)
     opponents = players - {player} - {p for p in players if p.immune}

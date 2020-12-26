@@ -39,6 +39,12 @@ class GameInputRequest(GameEvent, metaclass=abc.ABCMeta):
     def fulfilled(self) -> bool:
         return False
 
+    def __eq__(self, other):
+        """Default state-based equality."""
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self.__dict__ == other.__dict__
+
     def __repr__(self):
         return (
             f"<{'fulfilled' if self.fulfilled else 'unfulfilled'}"

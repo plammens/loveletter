@@ -5,6 +5,7 @@ import json
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
 from loveletter.game import Game
+from loveletter.gameevent import GameInputRequest
 from loveletter.round import Round
 from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import collect_subclasses
@@ -13,11 +14,13 @@ from .message import Message
 from ..utils import full_qualname, import_from_qualname
 
 
-MESSAGE_TYPE_KEY = "_msgtype_"
-DATACLASS_KEY = "_dataclass_"
-
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]
 SerializableObject = Dict[str, Any]
+
+MESSAGE_TYPE_KEY = "_msgtype_"
+DATACLASS_KEY = "_dataclass_"
+FALLBACK_KEY = "_class_"
+FALLBACK_TYPES = (GameInputRequest,)
 
 
 class MessageSerializer(json.JSONEncoder):
@@ -43,6 +46,8 @@ class MessageSerializer(json.JSONEncoder):
             return self._make_dataclass_serializable(o)
         elif isinstance(o, enum.Enum):
             return o.value
+        elif isinstance(o, FALLBACK_TYPES):
+            return self._make_serializable_fallback(o)
         else:
             return super().default(o)
 
@@ -60,6 +65,10 @@ class MessageSerializer(json.JSONEncoder):
         d = MessageSerializer._make_dataclass_serializable(message)
         del d[DATACLASS_KEY]
         return {MESSAGE_TYPE_KEY: message.type} | d
+
+    @staticmethod
+    def _make_serializable_fallback(obj):
+        return {FALLBACK_KEY: full_qualname(type(obj))} | obj.__dict__
 
 
 class MessageDeserializer(json.JSONDecoder):
@@ -89,18 +98,39 @@ class MessageDeserializer(json.JSONDecoder):
 
     def _reconstruct_object(self, json_obj: dict) -> Any:
         if dataclass_path := json_obj.pop(DATACLASS_KEY, None):
-            dataclass = import_from_qualname(dataclass_path)
-            return dataclass(**json_obj)
+            return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
         elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
-            message_type = Message.Type(message_type)
-            message_class = MessageDeserializer._type_map[message_type]
-            return message_class(**json_obj)
+            return self._reconstruct_message(message_type, json_obj)
         elif Placeholder.is_placeholder(json_obj):
             if self.game is None:
                 raise ValueError("Can't fill placeholder without a game context")
             return Placeholder.from_serializable(json_obj).fill(self.game)
+        elif class_path := json_obj.pop(FALLBACK_KEY, None):
+            return self._reconstruct_fallback(class_path, json_obj)
         else:
             return json_obj
+
+    @staticmethod
+    def _reconstruct_message(
+        message_type: Message.Type, json_obj: SerializableObject
+    ) -> Message:
+        message_type = Message.Type(message_type)
+        message_class = MessageDeserializer._type_map[message_type]
+        return message_class(**json_obj)
+
+    @staticmethod
+    def _reconstruct_dataclass_obj(
+        dataclass_path: str, json_obj: SerializableObject
+    ) -> Any:
+        dataclass = import_from_qualname(dataclass_path)
+        return dataclass(**json_obj)
+
+    @staticmethod
+    def _reconstruct_fallback(class_path: str, json_obj: SerializableObject) -> Any:
+        cls = import_from_qualname(class_path)
+        obj = cls.__new__(cls)
+        obj.__dict__.update(json_obj)
+        return obj
 
 
 class Placeholder(metaclass=abc.ABCMeta):

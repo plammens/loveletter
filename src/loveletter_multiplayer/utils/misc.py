@@ -167,3 +167,8 @@ def _extract_module_from_qualname(qualname: str):
 
 def format_exception(exc: Exception):
     return traceback.format_exception_only(type(exc), exc)[0]
+
+
+def full_qualname(cls) -> str:
+    """Return the fully qualified name (including the module) of a class."""
+    return ".".join((cls.__module__, cls.__qualname__))

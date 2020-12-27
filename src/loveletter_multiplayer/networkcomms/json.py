@@ -1,9 +1,12 @@
 import abc
+import copy
 import dataclasses
 import enum
 import json
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
+from loveletter.cardpile import CardPile
+from loveletter.cards import Card
 from loveletter.game import Game
 from loveletter.gameevent import GameInputRequest
 from loveletter.round import Round
@@ -11,7 +14,7 @@ from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import collect_subclasses
 from . import message as msg
 from .message import Message
-from ..utils import full_qualname, import_from_qualname
+from ..utils import full_qualname, import_from_qualname, instance_attributes
 
 
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]
@@ -20,7 +23,7 @@ SerializableObject = Dict[str, Any]
 MESSAGE_TYPE_KEY = "_msgtype_"
 DATACLASS_KEY = "_dataclass_"
 FALLBACK_KEY = "_class_"
-FALLBACK_TYPES = (GameInputRequest,)
+FALLBACK_TYPES = (GameInputRequest, CardPile, Card)
 
 
 class MessageSerializer(json.JSONEncoder):
@@ -40,10 +43,10 @@ class MessageSerializer(json.JSONEncoder):
     def default(self, o: Any) -> JsonType:
         if isinstance(o, Message):
             return self._make_message_serializable(o)
-        elif (placeholder_type := Placeholder.get_placeholder_type(o)) is not None:
-            return placeholder_type.from_game_obj(o).to_serializable()
         elif dataclasses.is_dataclass(o) and not isinstance(o, type):
             return self._make_dataclass_serializable(o)
+        elif (placeholder_type := Placeholder.get_placeholder_type(o)) is not None:
+            return placeholder_type.from_game_obj(o).to_serializable()
         elif isinstance(o, enum.Enum):
             return o.value
         elif isinstance(o, FALLBACK_TYPES):
@@ -76,15 +79,20 @@ class MessageDeserializer(json.JSONDecoder):
     Deserializes the results of :class:`MessageSerializer` into an equivalent Message.
     """
 
-    def __init__(self, game: Optional[Game] = None):
+    def __init__(self, game: Optional[Game] = None, fill_placeholders=True):
         """
         Construct a configured message deserializer.
 
         :param game: Game used as the context to reconstruct unserializable game
                      objects.
+        :param fill_placeholders: Whether to "evaluate" the placeholders as part of the
+                                  deserialization. If False, the placeholder objects
+                                  will be left as-is and the caller is responsible to
+                                  fill them when appropriate.
         """
         super().__init__(object_hook=self._reconstruct_object)
         self.game = game
+        self.fill_placeholders = fill_placeholders
 
     def deserialize(self, message: bytes) -> Message:
         # noinspection PyTypeChecker
@@ -102,9 +110,7 @@ class MessageDeserializer(json.JSONDecoder):
         elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
             return self._reconstruct_message(message_type, json_obj)
         elif Placeholder.is_placeholder(json_obj):
-            if self.game is None:
-                raise ValueError("Can't fill placeholder without a game context")
-            return Placeholder.from_serializable(json_obj).fill(self.game)
+            return self._reconstruct_from_placeholder(json_obj)
         elif class_path := json_obj.pop(FALLBACK_KEY, None):
             return self._reconstruct_fallback(class_path, json_obj)
         else:
@@ -124,6 +130,12 @@ class MessageDeserializer(json.JSONDecoder):
     ) -> Any:
         dataclass = import_from_qualname(dataclass_path)
         return dataclass(**json_obj)
+
+    def _reconstruct_from_placeholder(self, json_obj: SerializableObject):
+        if self.game is None:
+            raise ValueError("Can't fill placeholder without a game context")
+        placeholder = Placeholder.from_serializable(json_obj)
+        return placeholder.fill(self.game) if self.fill_placeholders else placeholder
 
     @staticmethod
     def _reconstruct_fallback(class_path: str, json_obj: SerializableObject) -> Any:
@@ -256,3 +268,50 @@ class RoundPlayerPlaceholder(PlayerPlaceHolder):
 
     def fill(self, game: Game):
         return game.current_round.players[self.data["id"]]
+
+
+def fill_placeholders(obj, game: Game):
+    """
+    Recursively replace all placeholder sub-objects by filling them.
+
+    :return: Shallow copy of the object with filled placeholders, or the same object
+             unmodified if no placeholders were found.
+    """
+
+    if isinstance(obj, Placeholder):
+        return obj.fill(game)
+    elif isinstance(obj, (tuple, list, set)):
+        filled = type(obj)(fill_placeholders(x, game) for x in obj)
+        modified = not all(x is y for x, y in zip(obj, filled))
+        return filled if modified else obj
+    elif isinstance(obj, dict):
+        # noinspection PyArgumentList
+        filled = type(obj)(
+            (fill_placeholders(k, game), fill_placeholders(v, game))
+            for k, v in obj.items()
+        )
+        modified = not all(
+            k1 is k2 and v1 is v2
+            for (k1, v1), (k2, v2) in zip(obj.items(), filled.items())
+        )
+        return filled if modified else obj
+    else:
+        return _fill_placeholders_attrs(obj, game)
+
+
+def _fill_placeholders_attrs(obj, game):
+    filled_values = {}
+    for name, attr in instance_attributes(obj).items():
+        filled = fill_placeholders(attr, game)
+        if filled is not attr:
+            filled_values[name] = filled
+    if not filled_values:
+        return obj
+
+    if dataclasses.is_dataclass(obj):
+        return dataclasses.replace(obj, **filled_values)
+    else:
+        obj_copy = copy.copy(obj)
+        for name, value in filled_values.items():
+            setattr(obj_copy, name, value)
+        return obj_copy

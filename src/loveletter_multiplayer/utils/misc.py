@@ -8,7 +8,7 @@ import traceback
 import typing
 from collections import namedtuple
 from functools import lru_cache
-from typing import Any, ClassVar, ContextManager, Optional, TypeVar
+from typing import Any, ClassVar, ContextManager, Dict, Optional, TypeVar
 
 
 LOGGER = logging.getLogger(__name__)
@@ -172,3 +172,26 @@ def format_exception(exc: Exception):
 def full_qualname(cls) -> str:
     """Return the fully qualified name (including the module) of a class."""
     return ".".join((cls.__module__, cls.__qualname__))
+
+
+def instance_attributes(obj: Any) -> Dict[str, Any]:
+    """Get a name-to-value dictionary of instance attributes of an arbitrary object."""
+    try:
+        return vars(obj)
+    except TypeError:
+        pass
+
+    # object doesn't have __dict__, try with __slots__
+    try:
+        slots = obj.__slots__
+    except AttributeError:
+        # doesn't have __dict__ nor __slots__, probably a builtin like str or int
+        return {}
+    # collect all slots attributes (some might not be present)
+    attrs = {}
+    for name in slots:
+        try:
+            attrs[name] = getattr(obj, name)
+        except AttributeError:
+            continue
+    return attrs

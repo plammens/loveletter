@@ -38,6 +38,9 @@ class LoveletterClient:
 
     async def connect(self, host, port):
         reader, writer = await asyncio.open_connection(host=host, port=port)
+        return asyncio.create_task(self._handle_connection(reader, writer))
+
+    async def _handle_connection(self, reader, writer):
         async with close_stream_at_exit(writer):
             address = writer.get_extra_info("peername")
             LOGGER.info(f"Successfully connected to {address}")

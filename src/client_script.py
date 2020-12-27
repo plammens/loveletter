@@ -10,9 +10,9 @@ HOST = "127.0.0.1"
 PORT = 48888
 
 
-async def start_clients(clients):
-    tasks = [c.connect(HOST, PORT) for c in clients]
-    await asyncio.gather(*tasks, return_exceptions=True)
+async def run_clients(clients):
+    connections = await asyncio.gather(*[c.connect(HOST, PORT) for c in clients])
+    await asyncio.gather(*connections, return_exceptions=True)
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     usernames = ["Alice", "Bob", "Charlie", "Eve"]
     clients.extend(LoveletterClient(username) for username in usernames)
     clients_thread = StoppableAsyncioThread(
-        name="ClientsThread", target=start_clients, args=(clients,)
+        name="ClientsThread", target=run_clients, args=(clients,)
     )
     clients_thread.start()
     clients_thread.join()

@@ -154,7 +154,7 @@ class Game(GameNode):
         return attrs
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True)
 class GameState(GameNodeState, metaclass=abc.ABCMeta):
     """Intermediate ABC for full-game states"""
 
@@ -169,7 +169,7 @@ class InitGameState(GameState, InitState):
     pass
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True)
 class PlayingRound(GameState, IntermediateState):
     """
     Represents the state of the game while playing one of its rounds.

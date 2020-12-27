@@ -218,7 +218,7 @@ class Round(GameNode):
 # ------------------- Round states ----------------------
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True)
 class RoundState(GameNodeState, metaclass=abc.ABCMeta):
     """The intermediate ABC for all round states."""
 
@@ -233,7 +233,7 @@ class InitRoundState(RoundState, InitState):
     pass
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True)
 class Turn(RoundState, IntermediateState):
     """
     Represents a single turn; enforces turn constraints.

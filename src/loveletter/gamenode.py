@@ -226,7 +226,7 @@ class InitState(GameNodeState):
     type = GameNodeState.Type.INIT
 
 
-@dataclass(frozen=True, eq=False)
+@dataclass(frozen=True)
 class IntermediateState(GameNodeState, metaclass=abc.ABCMeta):
     """The common interface for subclasses with type=GameNodeState.Type.INTERMEDIATE."""
 

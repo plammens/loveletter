@@ -121,8 +121,7 @@ class Game(GameNode):
 
     advance_round = advance
 
-    @classmethod
-    def _make_init_state(cls):
+    def _make_init_state(self):
         return InitGameState()
 
     def _reached_end(self) -> bool:

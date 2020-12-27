@@ -55,10 +55,9 @@ class Round(GameNode):
         :param num_players: Number of players in the round.
         :param deck: Initial deck to start with. None means use the standard deck.
         """
+        self.deck = deck if deck is not None else Deck.from_counts()
         players = [RoundPlayer(self, i) for i in range(num_players)]
         super().__init__(players)
-
-        self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
 
     @property
@@ -192,9 +191,8 @@ class Round(GameNode):
 
     advance_turn = advance  # alias
 
-    @classmethod
-    def _make_init_state(cls):
-        return InitRoundState()
+    def _make_init_state(self):
+        return InitRoundState(self.deck)
 
     def _reached_end(self) -> bool:
         """Whether this round has reached to an end."""
@@ -232,7 +230,7 @@ class RoundState(GameNodeState, metaclass=abc.ABCMeta):
 
 @dataclass(frozen=True)
 class InitRoundState(RoundState, InitState):
-    pass
+    deck: Deck
 
 
 @dataclass(frozen=True)

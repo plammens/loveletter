@@ -1,3 +1,4 @@
+import asyncio
 import itertools as itt
 import logging
 
@@ -6,7 +7,7 @@ def setup_logging(level):
     logging.setLogRecordFactory(CustomLogRecord)
     root = logging.getLogger()
     root.setLevel(level)
-    formatter = logging.Formatter(
+    formatter = CustomFormatter(
         fmt="{asctime} - {levelname:^8} - {origin:50.50} - {message}",
         style="{",
     )
@@ -33,4 +34,19 @@ class TruncateAfterMaxWidthString(str):
 class CustomLogRecord(logging.LogRecord):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.origin = TruncateAfterMaxWidthString(f"[{self.threadName}] {self.name}")
+        try:
+            self.task = task = asyncio.current_task()
+        except RuntimeError:
+            self.task = task = None
+
+        if task:
+            self.taskName = task.get_name()
+            origin = f"[{self.threadName}::{self.taskName}] {self.name}"
+        else:
+            self.taskName = None
+            origin = f"[{self.threadName}] {self.name}"
+        self.origin = TruncateAfterMaxWidthString(origin)
+
+
+class CustomFormatter(logging.Formatter):
+    default_time_format = "%H:%M:%S"

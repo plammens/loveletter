@@ -143,7 +143,7 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         send_gracious(move, guess_step)
         assert not other.alive
         # artificially start new turn with same player
-        started_round.state = Turn(player)
+        restart_turn(started_round)
 
 
 def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
@@ -159,7 +159,7 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             send_gracious(move, guess_step)
             assert other.alive
             # artificially start new turn with same player
-            started_round.state = Turn(player)
+            restart_turn(started_round)
 
 
 def test_priest_validOpponent_showsCard(started_round: Round):

@@ -13,7 +13,7 @@ from loveletter import cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.gameevent import GameInputRequest
 from loveletter.gamenode import GameNodeState
-from loveletter.round import RoundState
+from loveletter.round import RoundState, Turn
 from loveletter.utils.misc import cycle_from
 from test_loveletter.unit.test_cards_cases import *
 from test_loveletter.unit.test_player_cases import *
@@ -62,7 +62,10 @@ def test_start_newRound_setsCorrectGameState(new_round: Round, first):
         assert new_round.current_player is first
     assert new_round.started
     assert new_round.state.type == RoundState.Type.TURN
-    assert new_round.state.current_player == new_round.current_player
+    # noinspection PyTypeChecker
+    turn: Turn = new_round.state
+    assert turn.current_player == new_round.current_player
+    assert turn.turn_no == 1
 
 
 @pytest_cases.parametrize(first=[0, 1, 3])
@@ -140,6 +143,14 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert state.type == RoundState.Type.ROUND_END
     assert started_round.ended
     assert state.winner is winner
+
+
+# noinspection PyTypeChecker
+def test_advanceTurn_turnNoIncreases(started_round: Round):
+    old_turn: Turn = started_round.state
+    play_mock_move(started_round.current_player)
+    new_turn: Turn = started_round.advance_turn()
+    assert new_turn.turn_no == old_turn.turn_no + 1
 
 
 @pytest_cases.parametrize_with_cases("set_aside", cases=CardMockCases)

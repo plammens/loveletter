@@ -157,7 +157,7 @@ class Round(GameNode):
                 self.deal_card(player)
             self._check_post_start()
 
-        self.state = turn = Turn(first_player)
+        self.state = turn = Turn(first_player, turn_no=1)
         return turn
 
     def advance(self) -> GameNodeState:
@@ -166,6 +166,8 @@ class Round(GameNode):
         if self._reached_end():
             return self._finalize()
 
+        # noinspection PyTypeChecker
+        old_turn: Turn = self.state
         current = self.current_player
         assert current is not None
         next_player = self.next_player(current)
@@ -174,8 +176,8 @@ class Round(GameNode):
         if next_player.immune:
             next_player.immune = False
         self.deal_card(next_player)
-        self.state = turn = Turn(next_player)
-        return turn
+        self.state = new_turn = Turn(next_player, turn_no=old_turn.turn_no + 1)
+        return new_turn
 
     def deal_card(self, player: RoundPlayer) -> "Card":
         """Deal a card to a player from the deck and return the dealt card."""
@@ -253,13 +255,14 @@ class Turn(RoundState, IntermediateState):
 
     name = "turn"
 
+    current_player: RoundPlayer
+    turn_no: int
+
     class Stage(enum.Enum):
         START = enum.auto()
         IN_PROGRESS = enum.auto()
         COMPLETED = enum.auto()
         INVALID = enum.auto()
-
-    current_player: RoundPlayer
 
     # stage is the only mutable field (as if with the C++ `mutable` modifier)
     stage: Stage = field(default=Stage.START, init=False, repr=False, compare=False)

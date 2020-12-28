@@ -1,9 +1,12 @@
 import logging
+import random
 
 from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.server import LoveletterPartyServer
 from loveletter_multiplayer.utils import StoppableAsyncioThread
 
+
+random.seed(2020)
 
 HOST = ""
 PORT = 48888

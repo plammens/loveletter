@@ -28,6 +28,7 @@ MESSAGE_TYPE_KEY = "_msgtype_"
 DATACLASS_KEY = "_dataclass_"
 ENUM_KEY = "_enum_"
 SET_KEY = "_set_"
+TYPE_KEY = "_type_"
 FALLBACK_KEY = "_class_"
 FALLBACK_TYPES = (GameInputRequest, CardPile, Card)
 
@@ -51,6 +52,8 @@ class MessageSerializer(json.JSONEncoder):
             return self._make_enum_member_serializable(o)
         elif isinstance(o, set):
             return self._make_set_serializable(o)
+        elif isinstance(o, type):
+            return self._make_type_serializable(o)
         elif isinstance(o, Message):
             return self._make_message_serializable(o)
         elif dataclasses.is_dataclass(o) and not isinstance(o, type):
@@ -69,6 +72,10 @@ class MessageSerializer(json.JSONEncoder):
     @staticmethod
     def _make_set_serializable(o):
         return {SET_KEY: list(o)}
+
+    @staticmethod
+    def _make_type_serializable(o):
+        return {TYPE_KEY: full_qualname(o)}
 
     @staticmethod
     def _make_dataclass_serializable(obj):
@@ -131,6 +138,8 @@ class MessageDeserializer(json.JSONDecoder):
             return self._reconstruct_enum_member(enum_path, json_obj)
         elif (elements := json_obj.pop(SET_KEY, None)) is not None:
             return self._reconstruct_set(elements)
+        elif class_path := json_obj.pop(TYPE_KEY, None):
+            return self._reconstruct_type(class_path)
         elif dataclass_path := json_obj.pop(DATACLASS_KEY, None):
             return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
         elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
@@ -152,6 +161,10 @@ class MessageDeserializer(json.JSONDecoder):
     @staticmethod
     def _reconstruct_set(elements: list) -> set:
         return set(elements)
+
+    @staticmethod
+    def _reconstruct_type(class_path: str) -> type:
+        return import_from_qualname(class_path)
 
     @staticmethod
     def _reconstruct_message(

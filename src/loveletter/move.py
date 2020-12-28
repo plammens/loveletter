@@ -79,7 +79,7 @@ class PlayerChoice(ChoiceStep):
         return choice.id
 
     def from_serializable(self, value: Serializable) -> "RoundPlayer":
-        return self.game_round.players[value]
+        return self.player.round.players[value]
 
     def _validate_choice(self, value):
         valid8.validate(

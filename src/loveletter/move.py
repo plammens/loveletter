@@ -152,8 +152,10 @@ class ChooseOrderForDeckBottom(ChoiceStep):
     def __init__(
         self, player: "RoundPlayer", card_played: "Card", cards: Tuple["Card", ...]
     ):
+        from loveletter.cards import CardType
+
         super().__init__(player, card_played)
-        self.cards = cards
+        self.cards = tuple(sorted(cards, key=CardType))
 
     def to_serializable(self) -> Tuple[int, ...]:
         super().to_serializable()

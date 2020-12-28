@@ -27,6 +27,7 @@ SerializableObject = Dict[str, Any]
 MESSAGE_TYPE_KEY = "_msgtype_"
 DATACLASS_KEY = "_dataclass_"
 ENUM_KEY = "_enum_"
+SET_KEY = "_set_"
 FALLBACK_KEY = "_class_"
 FALLBACK_TYPES = (GameInputRequest, CardPile, Card)
 
@@ -48,6 +49,8 @@ class MessageSerializer(json.JSONEncoder):
     def default(self, o: Any) -> JsonType:
         if isinstance(o, enum.Enum):
             return self._make_enum_member_serializable(o)
+        elif isinstance(o, set):
+            return self._make_set_serializable(o)
         elif isinstance(o, Message):
             return self._make_message_serializable(o)
         elif dataclasses.is_dataclass(o) and not isinstance(o, type):
@@ -62,6 +65,10 @@ class MessageSerializer(json.JSONEncoder):
     @staticmethod
     def _make_enum_member_serializable(member):
         return {ENUM_KEY: full_qualname(type(member)), "value": member.value}
+
+    @staticmethod
+    def _make_set_serializable(o):
+        return {SET_KEY: list(o)}
 
     @staticmethod
     def _make_dataclass_serializable(obj):
@@ -122,6 +129,8 @@ class MessageDeserializer(json.JSONDecoder):
     def _reconstruct_object(self, json_obj: dict) -> Any:
         if enum_path := json_obj.pop(ENUM_KEY, None):
             return self._reconstruct_enum_member(enum_path, json_obj)
+        elif (elements := json_obj.pop(SET_KEY, None)) is not None:
+            return self._reconstruct_set(elements)
         elif dataclass_path := json_obj.pop(DATACLASS_KEY, None):
             return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
         elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
@@ -131,7 +140,7 @@ class MessageDeserializer(json.JSONDecoder):
         elif class_path := json_obj.pop(FALLBACK_KEY, None):
             return self._reconstruct_fallback(class_path, json_obj)
         else:
-            return json_obj
+            return json_obj  # regular dict
 
     @staticmethod
     def _reconstruct_enum_member(
@@ -139,6 +148,10 @@ class MessageDeserializer(json.JSONDecoder):
     ) -> enum.Enum:
         enum_class = import_from_qualname(enum_path)
         return enum_class(json_obj["value"])
+
+    @staticmethod
+    def _reconstruct_set(elements: list) -> set:
+        return set(elements)
 
     @staticmethod
     def _reconstruct_message(

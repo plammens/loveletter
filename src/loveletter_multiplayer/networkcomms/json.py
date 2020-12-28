@@ -50,7 +50,7 @@ class MessageSerializer(json.JSONEncoder):
     def default(self, o: Any) -> JsonType:
         if isinstance(o, enum.Enum):
             return self._make_enum_member_serializable(o)
-        elif isinstance(o, set):
+        elif isinstance(o, (set, frozenset)):
             return self._make_set_serializable(o)
         elif isinstance(o, type):
             return self._make_type_serializable(o)
@@ -71,7 +71,7 @@ class MessageSerializer(json.JSONEncoder):
 
     @staticmethod
     def _make_set_serializable(o):
-        return {SET_KEY: list(o)}
+        return {SET_KEY: full_qualname(type(o)), "elements": list(o)}
 
     @staticmethod
     def _make_type_serializable(o):
@@ -136,8 +136,8 @@ class MessageDeserializer(json.JSONDecoder):
     def _reconstruct_object(self, json_obj: dict) -> Any:
         if enum_path := json_obj.pop(ENUM_KEY, None):
             return self._reconstruct_enum_member(enum_path, json_obj)
-        elif (elements := json_obj.pop(SET_KEY, None)) is not None:
-            return self._reconstruct_set(elements)
+        elif (set_type_path := json_obj.pop(SET_KEY, None)) is not None:
+            return self._reconstruct_set(set_type_path, json_obj)
         elif class_path := json_obj.pop(TYPE_KEY, None):
             return self._reconstruct_type(class_path)
         elif dataclass_path := json_obj.pop(DATACLASS_KEY, None):
@@ -159,8 +159,9 @@ class MessageDeserializer(json.JSONDecoder):
         return enum_class(json_obj["value"])
 
     @staticmethod
-    def _reconstruct_set(elements: list) -> set:
-        return set(elements)
+    def _reconstruct_set(set_type_path: str, json_obj: SerializableObject) -> set:
+        set_type = import_from_qualname(set_type_path)
+        return set_type(json_obj["elements"])
 
     @staticmethod
     def _reconstruct_type(class_path: str) -> type:
@@ -355,7 +356,7 @@ def fill_placeholders(obj, game: Game):
         if isinstance(o, Placeholder):
             return o.fill(game)
 
-        elif isinstance(o, (tuple, list, set)):
+        elif isinstance(o, (tuple, list, set, frozenset)):
             filled = type(o)(fill(x) for x in o)
             modified = not all(x is y for x, y in zip(o, filled))
             return filled if modified else o

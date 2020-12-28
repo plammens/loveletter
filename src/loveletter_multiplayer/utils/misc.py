@@ -150,12 +150,13 @@ def _extract_module_from_qualname(qualname: str):
     """
     module_path = qualname
     attrs = []
-    while "." in module_path:
+    while module_path:
         try:
             module = importlib.import_module(module_path)
             return module, tuple(attrs)
         except ImportError:
-            module_path, attr = module_path.rsplit(".", maxsplit=1)
+            *_, attr = module_path.rsplit(".", maxsplit=1)
+            module_path = _[0] if _ else ""
             attrs.append(attr)
             continue
     else:

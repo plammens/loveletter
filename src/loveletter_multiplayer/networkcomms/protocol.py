@@ -8,6 +8,7 @@ from .message import Message
 
 
 LOGGER = logging.getLogger(__name__)
+LOGGING_LEVEL = logging.DEBUG // 2
 
 
 MESSAGE_SEPARATOR = b"\0"
@@ -16,9 +17,11 @@ MESSAGE_SEPARATOR = b"\0"
 async def send_message(
     writer: asyncio.StreamWriter, message: Message, serializer=MessageSerializer()
 ):
-    LOGGER.debug("Sending to %s: %s", writer.get_extra_info("peername"), message)
+    LOGGER.log(
+        LOGGING_LEVEL, "Sending to %s: %s", writer.get_extra_info("peername"), message
+    )
     serialized = serializer.serialize(message)
-    LOGGER.debug("Sending bytes: %s", serialized)
+    LOGGER.log(LOGGING_LEVEL, "Sending bytes: %s", serialized)
     writer.write(serialized)
     await writer.drain()
 
@@ -40,9 +43,9 @@ async def receive_message(
     """
     try:
         serialized = await reader.readuntil(MESSAGE_SEPARATOR)
-        LOGGER.debug("Received bytes: %s", serialized)
+        LOGGER.log(LOGGING_LEVEL, "Received bytes: %s", serialized)
         message = deserializer.deserialize(serialized)
-        LOGGER.debug("Parsed message: %s", message)
+        LOGGER.log(LOGGING_LEVEL, "Parsed message: %s", message)
         return message
     except asyncio.IncompleteReadError as exc:
         if exc.partial == b"":

@@ -5,6 +5,7 @@ import enum
 import json
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
+import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.cardpile import CardPile
 from loveletter.cards import Card
 from loveletter.game import Game
@@ -12,7 +13,6 @@ from loveletter.gameevent import GameInputRequest
 from loveletter.round import Round
 from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import collect_subclasses
-from . import message as msg
 from .message import Message
 from ..utils import (
     full_qualname,
@@ -44,7 +44,7 @@ class MessageSerializer(json.JSONEncoder):
 
     def serialize(self, message: Message) -> bytes:
         json_string = self.encode(message)
-        return json_string.encode() + b"\0"
+        return json_string.encode() + MESSAGE_SEPARATOR
 
     def default(self, o: Any) -> JsonType:
         if isinstance(o, enum.Enum):
@@ -118,7 +118,7 @@ class MessageDeserializer(json.JSONDecoder):
 
     def deserialize(self, message: bytes) -> Message:
         # noinspection PyTypeChecker
-        return self.decode(message.rstrip(b"\0").decode())
+        return self.decode(message.rstrip(MESSAGE_SEPARATOR).decode())
 
     _type_map = {
         cls.type: cls
@@ -376,3 +376,6 @@ def fill_placeholders(obj, game: Game):
                 return obj_copy
 
     return fill(obj)
+
+
+MESSAGE_SEPARATOR = b"\0"

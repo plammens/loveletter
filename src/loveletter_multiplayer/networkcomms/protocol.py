@@ -2,16 +2,12 @@ import asyncio
 import logging
 from typing import Optional
 
-from . import MessageSerializer
-from .json import MessageDeserializer
+from .json import MESSAGE_SEPARATOR, MessageDeserializer, MessageSerializer
 from .message import Message
 
 
 LOGGER = logging.getLogger(__name__)
 LOGGING_LEVEL = logging.DEBUG // 2
-
-
-MESSAGE_SEPARATOR = b"\0"
 
 
 async def send_message(

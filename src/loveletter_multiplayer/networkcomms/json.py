@@ -312,40 +312,54 @@ def fill_placeholders(obj, game: Game):
              unmodified if no placeholders were found.
     """
 
-    if isinstance(obj, Placeholder):
-        return obj.fill(game)
-    elif isinstance(obj, (tuple, list, set)):
-        filled = type(obj)(fill_placeholders(x, game) for x in obj)
-        modified = not all(x is y for x, y in zip(obj, filled))
-        return filled if modified else obj
-    elif isinstance(obj, dict):
-        # noinspection PyArgumentList
-        filled = type(obj)(
-            (fill_placeholders(k, game), fill_placeholders(v, game))
-            for k, v in obj.items()
-        )
-        modified = not all(
-            k1 is k2 and v1 is v2
-            for (k1, v1), (k2, v2) in zip(obj.items(), filled.items())
-        )
-        return filled if modified else obj
-    else:
-        return _fill_placeholders_attrs(obj, game)
+    processing = {}
 
+    def fill(o):
+        if id(o) in processing:
+            raise RecursionError(
+                f"Cycle detected: {list(processing.values())}, then {repr(o)} again"
+            )
+        processing[id(o)] = o
+        try:
+            return _do_fill(o)
+        finally:
+            processing.popitem()
 
-def _fill_placeholders_attrs(obj, game):
-    filled_values = {}
-    for name, attr in instance_attributes(obj).items():
-        filled = fill_placeholders(attr, game)
-        if filled is not attr:
-            filled_values[name] = filled
-    if not filled_values:
-        return obj
+    def _do_fill(o):
+        if isinstance(o, Placeholder):
+            return o.fill(game)
 
-    if dataclasses.is_dataclass(obj):
-        return dataclasses.replace(obj, **filled_values)
-    else:
-        obj_copy = copy.copy(obj)
-        for name, value in filled_values.items():
-            setattr(obj_copy, name, value)
-        return obj_copy
+        elif isinstance(o, (tuple, list, set)):
+            filled = type(o)(fill(x) for x in o)
+            modified = not all(x is y for x, y in zip(o, filled))
+            return filled if modified else o
+
+        elif isinstance(o, dict):
+            # noinspection PyArgumentList
+            filled = type(o)((fill(k), fill(v)) for k, v in o.items())
+            modified = not all(
+                k1 is k2 and v1 is v2
+                for (k1, v1), (k2, v2) in zip(o.items(), filled.items())
+            )
+            return filled if modified else o
+
+        else:
+            filled_values = {}
+            for name, attr in instance_attributes(o).items():
+                if name.startswith("__"):
+                    continue
+                filled = fill(attr)
+                if filled is not attr:
+                    filled_values[name] = filled
+            if not filled_values:
+                return o
+
+            if dataclasses.is_dataclass(o):
+                return dataclasses.replace(o, **filled_values)
+            else:
+                obj_copy = copy.copy(o)
+                for name, value in filled_values.items():
+                    setattr(obj_copy, name, value)
+                return obj_copy
+
+    return fill(obj)

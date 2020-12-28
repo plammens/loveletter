@@ -8,13 +8,10 @@ import traceback
 import typing
 from collections import namedtuple
 from functools import lru_cache
-from typing import Any, ClassVar, ContextManager, Dict, Optional, TypeVar
+from typing import Any, ClassVar, Dict, Optional, Union
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-T = TypeVar("T", bound=ContextManager)
 
 
 class SemaphoreWithCount(asyncio.BoundedSemaphore):
@@ -48,7 +45,7 @@ class EnumPostInitMixin:
                 object.__setattr__(self, name, member)
 
     @staticmethod
-    def _get_member(enum_class: enum.EnumMeta, value: typing.Union[str, typing.Any]):
+    def _get_member(enum_class: enum.EnumMeta, value: Union[str, Any]):
         # value has priority over name
         try:
             return enum_class(value)

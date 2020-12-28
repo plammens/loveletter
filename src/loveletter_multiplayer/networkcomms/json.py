@@ -14,7 +14,11 @@ from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import collect_subclasses
 from . import message as msg
 from .message import Message
-from ..utils import full_qualname, import_from_qualname, instance_attributes
+from ..utils import (
+    full_qualname,
+    import_from_qualname,
+    instance_attributes,
+)
 
 
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]
@@ -22,6 +26,7 @@ SerializableObject = Dict[str, Any]
 
 MESSAGE_TYPE_KEY = "_msgtype_"
 DATACLASS_KEY = "_dataclass_"
+ENUM_KEY = "_enum_"
 FALLBACK_KEY = "_class_"
 FALLBACK_TYPES = (GameInputRequest, CardPile, Card)
 
@@ -41,18 +46,22 @@ class MessageSerializer(json.JSONEncoder):
         return json_string.encode() + b"\0"
 
     def default(self, o: Any) -> JsonType:
-        if isinstance(o, Message):
+        if isinstance(o, enum.Enum):
+            return self._make_enum_member_serializable(o)
+        elif isinstance(o, Message):
             return self._make_message_serializable(o)
         elif dataclasses.is_dataclass(o) and not isinstance(o, type):
             return self._make_dataclass_serializable(o)
         elif (placeholder_type := Placeholder.get_placeholder_type(o)) is not None:
             return placeholder_type.from_game_obj(o).to_serializable()
-        elif isinstance(o, enum.Enum):
-            return o.value
         elif isinstance(o, FALLBACK_TYPES):
             return self._make_serializable_fallback(o)
         else:
             return super().default(o)
+
+    @staticmethod
+    def _make_enum_member_serializable(member):
+        return {ENUM_KEY: full_qualname(type(member)), "value": member.value}
 
     @staticmethod
     def _make_dataclass_serializable(obj):
@@ -67,7 +76,13 @@ class MessageSerializer(json.JSONEncoder):
         # special case to save some bytes
         d = MessageSerializer._make_dataclass_serializable(message)
         del d[DATACLASS_KEY]
-        return {MESSAGE_TYPE_KEY: message.type} | d
+        # The Message hierarchy has EnumPostInitMixin which takes care of enum members,
+        # so we can reduce the size of the message by just sending the value
+        d = {MESSAGE_TYPE_KEY: message.type.value} | d
+        for field in dataclasses.fields(message):
+            if isinstance(field.type, enum.EnumMeta):
+                d[field.name] = getattr(message, field.name).value
+        return d
 
     @staticmethod
     def _make_serializable_fallback(obj):
@@ -105,7 +120,9 @@ class MessageDeserializer(json.JSONDecoder):
     }
 
     def _reconstruct_object(self, json_obj: dict) -> Any:
-        if dataclass_path := json_obj.pop(DATACLASS_KEY, None):
+        if enum_path := json_obj.pop(ENUM_KEY, None):
+            return self._reconstruct_enum_member(enum_path, json_obj)
+        elif dataclass_path := json_obj.pop(DATACLASS_KEY, None):
             return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
         elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
             return self._reconstruct_message(message_type, json_obj)
@@ -115,6 +132,13 @@ class MessageDeserializer(json.JSONDecoder):
             return self._reconstruct_fallback(class_path, json_obj)
         else:
             return json_obj
+
+    @staticmethod
+    def _reconstruct_enum_member(
+        enum_path: str, json_obj: SerializableObject
+    ) -> enum.Enum:
+        enum_class = import_from_qualname(enum_path)
+        return enum_class(json_obj["value"])
 
     @staticmethod
     def _reconstruct_message(
@@ -129,7 +153,17 @@ class MessageDeserializer(json.JSONDecoder):
         dataclass_path: str, json_obj: SerializableObject
     ) -> Any:
         dataclass = import_from_qualname(dataclass_path)
-        return dataclass(**json_obj)
+        fields = dataclasses.fields(dataclass)
+        init_fields = {f.name: json_obj[f.name] for f in fields if f.init}
+        other_fields = {n: json_obj[n] for n in set(json_obj) - set(init_fields)}
+        instance = dataclass(**init_fields)
+        try:
+            for name, value in other_fields.items():
+                setattr(instance, name, value)
+        except dataclasses.FrozenInstanceError:
+            for name, value in other_fields.items():
+                object.__setattr__(instance, name, value)
+        return instance
 
     def _reconstruct_from_placeholder(self, json_obj: SerializableObject):
         if self.game is None:

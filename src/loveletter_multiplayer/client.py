@@ -1,18 +1,22 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Awaitable, Optional, Union
+
+from multimethod import multimethod
 
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     Message,
+    MessageDeserializer,
     RestartSession,
     UnexpectedMessageError,
+    fill_placeholders,
     receive_message,
     send_message,
 )
-from loveletter_multiplayer.remoteobj import RemoteGameShadowCopy
+from loveletter_multiplayer.remotegame import RemoteGameShadowCopy
 from loveletter_multiplayer.utils import Address, InnerClassMeta, close_stream_at_exit
 
 
@@ -63,7 +67,7 @@ class LoveletterClient:
         """Send a message to the server indicating that this client is ready to play."""
         if self.is_host:
             message = msg.ReadyToPlay()
-            await self._server_conn.send_message(message)
+            await self._server_conn._send_message(message)
         else:
             pass  # for now just ignore this
 
@@ -89,7 +93,17 @@ class LoveletterClient:
             self.server_info = server_info
             self.reader: asyncio.StreamReader = reader
             self.writer: asyncio.StreamWriter = writer
+
+            self._reset_game_vars()
+            self._receive_loop_active = False
+
+        def _reset_game_vars(self):
             self.game = None
+            self._deserializer = MessageDeserializer()
+
+        async def _init_async(self):
+            self._game_message_queue = asyncio.Queue()
+            self._other_message_queue = asyncio.Queue()
 
         def __repr__(self):
             return f"<connection from {self.client} to {self.server_info}>"
@@ -106,8 +120,9 @@ class LoveletterClient:
             LOGGER.info("Deactivated %s", self)
 
         async def manage(self):
+            await self._init_async()
             task = asyncio.current_task()
-            task.set_name(repr(self))
+            task.set_name(f"client<{self.client.username}>")
             if self.client._server_conn is not self:
                 raise RuntimeError("Can't manage a detached connection")
             await self._logon()
@@ -118,9 +133,10 @@ class LoveletterClient:
                     return
                 except RestartSession:
                     LOGGER.info("Restarting session")
+                    self._reset_game_vars()
                     continue
 
-        async def request(self, message: Message) -> Message:
+        async def request(self, message: Message, message_type=None) -> Message:
             """
             Send a request to the server and await for the reply.
 
@@ -128,22 +144,50 @@ class LoveletterClient:
             sending a response.
 
             :param message: Any message that expects a reply.
+            :param message_type: The type of response that is expected. If None, it will
+                                 be attempted to deduce from the request type.
             :return: The response from the server.
             """
-            await self.send_message(message)
-            response = await self._expect_message(timeout=5.0)
+            await self._send_message(message)
+            receiver = (
+                self._other_message_queue.get() if self._receive_loop_active else None
+            )
+            if message_type is None:
+                request_to_response = {Message.Type.READ_REQUEST: Message.Type.DATA}
+                message_type = request_to_response.get(message.type, None)
+            response = await self._expect_message(
+                timeout=5.0, receiver=receiver, message_type=message_type
+            )
             return response
 
-        async def send_message(self, message: Message) -> None:
+        async def get_game_message(
+            self, message_type: Optional[Message.Type] = None
+        ) -> Message:
+            """
+            Receive a message.
+
+            :param message_type: Expected message (sub-)type, if any.
+            """
+            message = await self._game_message_queue.get()
+            message = fill_placeholders(message, self.game)
+            if message_type is not None and message.type != message_type:
+                raise UnexpectedMessageError(
+                    f"Expected {message_type} as game message, got {message}"
+                )
+            LOGGER.debug("Got game message: %s", message)
+            return message
+
+        async def _send_message(self, message: Message) -> None:
             await send_message(self.writer, message)
 
-        async def receive_message(self) -> Message:
-            return await receive_message(self.reader)
+        async def _receive_message(self) -> Message:
+            return await receive_message(self.reader, deserializer=self._deserializer)
 
         async def _expect_message(
             self,
             timeout: Optional[float] = None,
             message_type: Optional[Message.Type] = None,
+            receiver: Optional[Awaitable[Message]] = None,
         ) -> Message:
             """
             Wait for an expected message from the server.
@@ -154,8 +198,11 @@ class LoveletterClient:
             :param timeout: Optional timeout for receiving a message.
             :param message_type: If not None, check that the received message is of that
                                  type.
+            :param receiver: Awaitable that will receive a message from the connection
+                             when awaited. The default uses :meth:`_receive_message`.
             """
-            message = await asyncio.wait_for(self.receive_message(), timeout)
+            receiver = receiver or self._receive_message()
+            message = await asyncio.wait_for(receiver, timeout)
             if message is None:
                 raise ConnectionClosedError(
                     "Server closed the connection while expecting a message"
@@ -184,25 +231,55 @@ class LoveletterClient:
 
         async def _wait_for_game(self):
             """Wait for the server to create the game."""
-            # noinspection PyTypeChecker
-            message: msg.GameCreated = await self._expect_message(
-                message_type=Message.Type.GAME_CREATED
+            self.game = await RemoteGameShadowCopy.from_connection(self)
+            self._deserializer = MessageDeserializer(
+                game=self.game, fill_placeholders=False
             )
-            LOGGER.info("Remote game created; creating local copy")
-            self.game = RemoteGameShadowCopy.from_server_message(message)
+
+        @multimethod
+        async def handle_message(self, message):
+            await self._other_message_queue.put(message)
+            LOGGER.debug("Put in other message queue: %s", message)
+
+        @handle_message.register
+        async def handle_message(self, message: msg.Error):
+            LOGGER.error("Error message from server: %s", message)
+            self._maybe_raise(message)
+
+        @handle_message.register
+        async def handle_message(
+            self,
+            message: Union[
+                msg.GameNodeStateMessage,
+                msg.GameInputRequestMessage,
+                msg.FulfilledChoiceMessage,
+                msg.GameEndMessage,
+            ],
+        ):
+            # TODO: make superclass for these
+            await self._game_message_queue.put(message)
+            LOGGER.debug("Put in game message queue: %s", message)
 
         async def _receive_loop(self):
-            while True:
-                message = await self.receive_message()
-                if not message:
-                    break
-                # noinspection PyTypeChecker
-                self._maybe_raise(message)
-                LOGGER.debug(
-                    "%s received a message from the server: %s", self.client, message
-                )
-
-            LOGGER.info("Server closed the connection to %s", self.client)
+            self._receive_loop_active = True
+            try:
+                while True:
+                    message = await self._receive_message()
+                    if not message:
+                        break
+                    LOGGER.info("Received a message from the server: %s", message)
+                    # noinspection PyTypeChecker
+                    self._maybe_raise(message)
+                    asyncio.create_task(
+                        self.handle_message(message), name="handle_message"
+                    )
+            except ConnectionResetError:
+                LOGGER.critical("Server forcefully closed the connection")
+                raise
+            else:
+                LOGGER.info("Server closed the connection")
+            finally:
+                self._receive_loop_active = False
 
 
 @dataclass(frozen=True)

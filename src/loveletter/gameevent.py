@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, Generator, Optional, Tuple
+from typing import Any, Generator, Optional, Tuple, Union
 
 import valid8
 
@@ -102,6 +102,9 @@ class GameResultEvent(GameEvent, metaclass=abc.ABCMeta):
 GameEventGenerator = Generator[GameEvent, GameInputRequest, Tuple[GameResultEvent, ...]]
 
 
+Serializable = Union[None, int, float, str, tuple, list, dict]
+
+
 class ChoiceEvent(GameInputRequest, metaclass=abc.ABCMeta):
     """A game input event consisting of a simple choice."""
 
@@ -127,6 +130,29 @@ class ChoiceEvent(GameInputRequest, metaclass=abc.ABCMeta):
             if not self.fulfilled
             else f"<fulfilled {self.__class__.__name__} with choice {self.choice}>"
         )
+
+    @abc.abstractmethod
+    def to_serializable(self) -> Serializable:
+        """Return a serializable value representing this choice."""
+        valid8.validate(
+            "fulfilled",
+            self.fulfilled,
+            equals=True,
+            help_msg="Choice hasn't been set yet",
+        )
+        return self.choice
+
+    @abc.abstractmethod
+    def from_serializable(self, value: Serializable) -> Any:
+        """
+        The inverse of :meth:`ChoiceEvent.to_serializable`.
+
+        Returns a choice object reconstructed from the serialized value.
+        """
+
+    def set_from_serializable(self, value: Serializable) -> None:
+        """Set the choice from the value returned by :meth:`to_serializable`."""
+        self.choice = self.from_serializable(value)
 
     @abc.abstractmethod
     def _validate_choice(self, value):

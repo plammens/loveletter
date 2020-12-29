@@ -339,6 +339,13 @@ class LoveletterPartyServer:
             self._receive_loop_task = None
             self._game_message_queue = asyncio.Queue()
 
+        @property
+        def receiving(self):
+            return (
+                self._receive_loop_task is not None
+                and not self._receive_loop_task.done()
+            )
+
         def __repr__(self):
             return f"<session manager for {self.client_info}>"
 
@@ -361,14 +368,14 @@ class LoveletterPartyServer:
             """
             if not self._attached:
                 raise RuntimeError("Cannot manage a detached session")
+            if self.session_task is not None:
+                raise RuntimeError(".manage() already called")
             self.session_task = task = asyncio.current_task()
             task.set_name(f"connection<{self.client_info.username}>")
-            self._receive_loop_task = asyncio.create_task(
-                self._receive_loop(), name="receive_loop"
-            )
+            recv_loop = asyncio.create_task(self._receive_loop(), name="receive_loop")
             while True:
                 try:
-                    await self._receive_loop_task
+                    await recv_loop
                     return
                 except RestartSession as exc:
                     await self.reply_error(msg.Error.Code.RESTART_SESSION, str(exc))
@@ -420,6 +427,9 @@ class LoveletterPartyServer:
         # --------------------------- Receive loop methods ----------------------------
 
         async def _receive_loop(self):
+            if self._receive_loop_task is not None:
+                raise RuntimeError("_receive_loop already called")
+            self._receive_loop_task = asyncio.current_task()
             try:
                 while True:
                     message = await self._receive_message()
@@ -445,6 +455,9 @@ class LoveletterPartyServer:
                     self._connection_closed_by_client(),
                     name="connection_closed_handler",
                 )
+            finally:
+                self._game_message_queue.put_nowait(None)
+                self._game_message_queue = None
 
         async def _receive_message(self) -> Message:
             return await self.server._receive_message(self.reader)
@@ -537,10 +550,21 @@ class LoveletterPartyServer:
         # ------------------------------ Utility methods ------------------------------
 
         async def _receive_game_choice(self) -> msg.FulfilledChoiceMessage:
-            # TODO ensure no hang when waiting on queue and client closes
-            message: msg.GameMessage = await self._game_message_queue.get()
+            # noinspection PyTypeChecker
+            message: msg.GameMessage = await self._get_message_from_queue(
+                self._game_message_queue
+            )
             if not isinstance(message, msg.FulfilledChoiceMessage):
                 raise UnexpectedMessageError(f"Expected game input, got {message}")
+            return message
+
+        async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
+            """Get a message from a queue, ensuring the connection is still open."""
+            if not self.receiving or queue is None:
+                raise ConnectionClosedError("Receiver is no longer active")
+            message = await queue.get()
+            if message is None:
+                raise ConnectionClosedError("Client closed the connection")
             return message
 
         async def _relay_response(self, response: msg.FulfilledChoiceMessage):

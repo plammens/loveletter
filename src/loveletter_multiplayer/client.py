@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Optional, Type, TypeVar
+from typing import Awaitable, Dict, Optional, Type, TypeVar
 
 from multimethod import multimethod
 
@@ -112,7 +112,8 @@ class LoveletterClient:
 
             self._reset_game_vars()
             self._main_task: Optional[asyncio.Task] = None
-            self._receive_loop_active = False
+            self._receive_loop_active: bool = False
+            self._queue_waiters: Dict[asyncio.Queue, asyncio.Task] = {}
 
         def _reset_game_vars(self):
             self.game = None
@@ -121,6 +122,10 @@ class LoveletterClient:
         async def _init_async(self):
             self._game_message_queue = asyncio.Queue()
             self._other_message_queue = asyncio.Queue()
+
+        @property
+        def receiving(self) -> bool:
+            return self._receive_loop_active
 
         @property
         def attached(self):
@@ -301,20 +306,24 @@ class LoveletterClient:
                 LOGGER.info("Server closed the connection")
             finally:
                 self._receive_loop_active = False
-                self._handle_connection_closed_by_server()
+                self._game_message_queue.put_nowait(None)
+                self._other_message_queue.put_nowait(None)
+                self._other_message_queue = self._game_message_queue = None
 
         async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
-            if not self._receive_loop_active or queue is None:
+            """Get a message from a queue, ensuring the connection is still open."""
+            if not self.receiving or queue is None:
                 raise ConnectionClosedError("Receiver is no longer active")
-            message = await queue.get()
-            if message is None:
-                raise ConnectionClosedError("Server closed the connection")
-            return message
-
-        def _handle_connection_closed_by_server(self):
-            self._game_message_queue.put_nowait(None)
-            self._other_message_queue.put_nowait(None)
-            self._other_message_queue = self._game_message_queue = None
+            if queue in self._queue_waiters:
+                raise RuntimeError("There is already another task waiting on a message")
+            self._queue_waiters[queue] = asyncio.current_task()
+            try:
+                message = await queue.get()
+                if message is None:
+                    raise ConnectionClosedError("Server closed the connection")
+                return message
+            finally:
+                del self._queue_waiters[queue]
 
 
 @dataclass(frozen=True)

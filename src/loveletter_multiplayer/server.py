@@ -572,8 +572,9 @@ class LoveletterPartyServer:
 
         LOGGER.info("Game has ended: %s", event)
         end_message = msg.GameEndMessage(game_end)
-        tasks = (s.send_message(end_message) for s in self._client_sessions)
-        await asyncio.gather(*tasks)
+        await asyncio.gather(
+            *(s.send_message(end_message) for s in self._client_sessions)
+        )
 
     async def send_message(self, writer: asyncio.StreamWriter, message: Message):
         await send_message(writer, message, serializer=self._serializer)
@@ -692,10 +693,12 @@ class LoveletterPartyServer:
 
     async def _abort_server(self, reason: str):
         LOGGER.critical("Aborting server: %s", reason)
-        # TODO: gather
-        for session in self._client_sessions:
+
+        async def abort(session):
             await session._send_error_response(msg.Error.Code.SESSION_ABORTED, reason)
             await session.abort()
+
+        await asyncio.gather(*(abort(s) for s in self._client_sessions))
         self._connection_server_task.cancel()
 
     async def _shutdown(self):
@@ -703,7 +706,7 @@ class LoveletterPartyServer:
         LOGGER.debug("Server's _shutdown called")
         if not self.game_ended:
             raise RuntimeError("Game hasn't been finished yet")
-        await asyncio.gather(*(session.close() for session in self._client_sessions))
+        await asyncio.gather(*(s.close() for s in self._client_sessions))
         self._connection_server_task.cancel()
 
 

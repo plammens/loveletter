@@ -60,7 +60,7 @@ class EnumPostInitMixin:
 
 @contextlib.asynccontextmanager
 async def close_stream_at_exit(writer: asyncio.StreamWriter):
-    """Like contextlib.closing but specifically for asyncio.StreamWriter"""
+    """Like ``contextlib.closing`` but specifically for asyncio.StreamWriter"""
     try:
         yield writer
     finally:

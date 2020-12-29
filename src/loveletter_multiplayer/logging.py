@@ -7,6 +7,7 @@ def setup_logging(level):
     logging.setLogRecordFactory(CustomLogRecord)
     root = logging.getLogger()
     root.setLevel(level)
+    # noinspection SpellCheckingInspection
     formatter = CustomFormatter(
         fmt="{asctime} - {levelname:^8} - {origin:50.50} - {message}",
         style="{",
@@ -21,9 +22,11 @@ class TruncateAfterMaxWidthString(str):
     def __format__(self, format_spec: str):
         if (idx := format_spec.rfind(".")) != -1:
             precision = "".join(itt.takewhile(str.isdigit, format_spec[idx + 1 :]))
-            format_no_prec = format_spec[:idx] + format_spec[idx + 1 + len(precision) :]
+            format_no_precision = (
+                format_spec[:idx] + format_spec[idx + 1 + len(precision) :]
+            )
             precision = int(precision)
-            formatted = super().__format__(format_no_prec)
+            formatted = super().__format__(format_no_precision)
             if len(formatted) > precision:
                 formatted = formatted[: precision - 3] + "..."
             return formatted

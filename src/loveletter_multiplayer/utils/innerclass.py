@@ -44,9 +44,9 @@ class InnerClassMeta(type):
     ...     class Motor(metaclass=InnerClassMeta):
     ...         def __init__(self, car: "Car"):
     ...             self.car = car
-    >>> car = Car()
-    >>> motor = car.Motor()
-    >>> motor.car is car
+    >>> my_car = Car()
+    >>> motor = my_car.Motor()
+    >>> motor.car is my_car
     True
 
     Note: this doesn't attempt to discriminate from which class it is being accessed,

@@ -11,19 +11,13 @@ from typing import Sequence, TYPE_CHECKING, Type
 
 from multimethod import multimethod
 
+import loveletter.game
+import loveletter.gameevent as gev
+import loveletter.gamenode as gnd
+import loveletter.move as move
+import loveletter.round as rnd
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.cards import CardType
-from loveletter.game import Game, PlayingRound
-from loveletter.gameevent import (
-    ChoiceEvent,
-    GameEvent,
-    GameInputRequest,
-    GameResultEvent,
-    Serializable,
-)
-from loveletter.gamenode import GameNodeState
-from loveletter.move import ChoiceStep
-from loveletter.round import InitRoundState, PlayerMoveChoice
 from loveletter_multiplayer.networkcomms import (
     Message,
     dataclasses,
@@ -41,7 +35,7 @@ LOGGER = logging.getLogger(__name__)
 Connection = "LoveletterClient.ServerConnectionManager"
 
 
-class RemoteGameShadowCopy(Game):
+class RemoteGameShadowCopy(loveletter.game.Game):
     def __init__(self, players: Sequence[str], connection: Connection, player_id: int):
         """
         Create a local shadow copy of a remote game.
@@ -82,32 +76,32 @@ class RemoteGameShadowCopy(Game):
         #   7. the handler finishes, raising a StopAsyncIteration
 
         @multimethod
-        async def handle(e: GameEvent):
+        async def handle(e: gev.GameEvent):
             raise NotImplementedError(e)
             yield  # noqa
 
         @handle.register
-        async def handle(e: GameResultEvent):
+        async def handle(e: gev.GameResultEvent):
             # just show it to the caller
             yield e
             yield None
 
         @handle.register
-        async def handle(e: GameNodeState):
+        async def handle(e: gnd.GameNodeState):
             # Make sure that the one received from the server is equivalent
             await self._sync_with_server(e)
             yield e
             yield None
 
         @handle.register
-        async def handle(e: PlayingRound):
+        async def handle(e: loveletter.game.PlayingRound):
             # hack to ensure same deck at the start of each round
             # noinspection PyTypeChecker
             message: msg.GameNodeStateMessage = await connection.get_game_message(
                 message_type=msg.GameNodeStateMessage
             )
             LOGGER.debug("Synchronizing initial deck")
-            init: InitRoundState = message.state.round.state  # noqa
+            init: rnd.InitRoundState = message.state.round.state  # noqa
             # noinspection PyTypeChecker
             response: msg.DataMessage = await connection.request(
                 msg.ReadRequest("game.current_round.deck")
@@ -121,12 +115,12 @@ class RemoteGameShadowCopy(Game):
             yield None
 
         @handle.register
-        async def handle(e: GameInputRequest):
+        async def handle(e: gev.GameInputRequest):
             raise NotImplementedError(e)
             yield  # noqa
 
         @handle.register
-        async def handle(e: ChoiceEvent):
+        async def handle(e: gev.ChoiceEvent):
             # default action for a choice event: only ask host
             if connection.client.is_host:
                 await self._sync_with_server(e)
@@ -141,7 +135,7 @@ class RemoteGameShadowCopy(Game):
                 yield await self._set_choice_from_remote(e)
 
         @handle.register
-        async def handle(e: PlayerMoveChoice):
+        async def handle(e: rnd.PlayerMoveChoice):
             current_player_id = self.current_round.current_player.id
             username = self.players[current_player_id].username
             if self.player_id == current_player_id:
@@ -157,9 +151,9 @@ class RemoteGameShadowCopy(Game):
                 yield (await self._set_choice_from_remote(e))
 
         @handle.register
-        def handle(e: ChoiceStep):
+        def handle(e: move.ChoiceStep):
             # fmt:off
-            return handle[PlayerMoveChoice, ](e)
+            return handle[rnd.PlayerMoveChoice, ](e)
             # fmt:on
 
         asyncio.current_task().set_name(f"game<{self.connection.client.username}>")
@@ -199,7 +193,7 @@ class RemoteGameShadowCopy(Game):
         exc.value = results
         raise exc
 
-    async def _set_choice_from_remote(self, event: ChoiceEvent) -> ChoiceEvent:
+    async def _set_choice_from_remote(self, event: gev.ChoiceEvent) -> gev.ChoiceEvent:
         LOGGER.debug("Awaiting on remote to relay choice for %s", event)
         message = await self.connection.get_game_message(
             message_type=msg.FulfilledChoiceMessage
@@ -213,12 +207,12 @@ class RemoteGameShadowCopy(Game):
         return event
 
     @multimethod
-    async def _sync_with_server(self, event: GameEvent) -> Message:
+    async def _sync_with_server(self, event: gev.GameEvent) -> Message:
         """Wait for the server to send the same event to make sure client is in sync."""
         raise NotImplementedError(event)
 
     @_sync_with_server.register
-    async def _sync_with_server(self, event: GameNodeState):
+    async def _sync_with_server(self, event: gnd.GameNodeState):
         LOGGER.debug("Syncing state with server: %s", event)
         message = await self.connection.get_game_message(
             message_type=msg.GameNodeStateMessage
@@ -230,7 +224,7 @@ class RemoteGameShadowCopy(Game):
         return message
 
     @_sync_with_server.register
-    async def _sync_with_server(self, event: GameInputRequest):
+    async def _sync_with_server(self, event: gev.GameInputRequest):
         LOGGER.debug("Syncing input request with server: %s", event)
         message = await self.connection.get_game_message(
             message_type=msg.GameInputRequestMessage
@@ -242,9 +236,9 @@ class RemoteGameShadowCopy(Game):
         return message
 
     @_sync_with_server.register
-    async def _sync_with_server(self, event: PlayerMoveChoice):
+    async def _sync_with_server(self, event: rnd.PlayerMoveChoice):
         # "super" call:
-        message = await self._sync_with_server.__func__[object, GameInputRequest](
+        message = await self._sync_with_server.__func__[object, gev.GameInputRequest](
             self, event
         )
         # noinspection PyTypeChecker
@@ -263,7 +257,7 @@ class RemoteGameShadowCopy(Game):
         return message
 
     async def _communicate_choice(
-        self, choice_class: Type[ChoiceEvent], choice: Serializable
+        self, choice_class: Type[gev.ChoiceEvent], choice: gev.Serializable
     ):
         """Communicate a local choice back to the server."""
         message = msg.FulfilledChoiceMessage(full_qualname(choice_class), choice)
@@ -271,20 +265,20 @@ class RemoteGameShadowCopy(Game):
 
 
 @dataclass(frozen=True)
-class RemoteEvent(GameEvent):
+class RemoteEvent(gev.GameEvent):
     """Indicates that the client is currently waiting on something on the remote end."""
 
-    wrapped: GameEvent  #: the original event that is being handled remotely; read only
+    wrapped: gev.GameEvent  #: the original event being handled remotely; read only
     description: str
 
 
 @multimethod
-def _requests_are_equivalent(local: GameInputRequest, remote: GameInputRequest):
+def _requests_are_equivalent(local: gev.GameInputRequest, remote: gev.GameInputRequest):
     return remote == local
 
 
 @_requests_are_equivalent.register
-def _requests_are_equivalent(local: ChoiceStep, remote: ChoiceStep):
+def _requests_are_equivalent(local: move.ChoiceStep, remote: move.ChoiceStep):
     return (
         remote.player == local.player
         # can only check type due to a serialization/deserialization defect

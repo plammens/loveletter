@@ -3,9 +3,9 @@ import enum
 from dataclasses import dataclass
 from typing import Any, ClassVar, List, Type
 
-from loveletter.game import Game, GameEnd
-from loveletter.gameevent import GameInputRequest, Serializable
-from loveletter.gamenode import GameNodeState
+import loveletter.game
+import loveletter.gameevent
+import loveletter.gamenode
 from loveletter_multiplayer.utils import EnumPostInitMixin
 
 
@@ -95,7 +95,7 @@ class DataMessage(Message):
 class GameCreated(Message):
     """A message sent from the server to indicate that a game has been created."""
 
-    players: List[Game.Player]
+    players: List[loveletter.game.Game.Player]
     player_id: int  #: the player id assigned to the client to which this is being sent
 
 
@@ -109,7 +109,7 @@ class GameMessage(Message, metaclass=abc.ABCMeta):
 class GameNodeStateMessage(GameMessage):
     """Sent by the server to synchronise the game state."""
 
-    state: GameNodeState
+    state: loveletter.gamenode.GameNodeState
 
 
 @Message.register
@@ -117,7 +117,7 @@ class GameNodeStateMessage(GameMessage):
 class GameInputRequestMessage(GameMessage):
     """Game input request wrapper message."""
 
-    request: GameInputRequest
+    request: loveletter.gameevent.GameInputRequest
     id: int  #: game-wide unique identifier for the request
 
     def __post_init__(self):
@@ -132,7 +132,7 @@ class FulfilledChoiceMessage(GameMessage):
     """Sent from a client to indicate the choice for a fulfilled game input step."""
 
     choice_class: str  #: fully qualified name of the ChoiceEvent subclass
-    choice: Serializable  #: serializable value of choice (ChoiceEvent.to_serializable)
+    choice: loveletter.gameevent.Serializable  #: serializable value of choice (ChoiceEvent.to_serializable)
 
     def __post_init__(self):
         super().__post_init__()
@@ -145,4 +145,4 @@ class FulfilledChoiceMessage(GameMessage):
 class GameEndMessage(GameMessage):
     """Sent from the server to indicate the game has ended."""
 
-    game_end: GameEnd
+    game_end: loveletter.game.GameEnd

@@ -8,17 +8,12 @@ from typing import ClassVar, Iterator, List, Optional
 
 from multimethod import multimethod
 
+import loveletter.gameevent as gev
+import loveletter.gamenode as gnd
+import loveletter.move as move
+import loveletter.round as rnd
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.game import Game
-from loveletter.gameevent import (
-    ChoiceEvent,
-    GameEvent,
-    GameInputRequest,
-    GameResultEvent,
-)
-from loveletter.gamenode import GameNodeState
-from loveletter.move import MoveStep
-from loveletter.round import PlayerMoveChoice
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     Message,
@@ -271,7 +266,7 @@ class LoveletterPartyServer:
                     pass
 
         @multimethod
-        async def game_input_request(self, request: ChoiceEvent) -> ChoiceEvent:
+        async def game_input_request(self, request: gev.ChoiceEvent) -> gev.ChoiceEvent:
             """Make a GameInputRequest to the client and wait for the response."""
             LOGGER.info(
                 "Making game input request to %s: %s", self.client_info, request
@@ -456,7 +451,7 @@ class LoveletterPartyServer:
         LOGGER.info("Starting game")
 
         @multimethod
-        async def handle(e: GameEvent) -> GameEvent:
+        async def handle(e: gev.GameEvent) -> gev.GameEvent:
             raise NotImplementedError(e)
 
         @handle.register
@@ -465,29 +460,29 @@ class LoveletterPartyServer:
 
         # noinspection PyUnusedLocal
         @handle.register
-        async def handle(e: GameResultEvent):
+        async def handle(e: gev.GameResultEvent):
             pass  # server doesn't need to do anything with this info
 
         @handle.register
-        async def handle(e: GameNodeState):
+        async def handle(e: gnd.GameNodeState):
             message = msg.GameNodeStateMessage(e)
             await asyncio.gather(
                 *(s.send_message(message) for s in self._client_sessions)
             )
 
         @handle.register
-        async def handle(e: GameInputRequest):
+        async def handle(e: gev.GameInputRequest):
             raise NotImplementedError(e)
 
         @handle.register
-        async def handle(e: ChoiceEvent):
+        async def handle(e: gev.ChoiceEvent):
             # default: ask the host
             host_session = self.party_host_session
             e = await host_session.game_input_request(e)
             return e
 
         @handle.register
-        async def handle(e: PlayerMoveChoice):
+        async def handle(e: rnd.PlayerMoveChoice):
             player = self.game.current_round.current_player
             session = self._client_sessions[player.id]
             assert session.client_info.id == player.id
@@ -495,10 +490,10 @@ class LoveletterPartyServer:
             return e
 
         @handle.register
-        def handle(e: MoveStep):
+        def handle(e: move.MoveStep):
             # reuse code from PlayerMoveChoice handler
             # fmt:off
-            return handle[PlayerMoveChoice, ](e)
+            return handle[rnd.PlayerMoveChoice, ](e)
             # fmt:on
 
         game = self.game

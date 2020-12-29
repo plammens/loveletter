@@ -3,6 +3,7 @@ import enum
 from dataclasses import dataclass
 from typing import Any, ClassVar, List, Type
 
+import loveletter.cardpile
 import loveletter.game
 import loveletter.gameevent
 import loveletter.gamenode
@@ -110,6 +111,15 @@ class GameNodeStateMessage(GameMessage):
     """Sent by the server to synchronise the game state."""
 
     state: loveletter.gamenode.GameNodeState
+
+
+@Message.register
+@dataclass(frozen=True)
+class RoundInitMessage(GameNodeStateMessage):
+    """Includes deck info so clients can synchronize their local games."""
+
+    state: loveletter.game.PlayingRound
+    deck: loveletter.cardpile.Deck
 
 
 @Message.register

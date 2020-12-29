@@ -96,17 +96,11 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         @handle.register
         async def handle(e: loveletter.game.PlayingRound):
             # hack to ensure same deck at the start of each round
-            # noinspection PyTypeChecker
-            message: msg.GameNodeStateMessage = await connection.get_game_message(
-                message_type=msg.GameNodeStateMessage
+            message = await connection.get_game_message(
+                message_type=msg.RoundInitMessage
             )
-            LOGGER.debug("Synchronizing initial deck")
-            init: rnd.InitRoundState = message.state.round.state  # noqa
-            # noinspection PyTypeChecker
-            response: msg.DataMessage = await connection.request(
-                msg.ReadRequest("game.current_round.deck")
-            )
-            deck = response.data
+            deck = message.deck
+            LOGGER.debug("Synchronizing initial deck to %s", deck)
             game_round = self.current_round
             game_round.deck = deck
             # noinspection PyArgumentList

@@ -8,12 +8,12 @@ from typing import ClassVar, Iterator, List, Optional
 
 from multimethod import multimethod
 
+import loveletter.game
 import loveletter.gameevent as gev
 import loveletter.gamenode as gnd
 import loveletter.move as move
 import loveletter.round as rnd
 import loveletter_multiplayer.networkcomms.message as msg
-from loveletter.game import Game
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
     Message,
@@ -50,11 +50,11 @@ class LoveletterPartyServer:
     sent an error message and will be subsequently closed.
     """
 
-    MAX_CLIENTS: ClassVar[int] = Game.MAX_PLAYERS
+    MAX_CLIENTS: ClassVar[int] = loveletter.game.Game.MAX_PLAYERS
 
     host: str
     port: int
-    game: Optional[Game]
+    game: Optional[loveletter.game.Game]
 
     def __init__(self, host, port, party_host_username: str):
         """
@@ -424,7 +424,7 @@ class LoveletterPartyServer:
                         session.client_info.username
                         for session in self._client_sessions
                     ]
-                self.game = self._deserializer.game = Game(usernames)
+                self.game = self._deserializer.game = loveletter.game.Game(usernames)
                 LOGGER.info("Ready to play; created game: %s", self.game)
                 tasks = (
                     s.send_message(
@@ -466,6 +466,14 @@ class LoveletterPartyServer:
         @handle.register
         async def handle(e: gnd.GameNodeState):
             message = msg.GameNodeStateMessage(e)
+            await asyncio.gather(
+                *(s.send_message(message) for s in self._client_sessions)
+            )
+
+        @handle.register
+        async def handle(e: loveletter.game.PlayingRound):
+            # include deck so clients can sync
+            message = msg.RoundInitMessage(e, deck=e.round.deck)
             await asyncio.gather(
                 *(s.send_message(message) for s in self._client_sessions)
             )

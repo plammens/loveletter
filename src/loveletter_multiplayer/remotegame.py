@@ -89,7 +89,6 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         @handle.register
         async def handle(e: gnd.GameNodeState):
             # Make sure that the one received from the server is equivalent
-            # TODO: move the sync calls into assert statements so they can be toggled
             await self._sync_with_server(e)
             yield e
             yield None
@@ -225,17 +224,44 @@ class RemoteGameShadowCopy(loveletter.game.Game):
             message_type=msg.GameInputRequestMessage
         )
         # fmt:off
-        assert _requests_are_equivalent(event, message.request), \
+        assert self._requests_are_equivalent(event, message.request), \
             f"Client fell out of sync: client: {event}, server: {message.request}"
         # fmt:on
         return message
 
     @_sync_with_server.register
     async def _sync_with_server(self, event: rnd.PlayerMoveChoice):
-        # "super" call:
-        message = await self._sync_with_server.__func__[object, gev.GameInputRequest](
-            self, event
+        # "super" call to reuse code from _sync_with_server for GameInputRequest:
+        super_func = self._sync_with_server.__func__[object, gev.GameInputRequest]
+        message = await super_func(self, event)
+        assert await self._check_player_hands_are_in_sync()
+        return message
+
+    async def _communicate_choice(
+        self, choice_class: Type[gev.ChoiceEvent], choice: gev.Serializable
+    ):
+        """Communicate a local choice back to the server."""
+        message = msg.FulfilledChoiceMessage(full_qualname(choice_class), choice)
+        await self.connection._send_message(message)
+
+    @staticmethod
+    @multimethod
+    def _requests_are_equivalent(
+        local: gev.GameInputRequest, remote: gev.GameInputRequest
+    ):
+        return remote == local
+
+    @staticmethod
+    @_requests_are_equivalent.__func__.register  # need to un-wrap the static method
+    def _requests_are_equivalent(local: move.ChoiceStep, remote: move.ChoiceStep):
+        return (
+            remote.player == local.player
+            # can only check type due to a serialization/deserialization defect
+            # (the card instances won't be the same object)
+            and CardType(remote.card_played) == CardType(local.card_played)
         )
+
+    async def _check_player_hands_are_in_sync(self) -> bool:
         # noinspection PyTypeChecker
         response: msg.DataMessage = await self.connection.request(
             msg.ReadRequest("game.current_round.current_player.hand")
@@ -249,14 +275,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
             f"Client and server fell out of sync: {username}'s hand: " \
             f"local: {local_hand}, remote: {remote_hand}"
         # fmt: on
-        return message
-
-    async def _communicate_choice(
-        self, choice_class: Type[gev.ChoiceEvent], choice: gev.Serializable
-    ):
-        """Communicate a local choice back to the server."""
-        message = msg.FulfilledChoiceMessage(full_qualname(choice_class), choice)
-        await self.connection._send_message(message)
+        return True
 
 
 @dataclass(frozen=True)
@@ -265,18 +284,3 @@ class RemoteEvent(gev.GameEvent):
 
     wrapped: gev.GameEvent  #: the original event being handled remotely; read only
     description: str
-
-
-@multimethod
-def _requests_are_equivalent(local: gev.GameInputRequest, remote: gev.GameInputRequest):
-    return remote == local
-
-
-@_requests_are_equivalent.register
-def _requests_are_equivalent(local: move.ChoiceStep, remote: move.ChoiceStep):
-    return (
-        remote.player == local.player
-        # can only check type due to a serialization/deserialization defect
-        # (the card instances won't be the same object)
-        and CardType(remote.card_played) == CardType(local.card_played)
-    )

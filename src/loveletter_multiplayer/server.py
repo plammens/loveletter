@@ -270,9 +270,9 @@ class LoveletterPartyServer:
                 except asyncio.CancelledError:
                     pass
 
-        async def game_input_request(
-            self, request: GameInputRequest
-        ) -> msg.FulfilledChoiceMessage:
+        @multimethod
+        async def game_input_request(self, request: ChoiceEvent) -> ChoiceEvent:
+            """Make a GameInputRequest to the client and wait for the response."""
             LOGGER.info(
                 "Making game input request to %s: %s", self.client_info, request
             )
@@ -281,8 +281,10 @@ class LoveletterPartyServer:
             await send_message(self.writer, request_message)
             response = await self.receive_game_message()
             assert import_from_qualname(response.choice_class) is type(request)
+            request.set_from_serializable(response.choice)
+            LOGGER.info("Client responded: %s", request)
             await self._relay_response(response)  # broadcast response to other players
-            return response
+            return request
 
         async def receive_game_message(self) -> msg.FulfilledChoiceMessage:
             message = await self._game_message_queue.get()
@@ -337,6 +339,7 @@ class LoveletterPartyServer:
                 return
 
             message = msg.DataMessage(obj)
+            LOGGER.debug("Responding to read request with %s", message)
             try:
                 await self.send_message(message)
             except TypeError:
@@ -379,6 +382,7 @@ class LoveletterPartyServer:
 
         async def _relay_response(self, response: msg.FulfilledChoiceMessage):
             """Broadcast a choice made by this client to all other clients."""
+            LOGGER.debug("Relaying choice to other players: %s", response)
             sessions = set(self.server._client_sessions) - {self}
             tasks = (s.send_message(response) for s in sessions)
             await asyncio.gather(*tasks)
@@ -449,6 +453,8 @@ class LoveletterPartyServer:
     async def play_game(self):
         """This coroutine manages the central (server's) copy of the game."""
 
+        LOGGER.info("Starting game")
+
         @multimethod
         async def handle(e: GameEvent) -> GameEvent:
             raise NotImplementedError(e)
@@ -475,8 +481,7 @@ class LoveletterPartyServer:
         async def handle(e: ChoiceEvent):
             # default: ask the host
             host_session = self.party_host_session
-            message = await host_session.game_input_request(e)
-            e.set_from_serializable(message.choice)
+            e = await host_session.game_input_request(e)
             return e
 
         @handle.register
@@ -484,8 +489,7 @@ class LoveletterPartyServer:
             player = self.game.current_round.current_player
             session = self._client_sessions[player.id]
             assert session.client_info.id == player.id
-            message = await session.game_input_request(e)
-            e.set_from_serializable(message.choice)
+            e = await session.game_input_request(e)
             return e
 
         @handle.register
@@ -505,6 +509,8 @@ class LoveletterPartyServer:
             except StopIteration as end:
                 (game_end,) = end.value
                 break
+            LOGGER.info("Server game generated event: %s", event)
+
         end_message = msg.GameEndMessage(game_end)
         tasks = (s.send_message(end_message) for s in self._client_sessions)
         await asyncio.gather(*tasks)

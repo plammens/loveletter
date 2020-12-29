@@ -30,7 +30,7 @@ ENUM_KEY = "_enum_"
 SET_KEY = "_set_"
 TYPE_KEY = "_type_"
 FALLBACK_KEY = "_class_"
-FALLBACK_TYPES = (GameInputRequest, CardPile, Card)
+FALLBACK_TYPES = (GameInputRequest, CardPile, Card, RoundPlayer.Hand)
 
 
 class MessageSerializer(json.JSONEncoder):

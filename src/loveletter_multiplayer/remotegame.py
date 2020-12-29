@@ -213,7 +213,7 @@ class RemoteGameShadowCopy(Game):
         return event
 
     @multimethod
-    async def _sync_with_server(self, event: GameEvent):
+    async def _sync_with_server(self, event: GameEvent) -> Message:
         """Wait for the server to send the same event to make sure client is in sync."""
         raise NotImplementedError(event)
 
@@ -228,6 +228,7 @@ class RemoteGameShadowCopy(Game):
         assert message.state == event, \
             f"Client fell out of sync: client: {event}, server: {message.state}"
         # fmt:on
+        return message
 
     @_sync_with_server.register
     async def _sync_with_server(self, event: GameInputRequest):
@@ -240,6 +241,28 @@ class RemoteGameShadowCopy(Game):
         assert _requests_are_equivalent(event, message.request), \
             f"Client fell out of sync: client: {event}, server: {message.request}"
         # fmt:on
+        return message
+
+    @_sync_with_server.register
+    async def _sync_with_server(self, event: PlayerMoveChoice):
+        # "super" call:
+        message = await self._sync_with_server.__func__[object, GameInputRequest](
+            self, event
+        )
+        # noinspection PyTypeChecker
+        response: msg.DataMessage = await self.connection.request(
+            msg.ReadRequest("game.current_round.current_player.hand")
+        )
+        player = self.current_round.current_player
+        username = self.players[player.id].username
+        local_hand = list(map(CardType, player.hand))
+        remote_hand = list(map(CardType, response.data))
+        # fmt: off
+        assert local_hand == remote_hand, \
+            f"Client and server fell out of sync: {username}'s hand: " \
+            f"local: {local_hand}, remote: {remote_hand}"
+        # fmt: on
+        return message
 
     async def _communicate_choice(
         self, choice_class: Type[ChoiceEvent], choice: Serializable

@@ -72,6 +72,12 @@ class ReadyToPlay(Message):
 
 @Message.register
 @dataclass(frozen=True)
+class Shutdown(Message):
+    """Sent by the party host at the end of a game to allow the server to shut down."""
+
+
+@Message.register
+@dataclass(frozen=True)
 class ReadRequest(Message):
     """
     Attribute access on a remote game object.

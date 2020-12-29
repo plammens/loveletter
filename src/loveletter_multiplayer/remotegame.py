@@ -89,6 +89,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         @handle.register
         async def handle(e: gnd.GameNodeState):
             # Make sure that the one received from the server is equivalent
+            # TODO: move the sync calls into assert statements so they can be toggled
             await self._sync_with_server(e)
             yield e
             yield None

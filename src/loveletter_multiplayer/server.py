@@ -78,10 +78,12 @@ class LoveletterPartyServer:
         self._server: asyncio.AbstractServer
         self._sessions_lock: asyncio.Lock
         self._ready_to_play: asyncio.Event
-        self._server_task: Optional[asyncio.Task] = None
+        self._connection_server_task: Optional[asyncio.Task] = None
+        self._playing_game_task: Optional[asyncio.Task] = None
 
     def _reset_game_vars(self):
         self.game = None
+        self._playing_game_task = None
         self._deserializer = MessageDeserializer()
         self._game_input_request_id_gen: Iterator[int] = itertools.count(0)
         try:
@@ -126,18 +128,48 @@ class LoveletterPartyServer:
         client = self.party_host
         return self._client_sessions[client.id] if client is not None else None
 
+    @property
+    def game_in_progress(self):
+        """Whether a game has been created and is currently in progress."""
+        return (
+            self._ready_to_play.is_set()
+            and self.game is not None
+            and self._playing_game_task is not None
+            and not self._playing_game_task.done()
+        )
+
+    @property
+    def game_ended(self):
+        """Whether a game has been created and has been fully played through."""
+        return (
+            self._ready_to_play.is_set()
+            and self.game is not None
+            and self.game.ended
+            and self._playing_game_task is not None
+            and self._playing_game_task.done()
+        )
+
     async def run_server(self):
+        """
+        Starts the connection server and lasts until the server shuts down.
+
+        Can only be called once per instance.
+        """
+        if self._connection_server_task is not None:
+            raise RuntimeError("run_server can only be called once")
+        self._connection_server_task = asyncio.current_task()
         await self._init_async()
-        self._server_task = asyncio.current_task()
         async with self._server:
             asyncio.create_task(
                 self.start_game_when_ready(), name="start_game_when_ready"
             )
             try:
                 await self._server.serve_forever()
+            except asyncio.CancelledError:
+                pass  # exiting gracefully
             finally:
                 LOGGER.info("Server shutting down")
-                self._server_task = None
+                self._connection_server_task = None
 
     async def connection_handler(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -252,18 +284,23 @@ class LoveletterPartyServer:
                     )
                     continue
 
-        async def abort(self):
-            """Abort this session."""
-            LOGGER.info("Aborting session with %s", self.client_info)
+        async def close(self):
+            """Gracefully close this session."""
+            self.writer.write_eof()
             current_task = asyncio.current_task()
             for task in self._receive_loop_task, self._session_task:
                 if task is current_task:
-                    raise RuntimeError(f"Can't abort from within {task}")
+                    raise RuntimeError(f"Can't cancel from within {task}")
                 task.cancel()
                 try:
                     await task  # wait for the task to die
                 except asyncio.CancelledError:
                     pass
+
+        async def abort(self):
+            """Abort this session."""
+            LOGGER.warning("Aborting session with %s", self.client_info)
+            await self.close()
 
         @multimethod
         async def game_input_request(self, request: gev.ChoiceEvent) -> gev.ChoiceEvent:
@@ -348,6 +385,20 @@ class LoveletterPartyServer:
         async def handle_message(self, message: msg.FulfilledChoiceMessage):
             await self._game_message_queue.put(message)
 
+        # noinspection PyUnusedLocal
+        @handle_message.register
+        async def handle_message(self, message: msg.Shutdown):
+            if self.server.game_ended:
+                if self.client_info.is_host:
+                    return await self.server._shutdown()
+                else:
+                    LOGGER.warning(
+                        "Ignoring shutdown message from non-host client %s",
+                        self.client_info,
+                    )
+            else:
+                LOGGER.warning("Ignoring shutdown message received before game ended")
+
         async def _receive_loop(self):
             try:
                 while True:
@@ -405,7 +456,7 @@ class LoveletterPartyServer:
                 # host left; abort all sessions
                 reason = "Host disconnected"
                 await server._abort_server(reason)
-            elif server._ready_to_play.is_set():
+            elif server._ready_to_play.is_set() and not server.game_ended:
                 # a game was in progress;
                 # for now just abort the game and restart all sessions
                 server._abort_current_game(
@@ -448,6 +499,9 @@ class LoveletterPartyServer:
     async def play_game(self):
         """This coroutine manages the central (server's) copy of the game."""
 
+        if self._playing_game_task is not None:
+            raise RuntimeError("play_game already called")
+        self._playing_game_task = asyncio.current_task()
         LOGGER.info("Starting game")
 
         @multimethod
@@ -516,6 +570,7 @@ class LoveletterPartyServer:
                 break
             LOGGER.info("Server game generated event: %s", event)
 
+        LOGGER.info("Game has ended: %s", event)
         end_message = msg.GameEndMessage(game_end)
         tasks = (s.send_message(end_message) for s in self._client_sessions)
         await asyncio.gather(*tasks)
@@ -621,23 +676,35 @@ class LoveletterPartyServer:
         await self.send_message(writer, message)
 
     def _abort_current_game(self, reason: str):
+        if self.game_ended:
+            raise RuntimeError("Game has already ended")
         LOGGER.warning(
             f"Aborting game and restarting remaining sessions "
             f"({len(self._client_sessions)})"
         )
-        self._reset_game_vars()
+        self._playing_game_task.cancel("Aborting current game and restarting")
         exc = RestartSession(reason)
         for session in self._client_sessions:
             coro = session._session_task.get_coro()
             coro.throw(exc)
+        self._reset_game_vars()
         asyncio.create_task(self.start_game_when_ready(), name="start_game_when_ready")
 
     async def _abort_server(self, reason: str):
         LOGGER.critical("Aborting server: %s", reason)
+        # TODO: gather
         for session in self._client_sessions:
             await session._send_error_response(msg.Error.Code.SESSION_ABORTED, reason)
             await session.abort()
-        self._server_task.cancel()
+        self._connection_server_task.cancel()
+
+    async def _shutdown(self):
+        """Gracefully shut down the server after having finished a game."""
+        LOGGER.debug("Server's _shutdown called")
+        if not self.game_ended:
+            raise RuntimeError("Game hasn't been finished yet")
+        await asyncio.gather(*(session.close() for session in self._client_sessions))
+        self._connection_server_task.cancel()
 
 
 @dataclass(frozen=True)

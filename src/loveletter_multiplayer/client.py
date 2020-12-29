@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Optional, Type, TypeVar, Union
+from typing import Awaitable, Optional, Type, TypeVar
 
 from multimethod import multimethod
 
@@ -27,10 +27,12 @@ class LoveletterClient:
     username: str
 
     def __init__(self, username: str, is_host: bool = False):
+        # TODO: subclass with host/guest
         self.username = username
         self.is_host = is_host
 
         self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
+        self._connection_task: Optional[asyncio.Task] = None
 
     @property
     def game(self) -> Optional[RemoteGameShadowCopy]:
@@ -41,11 +43,25 @@ class LoveletterClient:
         return f"<{self.__class__.__name__} with {username=}, {is_host=}>"
 
     async def connect(self, host, port):
+        # TODO: manage logon here
         reader, writer = await asyncio.open_connection(host=host, port=port)
         return asyncio.create_task(self._handle_connection(reader, writer))
 
+    async def send_shutdown(self):
+        if not self.is_host:
+            raise ValueError("Guest client can't send shutdown message")
+        if self._server_conn is None or self._connection_task is None:
+            raise RuntimeError("No active connection")
+        LOGGER.info("Sending shutdown message to server")
+        await self._server_conn._send_message(msg.Shutdown())
+        await self._connection_task  # wait for the connection to shut down
+
     async def _handle_connection(self, reader, writer):
         async with close_stream_at_exit(writer):
+            if self._connection_task is not None:
+                raise RuntimeError("_handle_connection already called")
+            self._connection_task = asyncio.current_task()
+
             address = writer.get_extra_info("peername")
             LOGGER.info(f"Successfully connected to {address}")
 
@@ -95,6 +111,7 @@ class LoveletterClient:
             self.writer: asyncio.StreamWriter = writer
 
             self._reset_game_vars()
+            self._main_task: Optional[asyncio.Task] = None
             self._receive_loop_active = False
 
         def _reset_game_vars(self):
@@ -104,6 +121,10 @@ class LoveletterClient:
         async def _init_async(self):
             self._game_message_queue = asyncio.Queue()
             self._other_message_queue = asyncio.Queue()
+
+        @property
+        def attached(self):
+            return self.client._server_conn is self
 
         def __repr__(self):
             return f"<connection from {self.client} to {self.server_info}>"
@@ -123,7 +144,7 @@ class LoveletterClient:
             await self._init_async()
             task = asyncio.current_task()
             task.set_name(f"client<{self.client.username}>")
-            if self.client._server_conn is not self:
+            if not self.attached:
                 raise RuntimeError("Can't manage a detached connection")
             await self._logon()
             while True:
@@ -154,7 +175,9 @@ class LoveletterClient:
             """
             await self._send_message(message)
             receiver = (
-                self._other_message_queue.get() if self._receive_loop_active else None
+                self._get_message_from_queue(self._other_message_queue)
+                if self._receive_loop_active
+                else None
             )
             if message_type is None:
                 request_to_response = {msg.ReadRequest: msg.DataMessage}
@@ -167,11 +190,14 @@ class LoveletterClient:
 
         async def get_game_message(self, message_type: Optional[Type[M]] = None) -> M:
             """
-            Receive a message.
+            Receive a game message.
 
             :param message_type: Expected message (sub-)type, if any.
             """
-            message: msg.GameMessage = await self._game_message_queue.get()
+            # noinspection PyTypeChecker
+            message: msg.GameMessage = await self._get_message_from_queue(
+                self._game_message_queue
+            )
             message = fill_placeholders(message, self.game)
             if message_type is not None and not isinstance(message, message_type):
                 raise UnexpectedMessageError(
@@ -251,16 +277,7 @@ class LoveletterClient:
             self._maybe_raise(message)
 
         @handle_message.register
-        async def handle_message(
-            self,
-            message: Union[
-                msg.GameNodeStateMessage,
-                msg.GameInputRequestMessage,
-                msg.FulfilledChoiceMessage,
-                msg.GameEndMessage,
-            ],
-        ):
-            # TODO: make superclass for these
+        async def handle_message(self, message: msg.GameMessage):
             await self._game_message_queue.put(message)
             LOGGER.debug("Put in game message queue: %s", message)
 
@@ -284,6 +301,20 @@ class LoveletterClient:
                 LOGGER.info("Server closed the connection")
             finally:
                 self._receive_loop_active = False
+                self._handle_connection_closed_by_server()
+
+        async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
+            if not self._receive_loop_active or queue is None:
+                raise ConnectionClosedError("Receiver is no longer active")
+            message = await queue.get()
+            if message is None:
+                raise ConnectionClosedError("Server closed the connection")
+            return message
+
+        def _handle_connection_closed_by_server(self):
+            self._game_message_queue.put_nowait(None)
+            self._other_message_queue.put_nowait(None)
+            self._other_message_queue = self._game_message_queue = None
 
 
 @dataclass(frozen=True)

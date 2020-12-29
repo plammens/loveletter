@@ -100,6 +100,16 @@ class OpponentChoice(PlayerChoice):
         super().__init__(player, card_played)
         self._valid_choices = self._valid_choices - {self.player}
 
+    def to_serializable(self) -> int:
+        return (
+            "NO_TARGET" if self.choice is self.NO_TARGET else super().to_serializable()
+        )
+
+    def from_serializable(self, value: Serializable) -> "RoundPlayer":
+        return (
+            self.NO_TARGET if value == "NO_TARGET" else super().from_serializable(value)
+        )
+
     def _validate_choice(self, value):
         if self._valid_choices:
             super()._validate_choice(value)

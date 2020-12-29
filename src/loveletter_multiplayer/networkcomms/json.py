@@ -127,19 +127,19 @@ class MessageDeserializer(json.JSONDecoder):
         return self.decode(message.rstrip(MESSAGE_SEPARATOR).decode())
 
     def _reconstruct_object(self, json_obj: dict) -> Any:
-        if enum_path := json_obj.pop(ENUM_KEY, None):
+        if (enum_path := json_obj.pop(ENUM_KEY, None)) is not None:
             return self._reconstruct_enum_member(enum_path, json_obj)
         elif (set_type_path := json_obj.pop(SET_KEY, None)) is not None:
             return self._reconstruct_set(set_type_path, json_obj)
-        elif class_path := json_obj.pop(TYPE_KEY, None):
+        elif (class_path := json_obj.pop(TYPE_KEY, None)) is not None:
             return self._reconstruct_type(class_path)
-        elif dataclass_path := json_obj.pop(DATACLASS_KEY, None):
+        elif (dataclass_path := json_obj.pop(DATACLASS_KEY, None)) is not None:
             return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
-        elif message_type := json_obj.pop(MESSAGE_TYPE_KEY, None):
+        elif (message_type := json_obj.pop(MESSAGE_TYPE_KEY, None)) is not None:
             return self._reconstruct_message(message_type, json_obj)
         elif Placeholder.is_placeholder(json_obj):
             return self._reconstruct_from_placeholder(json_obj)
-        elif class_path := json_obj.pop(FALLBACK_KEY, None):
+        elif (class_path := json_obj.pop(FALLBACK_KEY, None)) is not None:
             return self._reconstruct_fallback(class_path, json_obj)
         else:
             return json_obj  # regular dict

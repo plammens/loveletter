@@ -58,7 +58,7 @@ class RemoteGameShadowCopy(Game):
     async def from_connection(cls, connection: Connection):
         # noinspection PyTypeChecker
         message: msg.GameCreated = await connection._expect_message(
-            message_type=msg.Message.Type.GAME_CREATED
+            message_type=msg.GameCreated
         )
         LOGGER.info("Remote game created; creating local copy")
         return RemoteGameShadowCopy(
@@ -70,7 +70,7 @@ class RemoteGameShadowCopy(Game):
         connection = self.connection
 
         # Since async generators don't support yield from, the `handle` hierarchy of
-        # multimethods is specified as follows:
+        # multi-methods is specified as follows:
         #   0. potentially communicate to the server or do other handling
         #   1. yield the event (or a transformed event) to the caller
         #   2. receive the response from the caller (same yield expression as 1.)
@@ -104,7 +104,7 @@ class RemoteGameShadowCopy(Game):
             # hack to ensure same deck at the start of each round
             # noinspection PyTypeChecker
             message: msg.GameNodeStateMessage = await connection.get_game_message(
-                message_type=Message.Type.GAMENODE_STATE
+                message_type=msg.GameNodeStateMessage
             )
             LOGGER.debug("Synchronizing initial deck")
             init: InitRoundState = message.state.round.state  # noqa
@@ -115,6 +115,7 @@ class RemoteGameShadowCopy(Game):
             deck = response.data
             game_round = self.current_round
             game_round.deck = deck
+            # noinspection PyArgumentList
             game_round.state = dataclasses.replace(game_round.state, deck=deck)
             yield e
             yield None
@@ -158,7 +159,7 @@ class RemoteGameShadowCopy(Game):
         @handle.register
         def handle(e: ChoiceStep):
             # fmt:off
-            return handle[PlayerMoveChoice,](e)
+            return handle[PlayerMoveChoice, ](e)
             # fmt:on
 
         asyncio.current_task().set_name(f"game<{self.connection.client.username}>")
@@ -200,9 +201,8 @@ class RemoteGameShadowCopy(Game):
 
     async def _set_choice_from_remote(self, event: ChoiceEvent) -> ChoiceEvent:
         LOGGER.debug("Awaiting on remote to relay choice for %s", event)
-        # noinspection PyTypeChecker
-        message: msg.FulfilledChoiceMessage = await self.connection.get_game_message(
-            message_type=Message.Type.GAME_INPUT_RESPONSE
+        message = await self.connection.get_game_message(
+            message_type=msg.FulfilledChoiceMessage
         )
         # fmt:off
         assert import_from_qualname(message.choice_class) is type(event), \
@@ -220,9 +220,8 @@ class RemoteGameShadowCopy(Game):
     @_sync_with_server.register
     async def _sync_with_server(self, event: GameNodeState):
         LOGGER.debug("Syncing state with server: %s", event)
-        # noinspection PyTypeChecker
-        message: msg.GameNodeStateMessage = await self.connection.get_game_message(
-            message_type=Message.Type.GAMENODE_STATE
+        message = await self.connection.get_game_message(
+            message_type=msg.GameNodeStateMessage
         )
         # fmt:off
         assert message.state == event, \
@@ -233,9 +232,8 @@ class RemoteGameShadowCopy(Game):
     @_sync_with_server.register
     async def _sync_with_server(self, event: GameInputRequest):
         LOGGER.debug("Syncing input request with server: %s", event)
-        # noinspection PyTypeChecker
-        message: msg.GameInputRequestMessage = await self.connection.get_game_message(
-            message_type=Message.Type.GAME_INPUT_REQUEST
+        message = await self.connection.get_game_message(
+            message_type=msg.GameInputRequestMessage
         )
         # fmt:off
         assert _requests_are_equivalent(event, message.request), \

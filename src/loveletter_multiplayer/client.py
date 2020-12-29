@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Optional, Union
+from typing import Awaitable, Optional, Type, TypeVar, Union
 
 from multimethod import multimethod
 
@@ -136,7 +136,11 @@ class LoveletterClient:
                     self._reset_game_vars()
                     continue
 
-        async def request(self, message: Message, message_type=None) -> Message:
+        M = TypeVar("M", bound=Message)
+
+        async def request(
+            self, message: Message, message_type: Optional[Type[M]] = None
+        ) -> M:
             """
             Send a request to the server and await for the reply.
 
@@ -153,26 +157,25 @@ class LoveletterClient:
                 self._other_message_queue.get() if self._receive_loop_active else None
             )
             if message_type is None:
-                request_to_response = {Message.Type.READ_REQUEST: Message.Type.DATA}
-                message_type = request_to_response.get(message.type, None)
+                request_to_response = {msg.ReadRequest: msg.DataMessage}
+                # noinspection PyTypeChecker
+                message_type = request_to_response.get(type(message), None)
             response = await self._expect_message(
                 timeout=5.0, receiver=receiver, message_type=message_type
             )
             return response
 
-        async def get_game_message(
-            self, message_type: Optional[Message.Type] = None
-        ) -> Message:
+        async def get_game_message(self, message_type: Optional[Type[M]] = None) -> M:
             """
             Receive a message.
 
             :param message_type: Expected message (sub-)type, if any.
             """
-            message = await self._game_message_queue.get()
+            message: msg.GameMessage = await self._game_message_queue.get()
             message = fill_placeholders(message, self.game)
-            if message_type is not None and message.type != message_type:
+            if message_type is not None and not isinstance(message, message_type):
                 raise UnexpectedMessageError(
-                    f"Expected {message_type} as game message, got {message}"
+                    f"Expected {message_type.__name__} as game message, got {message}"
                 )
             LOGGER.debug("Got game message: %s", message)
             return message
@@ -186,7 +189,7 @@ class LoveletterClient:
         async def _expect_message(
             self,
             timeout: Optional[float] = None,
-            message_type: Optional[Message.Type] = None,
+            message_type: Optional[Type[Message]] = None,
             receiver: Optional[Awaitable[Message]] = None,
         ) -> Message:
             """
@@ -202,21 +205,22 @@ class LoveletterClient:
                              when awaited. The default uses :meth:`_receive_message`.
             """
             receiver = receiver or self._receive_message()
-            message = await asyncio.wait_for(receiver, timeout)
+            message: Message = await asyncio.wait_for(receiver, timeout)
             if message is None:
                 raise ConnectionClosedError(
                     "Server closed the connection while expecting a message"
                 )
             self._maybe_raise(message)
-            if message_type is not None and not message.type == message_type:
+            if message_type is not None and not isinstance(message, message_type):
                 raise UnexpectedMessageError(
-                    f"Expected {message_type.name}, got {message}"
+                    f"Expected {message_type.__name__}, got {message}"
                 )
             return message
 
-        def _maybe_raise(self, message):
+        @staticmethod
+        def _maybe_raise(message: Message):
             if (
-                message.type == Message.Type.ERROR
+                isinstance(message, msg.Error)
                 and message.error_code == msg.Error.Code.RESTART_SESSION
             ):
                 LOGGER.error("Received signal to restart session: %s", message.message)
@@ -226,7 +230,7 @@ class LoveletterClient:
             """Identify oneself to the server."""
             message = msg.Logon(self.client.username)
             response = await self.request(message)
-            if response.type != Message.Type.OK:
+            if not isinstance(response, msg.OkMessage):
                 raise RuntimeError(f"Logon failed, received response: {response}")
 
         async def _wait_for_game(self):

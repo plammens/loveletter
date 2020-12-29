@@ -5,14 +5,12 @@ import enum
 import json
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
-import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.cardpile import CardPile
 from loveletter.cards import Card
 from loveletter.game import Game
 from loveletter.gameevent import GameInputRequest
 from loveletter.round import Round
 from loveletter.roundplayer import RoundPlayer
-from loveletter.utils import collect_subclasses
 from .message import Message
 from ..utils import (
     full_qualname,
@@ -24,6 +22,7 @@ from ..utils import (
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]
 SerializableObject = Dict[str, Any]
 
+# noinspection SpellCheckingInspection
 MESSAGE_TYPE_KEY = "_msgtype_"
 DATACLASS_KEY = "_dataclass_"
 ENUM_KEY = "_enum_"
@@ -92,7 +91,7 @@ class MessageSerializer(json.JSONEncoder):
         del d[DATACLASS_KEY]
         # The Message hierarchy has EnumPostInitMixin which takes care of enum members,
         # so we can reduce the size of the message by just sending the value
-        d = {MESSAGE_TYPE_KEY: message.type.value} | d
+        d = {MESSAGE_TYPE_KEY: message.to_type_id()} | d
         for field in dataclasses.fields(message):
             if isinstance(field.type, enum.EnumMeta):
                 d[field.name] = getattr(message, field.name).value
@@ -126,12 +125,6 @@ class MessageDeserializer(json.JSONDecoder):
     def deserialize(self, message: bytes) -> Message:
         # noinspection PyTypeChecker
         return self.decode(message.rstrip(MESSAGE_SEPARATOR).decode())
-
-    _type_map = {
-        cls.type: cls
-        for cls in collect_subclasses(Message, msg)
-        if hasattr(cls, "type")  # only concrete subclasses
-    }
 
     def _reconstruct_object(self, json_obj: dict) -> Any:
         if enum_path := json_obj.pop(ENUM_KEY, None):
@@ -169,10 +162,10 @@ class MessageDeserializer(json.JSONDecoder):
 
     @staticmethod
     def _reconstruct_message(
-        message_type: Message.Type, json_obj: SerializableObject
+        message_type: int, json_obj: SerializableObject
     ) -> Message:
-        message_type = Message.Type(message_type)
-        message_class = MessageDeserializer._type_map[message_type]
+        message_class = Message.from_type_id(message_type)
+        # noinspection PyArgumentList
         return message_class(**json_obj)
 
     @staticmethod

@@ -287,8 +287,8 @@ class LoveletterPartyServer:
             return request
 
         async def receive_game_message(self) -> msg.FulfilledChoiceMessage:
-            message = await self._game_message_queue.get()
-            if message.type != Message.Type.GAME_INPUT_RESPONSE:
+            message: msg.GameMessage = await self._game_message_queue.get()
+            if not isinstance(message, msg.FulfilledChoiceMessage):
                 raise UnexpectedMessageError(f"Expected game input, got {message}")
             return message
 
@@ -463,6 +463,7 @@ class LoveletterPartyServer:
         async def handle(e: None):
             return e
 
+        # noinspection PyUnusedLocal
         @handle.register
         async def handle(e: GameResultEvent):
             pass  # server doesn't need to do anything with this info
@@ -470,8 +471,9 @@ class LoveletterPartyServer:
         @handle.register
         async def handle(e: GameNodeState):
             message = msg.GameNodeStateMessage(e)
-            tasks = (s.send_message(message) for s in self._client_sessions)
-            await asyncio.gather(*tasks)
+            await asyncio.gather(
+                *(s.send_message(message) for s in self._client_sessions)
+            )
 
         @handle.register
         async def handle(e: GameInputRequest):
@@ -496,7 +498,7 @@ class LoveletterPartyServer:
         def handle(e: MoveStep):
             # reuse code from PlayerMoveChoice handler
             # fmt:off
-            return handle[PlayerMoveChoice,](e)
+            return handle[PlayerMoveChoice, ](e)
             # fmt:on
 
         game = self.game

@@ -51,7 +51,15 @@ async def receive_message(
             raise
 
 
-class ProtocolError(RuntimeError):
+class LoveletterMultiplayerError(RuntimeError):
+    pass
+
+
+class LogonError(LoveletterMultiplayerError):
+    pass
+
+
+class ProtocolError(LoveletterMultiplayerError):
     """Raised when one of the two sides didn't follow the protocol."""
 
     pass

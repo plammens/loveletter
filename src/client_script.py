@@ -11,8 +11,10 @@ PORT = 48888
 
 
 async def run_clients(clients):
-    connections = await asyncio.gather(*[c.connect(HOST, PORT) for c in clients])
-    await asyncio.gather(*connections, return_exceptions=True)
+    connections = await asyncio.gather(
+        *[c.connect(HOST, PORT) for c in clients], return_exceptions=True
+    )
+    await asyncio.gather(*(c for c in connections if not isinstance(c, BaseException)))
 
 
 def main():

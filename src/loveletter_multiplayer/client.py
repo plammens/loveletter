@@ -8,6 +8,7 @@ from multimethod import multimethod
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
+    LogonError,
     Message,
     MessageDeserializer,
     RestartSession,
@@ -42,10 +43,31 @@ class LoveletterClient:
         username, is_host = self.username, self.is_host
         return f"<{self.__class__.__name__} with {username=}, {is_host=}>"
 
-    async def connect(self, host, port):
-        # TODO: manage logon here
+    async def connect(self, host, port) -> asyncio.Task:
+        """
+        Try connecting to a server and logging on.
+
+        If this connection process fails at any point, the socket connection is closed
+        and the exception is passed on to the caller. Otherwise, if it succeeds, a
+        task is created (but not awaited) that handles the connection to the server
+        while it lives, and it is returned to the caller.
+        """
         reader, writer = await asyncio.open_connection(host=host, port=port)
-        return asyncio.create_task(self._handle_connection(reader, writer))
+        try:
+            address = writer.get_extra_info("peername")
+            LOGGER.info(f"Successfully connected to {address}")
+            server_info = ServerInfo(address)
+            # noinspection PyArgumentList
+            manager = self.ServerConnectionManager(server_info, reader, writer)
+            await manager.logon()
+            return asyncio.create_task(self._handle_connection(manager))
+        except:  # noqa
+            # we only close the stream if we weren't able to create the
+            # _handle_connection task (e.g. something went wrong during logon,
+            # or KeyboardInterrupt was raised); under normal circumstances,
+            # the stream will be closed by the _handle_connection task
+            writer.close()
+            raise
 
     async def send_shutdown(self):
         if not self.is_host:
@@ -56,26 +78,19 @@ class LoveletterClient:
         await self._server_conn._send_message(msg.Shutdown())
         await self._connection_task  # wait for the connection to shut down
 
-    async def _handle_connection(self, reader, writer):
-        async with close_stream_at_exit(writer):
+    async def _handle_connection(
+        self, manager: "LoveletterClient.ServerConnectionManager"
+    ):
+        async with close_stream_at_exit(manager.writer):
             if self._connection_task is not None:
                 raise RuntimeError("_handle_connection already called")
             self._connection_task = asyncio.current_task()
 
-            address = writer.get_extra_info("peername")
-            LOGGER.info(f"Successfully connected to {address}")
-
-            server_info = ServerInfo(address)
-            # noinspection PyArgumentList
-            with self.ServerConnectionManager(server_info, reader, writer) as conn:
+            with manager as conn:
                 try:
                     await conn.manage()
                 except Exception as exc:
-                    LOGGER.error(
-                        "Unhandled exception in %s",
-                        conn,
-                        exc_info=exc,
-                    )
+                    LOGGER.error("Unhandled exception in %s", conn, exc_info=exc)
                     # the client does raise; indeed the caller can retry connecting
                     raise
 
@@ -145,13 +160,19 @@ class LoveletterClient:
             self.client._server_conn = None
             LOGGER.info("Deactivated %s", self)
 
+        async def logon(self):
+            """Identify oneself to the server."""
+            message = msg.Logon(self.client.username)
+            response = await self.request(message)
+            if not isinstance(response, msg.OkMessage):
+                raise LogonError(f"Logon failed, received response: {response}")
+
         async def manage(self):
             await self._init_async()
             task = asyncio.current_task()
             task.set_name(f"client<{self.client.username}>")
             if not self.attached:
                 raise RuntimeError("Can't manage a detached connection")
-            await self._logon()
             while True:
                 try:
                     await self._wait_for_game()
@@ -226,7 +247,7 @@ class LoveletterClient:
             """
             Wait for an expected message from the server.
 
-            Raises a ConnectionError if the server closes the connection without
+            Raises a ConnectionClosedError if the server closes the connection without
             sending a message.
 
             :param timeout: Optional timeout for receiving a message.
@@ -256,13 +277,6 @@ class LoveletterClient:
             ):
                 LOGGER.error("Received signal to restart session: %s", message.message)
                 raise RestartSession(message.message)
-
-        async def _logon(self):
-            """Identify oneself to the server."""
-            message = msg.Logon(self.client.username)
-            response = await self.request(message)
-            if not isinstance(response, msg.OkMessage):
-                raise RuntimeError(f"Logon failed, received response: {response}")
 
         async def _wait_for_game(self):
             """Wait for the server to create the game."""

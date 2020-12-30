@@ -4,7 +4,6 @@ from typing import Optional
 
 from .json import MESSAGE_SEPARATOR, MessageDeserializer, MessageSerializer
 from .message import Message
-from ..exceptions import LoveletterMultiplayerError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -50,28 +49,3 @@ async def receive_message(
         else:
             LOGGER.error("Received incomplete message: %s", exc.partial)
             raise
-
-
-class ProtocolError(LoveletterMultiplayerError):
-    """Raised when one of the two sides didn't follow the protocol."""
-
-    pass
-
-
-class UnexpectedMessageError(ProtocolError):
-    pass
-
-
-class ConnectionClosedError(ProtocolError):
-    pass
-
-
-class RestartSession(BaseException):
-    """
-    Used to indicate that a client session should be restarted.
-
-    Not a "normal" exception, hence this inherits from BaseException and not Exception
-    (similarly to StopIteration, asyncio.CancelledError, etc.).
-    """
-
-    pass

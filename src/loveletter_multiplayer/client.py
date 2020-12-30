@@ -8,16 +8,16 @@ from multimethod import multimethod
 
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter_multiplayer.exceptions import (
+    ConnectionClosedError,
     InternalValidationError,
     LogonError,
     PartyPermissionError,
-)
-from loveletter_multiplayer.networkcomms import (
-    ConnectionClosedError,
-    Message,
-    MessageDeserializer,
     RestartSession,
     UnexpectedMessageError,
+)
+from loveletter_multiplayer.networkcomms import (
+    Message,
+    MessageDeserializer,
     fill_placeholders,
     receive_message,
     send_message,

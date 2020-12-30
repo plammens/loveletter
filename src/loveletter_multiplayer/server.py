@@ -14,14 +14,16 @@ import loveletter.gamenode as gnd
 import loveletter.move as move
 import loveletter.round as rnd
 import loveletter_multiplayer.networkcomms.message as msg
-from loveletter_multiplayer.networkcomms import (
+from loveletter_multiplayer.exceptions import (
     ConnectionClosedError,
-    Message,
-    MessageDeserializer,
-    MessageSerializer,
     ProtocolError,
     RestartSession,
     UnexpectedMessageError,
+)
+from loveletter_multiplayer.networkcomms import (
+    Message,
+    MessageDeserializer,
+    MessageSerializer,
     receive_message,
     send_message,
 )

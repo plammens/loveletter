@@ -8,9 +8,13 @@ from typing import List
 
 import more_itertools
 
-from loveletter_multiplayer.client import LoveletterClient
+from loveletter_multiplayer import (
+    GuestClient,
+    HostClient,
+    LoveletterClient,
+    RemoteEvent,
+)
 from loveletter_multiplayer.logging import setup_logging
-from loveletter_multiplayer.remotegame import RemoteEvent
 from loveletter_multiplayer.utils import StoppableAsyncioThread
 from test_loveletter.utils import autofill_step
 
@@ -20,7 +24,7 @@ PORT = 48888
 
 
 async def run_clients(clients: List[LoveletterClient]):
-    host = more_itertools.one(filter(lambda c: c.is_host, clients))
+    host: HostClient = more_itertools.one(filter(lambda c: c.is_host, clients))  # noqa
     connections = await asyncio.gather(
         *[c.connect(HOST, PORT) for c in clients], return_exceptions=True
     )
@@ -66,10 +70,10 @@ async def run_clients(clients: List[LoveletterClient]):
 
 def main():
     setup_logging(logging.DEBUG)
-    host = LoveletterClient("Host", is_host=True)
+    host = HostClient("Host")
     clients = [host]
     usernames = ["Alice", "Bob", "Charlie", "Eve"]
-    clients.extend(LoveletterClient(username) for username in usernames)
+    clients.extend(GuestClient(username) for username in usernames)
     clients_thread = StoppableAsyncioThread(
         name="ClientsThread", target=run_clients, args=(clients,)
     )

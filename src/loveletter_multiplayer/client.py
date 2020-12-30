@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -11,7 +12,6 @@ from loveletter_multiplayer.exceptions import (
     ConnectionClosedError,
     InternalValidationError,
     LogonError,
-    PartyPermissionError,
     RestartSession,
     UnexpectedMessageError,
 )
@@ -34,7 +34,7 @@ from loveletter_multiplayer.utils import (
 LOGGER = logging.getLogger(__name__)
 
 
-class LoveletterClient:
+class LoveletterClient(metaclass=abc.ABCMeta):
     """
     Client end for a single player in a multiplayer Love Letter party.
 
@@ -44,24 +44,30 @@ class LoveletterClient:
       1. Instantiate LoveletterClient
       2. Connect to the desired server (with :meth:`LoveletterClient.connect()`)
       3. If this client is the party host, send the ready message when all players have
-         joined (with :meth:`LoveletterClient.ready()`).
+         joined (with :meth:`HostClient.ready()`).
       4. Wait for the game to be created (with :meth:`LoveletterClient.wait_for_game()`)
       5. Play the game by starting :meth:RemoteGameShadowCopy.track_remote` on
          :attr:`LoveletterClient.game` and handling the game events from then on.
       6. After the game has ended, if the client is the party host, send the shutdown
-         message to the server (with :meth:`LoveletterClient.send_shutdown()`).
+         message to the server (with :meth:`HostClient.send_shutdown()`).
 
+    This is an abstract base class; the concrete classes are HostClient (for the party
+    host) and GuestClient (for other clients).
     """
 
     username: str
 
-    def __init__(self, username: str, is_host: bool = False):
-        # TODO: subclass with host/guest
+    def __init__(self, username: str):
         self.username = username
-        self.is_host = is_host
 
         self._server_conn: Optional[LoveletterClient._ServerConnectionManager] = None
         self._connection_task: Optional[asyncio.Task] = None
+
+    @property
+    @abc.abstractmethod
+    def is_host(self) -> bool:
+        """Whether this client is the party host."""
+        pass
 
     @property
     def game(self) -> Optional[RemoteGameShadowCopy]:
@@ -73,13 +79,8 @@ class LoveletterClient:
 
     # -------------------------------- Public methods ---------------------------------
 
-    # decorator for methods specific to the party host:
-    host_only = valid8.validate_arg(
-        "self", attrgetter("is_host"), error_type=PartyPermissionError
-    )
-
     # decorator for methods that need an active connection
-    needs_active_connection = valid8.validate_arg(
+    _needs_active_connection = valid8.validate_arg(
         "self",
         lambda self: self._server_conn is not None,
         lambda self: (t := self._connection_task) is not None and not t.done(),
@@ -112,17 +113,7 @@ class LoveletterClient:
             writer.close()
             raise
 
-    @host_only
-    @needs_active_connection
-    async def ready(self):
-        """
-        Send a message to the server indicating that this client is ready to play.
-
-        Must be called after :meth:`connect` returned successfully.
-        """
-        await self._server_conn.send_message(msg.ReadyToPlay())
-
-    @needs_active_connection
+    @_needs_active_connection
     async def wait_for_game(self) -> RemoteGameShadowCopy:
         """
         Wait for the remote game to be created.
@@ -139,17 +130,6 @@ class LoveletterClient:
         :returns: The created game.
         """
         return await self._server_conn.wait_for_game()
-
-    @host_only
-    @needs_active_connection
-    async def send_shutdown(self):
-        """Send a shutdown message to the server."""
-        LOGGER.info("Sending shutdown message to server")
-        await self._server_conn.send_message(msg.Shutdown())
-        await self._connection_task  # wait for the connection to shut down
-
-    del host_only
-    del needs_active_connection
 
     # ------------------------------ Connection handling ------------------------------
 
@@ -472,6 +452,34 @@ class LoveletterClient:
                 return message
             finally:
                 del self._queue_waiters[queue]
+
+
+class HostClient(LoveletterClient):
+    @property
+    def is_host(self) -> bool:
+        return True
+
+    @LoveletterClient._needs_active_connection
+    async def ready(self):
+        """
+        Send a message to the server indicating that this client is ready to play.
+
+        Must be called after :meth:`connect` returned successfully.
+        """
+        await self._server_conn.send_message(msg.ReadyToPlay())
+
+    @LoveletterClient._needs_active_connection
+    async def send_shutdown(self):
+        """Send a shutdown message to the server."""
+        LOGGER.info("Sending shutdown message to server")
+        await self._server_conn.send_message(msg.Shutdown())
+        await self._connection_task  # wait for the connection to shut down
+
+
+class GuestClient(LoveletterClient):
+    @property
+    def is_host(self) -> bool:
+        return False
 
 
 @dataclass(frozen=True)

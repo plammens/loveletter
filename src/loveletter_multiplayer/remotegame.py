@@ -180,12 +180,9 @@ class RemoteGameShadowCopy(loveletter.game.Game):
             except StopAsyncIteration:
                 pass
 
-        # Ideally:
-        # return results
-        # but cant' have a non-empty return inside async generator, so have to do this:
-        exc = StopAsyncIteration()
-        exc.value = results
-        raise exc
+        # Ideally: `return results`; but async generators don't support return values
+        # yet, so we use a bare return and let the caller retrieve the results:
+        return
 
     async def _set_choice_from_remote(self, event: gev.ChoiceEvent) -> gev.ChoiceEvent:
         LOGGER.debug("Awaiting on remote to relay choice for %s", event)

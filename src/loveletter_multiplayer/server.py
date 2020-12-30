@@ -4,7 +4,7 @@ import itertools
 import logging
 import socket
 from dataclasses import dataclass
-from typing import ClassVar, Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional, Tuple, Union
 
 from multimethod import multimethod
 
@@ -52,7 +52,7 @@ class LoveletterPartyServer:
 
     MAX_CLIENTS: ClassVar[int] = loveletter.game.Game.MAX_PLAYERS
 
-    host: str
+    host: Union[str, Tuple[str, ...]]
     port: int
     game: Optional[loveletter.game.Game]
 
@@ -60,8 +60,9 @@ class LoveletterPartyServer:
 
     def __init__(self, host, port, party_host_username: str):
         """
+        Initialize a new server instance.
 
-        :param host: IP (or domain name) to bind the server to.
+        :param host: Host IP/name to bind the server to, or a sequence of such items.
         :param port: Port number to bind the server to.
         :param party_host_username: The username of the player that will host this party
                                     (has additional privileges to configure the party).

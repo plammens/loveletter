@@ -3,12 +3,17 @@ import logging
 from dataclasses import dataclass
 from typing import Awaitable, Dict, Optional, Type, TypeVar
 
+import valid8
 from multimethod import multimethod
 
 import loveletter_multiplayer.networkcomms.message as msg
+from loveletter_multiplayer.exceptions import (
+    InternalValidationError,
+    LogonError,
+    PartyPermissionError,
+)
 from loveletter_multiplayer.networkcomms import (
     ConnectionClosedError,
-    LogonError,
     Message,
     MessageDeserializer,
     RestartSession,
@@ -18,13 +23,36 @@ from loveletter_multiplayer.networkcomms import (
     send_message,
 )
 from loveletter_multiplayer.remotegame import RemoteGameShadowCopy
-from loveletter_multiplayer.utils import Address, InnerClassMeta, close_stream_at_exit
+from loveletter_multiplayer.utils import (
+    Address,
+    InnerClassMeta,
+    attrgetter,
+    close_stream_at_exit,
+)
 
 
 LOGGER = logging.getLogger(__name__)
 
 
 class LoveletterClient:
+    """
+    Client end for a single player in a multiplayer Love Letter party.
+
+    In order to play a multiplayer game, supposing each step goes smoothly,
+    the caller must:
+
+      1. Instantiate LoveletterClient
+      2. Connect to the desired server (with :meth:`LoveletterClient.connect()`)
+      3. If this client is the party host, send the ready message when all players have
+         joined (with :meth:`LoveletterClient.ready()`).
+      4. Wait for the game to be created (with :meth:`LoveletterClient.wait_for_game()`)
+      5. Play the game by starting :meth:RemoteGameShadowCopy.track_remote` on
+         :attr:`LoveletterClient.game` and handling the game events from then on.
+      6. After the game has ended, if the client is the party host, send the shutdown
+         message to the server (with :meth:`LoveletterClient.send_shutdown()`).
+
+    """
+
     username: str
 
     def __init__(self, username: str, is_host: bool = False):
@@ -32,7 +60,7 @@ class LoveletterClient:
         self.username = username
         self.is_host = is_host
 
-        self._server_conn: Optional[LoveletterClient.ServerConnectionManager] = None
+        self._server_conn: Optional[LoveletterClient._ServerConnectionManager] = None
         self._connection_task: Optional[asyncio.Task] = None
 
     @property
@@ -42,6 +70,21 @@ class LoveletterClient:
     def __repr__(self):
         username, is_host = self.username, self.is_host
         return f"<{self.__class__.__name__} with {username=}, {is_host=}>"
+
+    # -------------------------------- Public methods ---------------------------------
+
+    # decorator for methods specific to the party host:
+    host_only = valid8.validate_arg(
+        "self", attrgetter("is_host"), error_type=PartyPermissionError
+    )
+
+    # decorator for methods that need an active connection
+    needs_active_connection = valid8.validate_arg(
+        "self",
+        lambda self: self._server_conn is not None,
+        lambda self: (t := self._connection_task) is not None and not t.done(),
+        help_msg="No active connection",
+    )
 
     async def connect(self, host, port) -> asyncio.Task:
         """
@@ -58,7 +101,7 @@ class LoveletterClient:
             LOGGER.info(f"Successfully connected to {address}")
             server_info = ServerInfo(address)
             # noinspection PyArgumentList
-            manager = self.ServerConnectionManager(server_info, reader, writer)
+            manager = self._ServerConnectionManager(server_info, reader, writer)
             await manager.logon()
             return asyncio.create_task(self._handle_connection(manager))
         except:  # noqa
@@ -69,17 +112,49 @@ class LoveletterClient:
             writer.close()
             raise
 
+    @host_only
+    @needs_active_connection
+    async def ready(self):
+        """
+        Send a message to the server indicating that this client is ready to play.
+
+        Must be called after :meth:`connect` returned successfully.
+        """
+        await self._server_conn.send_message(msg.ReadyToPlay())
+
+    @needs_active_connection
+    async def wait_for_game(self) -> RemoteGameShadowCopy:
+        """
+        Wait for the remote game to be created.
+
+        Must be called after the client has connected successfully. If this is being
+        called by the host, it must be called after sending the ready to play message
+        (with :meth:`ready`), otherwise a deadlock will ensue (the game can only be
+        created after the host sends this message).
+
+        If this succeeds, the caller can use :meth:`RemoteGameShadowCopy.track_remote()`
+        on the returned game object (which will be the same object as :attr:`game`) to
+        start playing the game.
+
+        :returns: The created game.
+        """
+        return await self._server_conn.wait_for_game()
+
+    @host_only
+    @needs_active_connection
     async def send_shutdown(self):
-        if not self.is_host:
-            raise ValueError("Guest client can't send shutdown message")
-        if self._server_conn is None or self._connection_task is None:
-            raise RuntimeError("No active connection")
+        """Send a shutdown message to the server."""
         LOGGER.info("Sending shutdown message to server")
-        await self._server_conn._send_message(msg.Shutdown())
+        await self._server_conn.send_message(msg.Shutdown())
         await self._connection_task  # wait for the connection to shut down
 
+    del host_only
+    del needs_active_connection
+
+    # ------------------------------ Connection handling ------------------------------
+
     async def _handle_connection(
-        self, manager: "LoveletterClient.ServerConnectionManager"
+        self, manager: "LoveletterClient._ServerConnectionManager"
     ):
         async with close_stream_at_exit(manager.writer):
             if self._connection_task is not None:
@@ -94,15 +169,7 @@ class LoveletterClient:
                     # the client does raise; indeed the caller can retry connecting
                     raise
 
-    async def ready(self):
-        """Send a message to the server indicating that this client is ready to play."""
-        if self.is_host:
-            message = msg.ReadyToPlay()
-            await self._server_conn._send_message(message)
-        else:
-            pass  # for now just ignore this
-
-    class ServerConnectionManager(metaclass=InnerClassMeta):
+    class _ServerConnectionManager(metaclass=InnerClassMeta):
         """
         Manages the connection with the server.
 
@@ -117,6 +184,8 @@ class LoveletterClient:
 
         game: Optional[RemoteGameShadowCopy]
 
+        # ------------------------------ Initialization -------------------------------
+
         def __init__(
             self, client: "LoveletterClient", server_info: "ServerInfo", reader, writer
         ):
@@ -124,19 +193,29 @@ class LoveletterClient:
             self.server_info = server_info
             self.reader: asyncio.StreamReader = reader
             self.writer: asyncio.StreamWriter = writer
-
             self._reset_game_vars()
-            self._main_task: Optional[asyncio.Task] = None
+
+            self._logged_on: bool = False
             self._receive_loop_active: bool = False
+
+            self._manage_task: Optional[asyncio.Task] = None
+            self._wait_for_game_task: Optional[asyncio.Task] = None
             self._queue_waiters: Dict[asyncio.Queue, asyncio.Task] = {}
 
         def _reset_game_vars(self):
             self.game = None
             self._deserializer = MessageDeserializer()
+            try:
+                self._wait_for_game_finished.clear()
+            except AttributeError:
+                pass
 
         async def _init_async(self):
+            self._wait_for_game_finished = asyncio.Event()
             self._game_message_queue = asyncio.Queue()
             self._other_message_queue = asyncio.Queue()
+
+        # ---------------------- Properties and special methods -----------------------
 
         @property
         def receiving(self) -> bool:
@@ -160,28 +239,67 @@ class LoveletterClient:
             self.client._server_conn = None
             LOGGER.info("Deactivated %s", self)
 
+        # ---------- "Public" methods (for Client and RemoteGameShadowCopy) -----------
+
+        requires_logon = valid8.validate_arg(
+            "self",
+            attrgetter("_logged_on"),
+            error_type=InternalValidationError,
+            help_msg="The client needs to have logged on to the server",
+        )
+
+        requires_attached = valid8.validate_arg(
+            "self",
+            attrgetter("attached"),
+            error_type=InternalValidationError,
+            help_msg="This connection is not attached to the client",
+        )
+
         async def logon(self):
-            """Identify oneself to the server."""
+            """
+            Identify oneself to the server.
+
+            Must be called after connecting to the server and before entering
+            :meth:`manage`. Raises :class:`LogonError` if the logon fails.
+            """
             message = msg.Logon(self.client.username)
             response = await self.request(message)
             if not isinstance(response, msg.OkMessage):
                 raise LogonError(f"Logon failed, received response: {response}")
+            self._logged_on = True
 
+        @requires_logon
+        @requires_attached
         async def manage(self):
-            await self._init_async()
-            task = asyncio.current_task()
+            """
+            Manage the communication between client and server in this connection.
+
+            Blocks until the server closes the connection, the task is cancelled or
+            the task is otherwise killed by an exception.
+            """
+            # TODO: extract "call once" decorator
+            if self._manage_task is not None:
+                raise RuntimeError("manage has already been called")
+            self._manage_task = task = asyncio.current_task()
             task.set_name(f"client<{self.client.username}>")
-            if not self.attached:
-                raise RuntimeError("Can't manage a detached connection")
+            await self._init_async()
             while True:
                 try:
-                    await self._wait_for_game()
+                    await asyncio.create_task(self._wait_for_game())
                     await self._receive_loop()
                     return
                 except RestartSession:
                     LOGGER.info("Restarting session")
                     self._reset_game_vars()
                     continue
+
+        @requires_attached
+        async def wait_for_game(self) -> RemoteGameShadowCopy:
+            """Called from outside the manage task to wait for the remote game."""
+            await self._wait_for_game_finished.wait()
+            # task is done; await it to either get the result or raise the exception
+            await self._wait_for_game_task
+            return self.game
 
         M = TypeVar("M", bound=Message)
 
@@ -199,7 +317,7 @@ class LoveletterClient:
                                  be attempted to deduce from the request type.
             :return: The response from the server.
             """
-            await self._send_message(message)
+            await self.send_message(message)
             receiver = (
                 self._get_message_from_queue(self._other_message_queue)
                 if self._receive_loop_active
@@ -209,41 +327,17 @@ class LoveletterClient:
                 request_to_response = {msg.ReadRequest: msg.DataMessage}
                 # noinspection PyTypeChecker
                 message_type = request_to_response.get(type(message), None)
-            response = await self._expect_message(
+            response = await self.expect_message(
                 timeout=5.0, receiver=receiver, message_type=message_type
             )
             return response
 
-        async def get_game_message(self, message_type: Optional[Type[M]] = None) -> M:
-            """
-            Receive a game message.
-
-            :param message_type: Expected message (sub-)type, if any.
-            """
-            # noinspection PyTypeChecker
-            message: msg.GameMessage = await self._get_message_from_queue(
-                self._game_message_queue
-            )
-            message = fill_placeholders(message, self.game)
-            if message_type is not None and not isinstance(message, message_type):
-                raise UnexpectedMessageError(
-                    f"Expected {message_type.__name__} as game message, got {message}"
-                )
-            LOGGER.debug("Got game message: %s", message)
-            return message
-
-        async def _send_message(self, message: Message) -> None:
-            await send_message(self.writer, message)
-
-        async def _receive_message(self) -> Message:
-            return await receive_message(self.reader, deserializer=self._deserializer)
-
-        async def _expect_message(
+        async def expect_message(
             self,
             timeout: Optional[float] = None,
-            message_type: Optional[Type[Message]] = None,
+            message_type: Optional[M] = None,
             receiver: Optional[Awaitable[Message]] = None,
-        ) -> Message:
+        ) -> M:
             """
             Wait for an expected message from the server.
 
@@ -269,36 +363,47 @@ class LoveletterClient:
                 )
             return message
 
-        @staticmethod
-        def _maybe_raise(message: Message):
-            if (
-                isinstance(message, msg.Error)
-                and message.error_code == msg.Error.Code.RESTART_SESSION
-            ):
-                LOGGER.error("Received signal to restart session: %s", message.message)
-                raise RestartSession(message.message)
+        del M
+        GM = TypeVar("GM", bound=msg.GameMessage)
+
+        async def get_game_message(self, message_type: Optional[Type[GM]] = None) -> GM:
+            """
+            Receive a game message.
+
+            :param message_type: Expected game message (sub-)type, if any.
+            """
+            # noinspection PyTypeChecker
+            message: msg.GameMessage = await self._get_message_from_queue(
+                self._game_message_queue
+            )
+            message = fill_placeholders(message, self.game)
+            if message_type is not None and not isinstance(message, message_type):
+                raise UnexpectedMessageError(
+                    f"Expected {message_type.__name__} as game message, got {message}"
+                )
+            LOGGER.debug("Got game message: %s", message)
+            return message
+
+        del GM
+
+        async def send_message(self, message: Message) -> None:
+            """Low-level method to send a message to the server."""
+            await send_message(self.writer, message)
+
+        # ------------------------------ Session stages -------------------------------
 
         async def _wait_for_game(self):
             """Wait for the server to create the game."""
-            self.game = await RemoteGameShadowCopy.from_connection(self)
-            self._deserializer = MessageDeserializer(
-                game=self.game, fill_placeholders=False
-            )
+            self._wait_for_game_task = asyncio.current_task()
+            try:
+                self.game = await RemoteGameShadowCopy.from_connection(self)
+                self._deserializer = MessageDeserializer(
+                    game=self.game, fill_placeholders=False
+                )
+            finally:
+                self._wait_for_game_finished.set()
 
-        @multimethod
-        async def handle_message(self, message):
-            await self._other_message_queue.put(message)
-            LOGGER.debug("Put in other message queue: %s", message)
-
-        @handle_message.register
-        async def handle_message(self, message: msg.Error):
-            LOGGER.error("Error message from server: %s", message)
-            self._maybe_raise(message)
-
-        @handle_message.register
-        async def handle_message(self, message: msg.GameMessage):
-            await self._game_message_queue.put(message)
-            LOGGER.debug("Put in game message queue: %s", message)
+        # ------------------------------- Receive loop --------------------------------
 
         async def _receive_loop(self):
             self._receive_loop_active = True
@@ -311,7 +416,7 @@ class LoveletterClient:
                     # noinspection PyTypeChecker
                     self._maybe_raise(message)
                     asyncio.create_task(
-                        self.handle_message(message), name="handle_message"
+                        self._handle_message(message), name="handle_message"
                     )
             except ConnectionResetError:
                 LOGGER.critical("Server forcefully closed the connection")
@@ -323,6 +428,35 @@ class LoveletterClient:
                 self._game_message_queue.put_nowait(None)
                 self._other_message_queue.put_nowait(None)
                 self._other_message_queue = self._game_message_queue = None
+
+        @multimethod
+        async def _handle_message(self, message):
+            await self._other_message_queue.put(message)
+            LOGGER.debug("Put in other message queue: %s", message)
+
+        @_handle_message.register
+        async def _handle_message(self, message: msg.Error):
+            LOGGER.error("Error message from server: %s", message)
+            self._maybe_raise(message)
+
+        @_handle_message.register
+        async def _handle_message(self, message: msg.GameMessage):
+            await self._game_message_queue.put(message)
+            LOGGER.debug("Put in game message queue: %s", message)
+
+        # ------------------------------ Utility methods ------------------------------
+
+        async def _receive_message(self) -> Message:
+            return await receive_message(self.reader, deserializer=self._deserializer)
+
+        @staticmethod
+        def _maybe_raise(message: Message):
+            if (
+                isinstance(message, msg.Error)
+                and message.error_code == msg.Error.Code.RESTART_SESSION
+            ):
+                LOGGER.error("Received signal to restart session: %s", message.message)
+                raise RestartSession(message.message)
 
         async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
             """Get a message from a queue, ensuring the connection is still open."""

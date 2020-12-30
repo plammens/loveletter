@@ -2,7 +2,9 @@ import asyncio
 import contextlib
 import enum
 import importlib
+import inspect
 import logging
+import operator
 import threading
 import traceback
 import typing
@@ -193,3 +195,22 @@ def instance_attributes(obj: Any) -> Dict[str, Any]:
         except AttributeError:
             continue
     return attrs
+
+
+# noinspection PyPep8Naming,SpellCheckingInspection
+class attrgetter:
+    """Adds __signature__ to operator.attrgetter for compat. with inspect.signature"""
+
+    def __init__(self, *args, **kwargs):
+        self._attrgetter = operator.attrgetter(*args, **kwargs)
+        params = [inspect.Parameter("object", kind=inspect.Parameter.POSITIONAL_ONLY)]
+        self.__signature__ = inspect.Signature(params)
+
+    def __call__(self, *args, **kwargs):
+        return self._attrgetter(*args, **kwargs)
+
+    def __repr__(self):
+        return repr(self._attrgetter)
+
+    def __reduce__(self):
+        return self._attrgetter.__reduce__()

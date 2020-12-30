@@ -4,6 +4,7 @@ from typing import Optional
 
 from .json import MESSAGE_SEPARATOR, MessageDeserializer, MessageSerializer
 from .message import Message
+from ..exceptions import LoveletterMultiplayerError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -49,14 +50,6 @@ async def receive_message(
         else:
             LOGGER.error("Received incomplete message: %s", exc.partial)
             raise
-
-
-class LoveletterMultiplayerError(RuntimeError):
-    pass
-
-
-class LogonError(LoveletterMultiplayerError):
-    pass
 
 
 class ProtocolError(LoveletterMultiplayerError):

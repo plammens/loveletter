@@ -1,8 +1,9 @@
 """
 Defines classes to view and interact with shadow copies of remote game objects.
 
-A shadow copy is a local copy of a remote object that is meant to be kept in sync with
-the remote object.
+Implements the client-side logic for managing a multiplayer game. A "shadow copy" is a
+local copy of a remote object that is meant to be kept in sync with the remote
+object.
 """
 import asyncio
 import logging
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-Connection = "LoveletterClient.ServerConnectionManager"
+Connection = "LoveletterClient._ServerConnectionManager"
 
 
 class RemoteGameShadowCopy(loveletter.game.Game):
@@ -51,7 +52,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
     @classmethod
     async def from_connection(cls, connection: Connection):
         # noinspection PyTypeChecker
-        message: msg.GameCreated = await connection._expect_message(
+        message: msg.GameCreated = await connection.expect_message(
             message_type=msg.GameCreated
         )
         LOGGER.info("Remote game created; creating local copy")
@@ -239,7 +240,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
     ):
         """Communicate a local choice back to the server."""
         message = msg.FulfilledChoiceMessage(full_qualname(choice_class), choice)
-        await self.connection._send_message(message)
+        await self.connection.send_message(message)
 
     @staticmethod
     @multimethod

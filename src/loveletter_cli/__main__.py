@@ -7,10 +7,14 @@ from .main import main
 def logging_level(level: str) -> int:
     try:
         level = int(level)
+    except ValueError:
+        pass
+
+    if isinstance(level, int):
         if level <= 0:
             raise ValueError(f"Level can't be negative: {level}")
         return level
-    except TypeError:
+    else:
         try:
             # noinspection PyUnresolvedReferences,PyProtectedMember
             return logging._nameToLevel[level]

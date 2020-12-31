@@ -397,6 +397,8 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 self._deserializer = MessageDeserializer(
                     game=self.game, fill_placeholders=False
                 )
+            except Exception:
+                asyncio.create_task(self._wait_for_game())  # retry
             finally:
                 self._wait_for_game_finished.set()
 
@@ -504,3 +506,27 @@ class GuestClient(LoveletterClient):
 @dataclass(frozen=True)
 class ServerInfo:
     address: Address
+
+
+def watch_connection(connection: asyncio.Task) -> asyncio.Task:
+    """
+    Utility to watch a client connection and propagate exceptions that occur.
+
+    Called from a coroutine that manages a :class:`LoveletterClient` on the result of
+    :meth:`LoveletterClient.connect()` to set up a watcher task that, when the
+    connection terminates due to an exception, throws said exception back into the
+    caller coroutine using :meth:`coroutine.throw()`.
+
+    :param connection: Connection task (as returned by ``.connect()``) to watch.
+    :returns: The newly created watcher task.
+    """
+    caller = asyncio.current_task().get_coro()
+
+    async def watcher():
+        try:
+            await connection
+        except Exception as e:
+            LOGGER.debug("Watcher is throwing %s into %s", e, caller)
+            caller.throw(e)
+
+    return asyncio.create_task(watcher())

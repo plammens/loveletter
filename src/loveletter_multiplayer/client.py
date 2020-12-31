@@ -196,7 +196,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self._receive_loop_active: bool = False
 
             self.attached_event = asyncio.Event()
-            self._wait_for_game_finished = asyncio.Event()
+            self._wait_for_game_started = asyncio.Event()
             self._manage_task: Optional[asyncio.Task] = None
             self._wait_for_game_task: Optional[asyncio.Task] = None
             self._queue_waiters: Dict[asyncio.Queue, asyncio.Task] = {}
@@ -207,7 +207,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self.game = None
             self._deserializer = MessageDeserializer()
             try:
-                self._wait_for_game_finished.clear()
+                self._wait_for_game_started.clear()
             except AttributeError:
                 pass
 
@@ -282,7 +282,16 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             task.set_name(f"client<{self.client.username}>")
             while True:
                 try:
-                    await asyncio.create_task(self._wait_for_game())
+                    while True:
+                        try:
+                            await asyncio.create_task(self._wait_for_game())
+                            break
+                        except RemoteException as e:
+                            LOGGER.error(
+                                "Remote exception while waiting for game; retrying",
+                                exc_info=e,
+                            )
+
                     await self._receive_loop()
                     return
                 except RestartSession:
@@ -293,8 +302,8 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         @requires_attached
         async def wait_for_game(self) -> RemoteGameShadowCopy:
             """Called from outside the manage task to wait for the remote game."""
-            await self._wait_for_game_finished.wait()
-            # task is done; await it to either get the result or raise the exception
+            # the first await is needed to ensure `self._wait_for_game_task` is not None
+            await self._wait_for_game_started.wait()
             await self._wait_for_game_task
             return self.game
 
@@ -392,15 +401,11 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         async def _wait_for_game(self):
             """Wait for the server to create the game."""
             self._wait_for_game_task = asyncio.current_task()
-            try:
-                self.game = await RemoteGameShadowCopy.from_connection(self)
-                self._deserializer = MessageDeserializer(
-                    game=self.game, fill_placeholders=False
-                )
-            except Exception:
-                asyncio.create_task(self._wait_for_game())  # retry
-            finally:
-                self._wait_for_game_finished.set()
+            self._wait_for_game_started.set()
+            self.game = await RemoteGameShadowCopy.from_connection(self)
+            self._deserializer = MessageDeserializer(
+                game=self.game, fill_placeholders=False
+            )
 
         # ------------------------------- Receive loop --------------------------------
 

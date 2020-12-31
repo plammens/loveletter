@@ -60,7 +60,9 @@ def _ask_valid_input_parse_args(
         error_message += f"; valid choices: {names}"
 
         def parser(s: str) -> choices:
-            return choices[s.upper()]
+            if all(map(str.isupper, names)):
+                s = s.upper()
+            return choices[s]
 
         validation_errors = (KeyError,)
 

@@ -12,6 +12,7 @@ from loveletter_multiplayer.exceptions import (
     ConnectionClosedError,
     InternalValidationError,
     LogonError,
+    RemoteException,
     RestartSession,
     UnexpectedMessageError,
 )
@@ -431,7 +432,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             LOGGER.debug("Put in other message queue: %s", message)
 
         @_handle_message.register
-        async def _handle_message(self, message: msg.Error):
+        async def _handle_message(self, message: msg.ErrorMessage):
             LOGGER.error("Error message from server: %s", message)
             self._maybe_raise(message)
 
@@ -447,12 +448,14 @@ class LoveletterClient(metaclass=abc.ABCMeta):
 
         @staticmethod
         def _maybe_raise(message: Message):
-            if (
-                isinstance(message, msg.Error)
-                and message.error_code == msg.Error.Code.RESTART_SESSION
-            ):
-                LOGGER.error("Received signal to restart session: %s", message.message)
-                raise RestartSession(message.message)
+            if isinstance(message, msg.ErrorMessage):
+                if message.error_code == msg.ErrorMessage.Code.RESTART_SESSION:
+                    LOGGER.error(
+                        "Received signal to restart session: %s", message.message
+                    )
+                    raise RestartSession(message.message)
+                elif isinstance(message, msg.ExceptionMessage):
+                    raise RemoteException(message.exc_type, message.exc_message)
 
         async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
             """Get a message from a queue, ensuring the connection is still open."""

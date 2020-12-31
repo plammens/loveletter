@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Type
+
 import valid8
 
 
@@ -15,6 +18,15 @@ class PartyPermissionError(LoveletterMultiplayerError, valid8.InputValidationErr
 
 class InternalValidationError(LoveletterMultiplayerError, valid8.InputValidationError):
     pass
+
+
+@dataclass(frozen=True)
+class RemoteException(LoveletterMultiplayerError):
+    exc_type: Type[Exception]
+    exc_message: str
+
+    def __post_init__(self):
+        super().__init__(self.exc_type, self.exc_message)
 
 
 class ProtocolError(LoveletterMultiplayerError):

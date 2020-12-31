@@ -1,6 +1,6 @@
 import abc
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, List, Type
 
 import loveletter.cardpile
@@ -47,7 +47,7 @@ class OkMessage(Message):
 
 @Message.register
 @dataclass(frozen=True)
-class Error(Message):
+class ErrorMessage(Message):
     class Code(enum.Enum):
         """Enum for error codes."""
 
@@ -62,6 +62,17 @@ class Error(Message):
 
     error_code: Code
     message: str
+
+
+@Message.register
+@dataclass(frozen=True)
+class ExceptionMessage(ErrorMessage):
+    error_code: ErrorMessage.Code = field(
+        init=False, default=ErrorMessage.Code.EXCEPTION, repr=False
+    )
+
+    exc_type: Type[Exception]
+    exc_message: str
 
 
 @Message.register

@@ -254,7 +254,7 @@ class LoveletterPartyServer:
         writer,
         *,
         reason: str,
-        error_code: msg.Error.Code = msg.Error.Code.CONNECTION_REFUSED,
+        error_code: msg.ErrorMessage.Code = msg.ErrorMessage.Code.CONNECTION_REFUSED,
     ):
         address = writer.get_extra_info("peername")
         LOGGER.info(f"Refusing connection from %s (%s)", address, reason)
@@ -384,7 +384,9 @@ class LoveletterPartyServer:
                     await recv_loop
                     return
                 except RestartSession as exc:
-                    await self.reply_error(msg.Error.Code.RESTART_SESSION, str(exc))
+                    await self.reply_error(
+                        msg.ErrorMessage.Code.RESTART_SESSION, str(exc)
+                    )
                     continue
 
         async def close(self):
@@ -430,6 +432,10 @@ class LoveletterPartyServer:
         async def reply_error(self, code, reason):
             await self.server._reply_error(self.writer, code, reason)
 
+        async def reply_exception(self, message: str, exception: Exception):
+            message = msg.ExceptionMessage(message, type(exception), str(exception))
+            await self.send_message(message)
+
         # --------------------------- Receive loop methods ----------------------------
 
         async def _receive_loop(self):
@@ -473,7 +479,7 @@ class LoveletterPartyServer:
             raise NotImplementedError
 
         @_handle_message.register
-        async def _handle_message(self, message: msg.Error):
+        async def _handle_message(self, message: msg.ErrorMessage):
             raise NotImplementedError
 
         # noinspection PyUnusedLocal
@@ -481,7 +487,7 @@ class LoveletterPartyServer:
         async def _handle_message(self, message: msg.Logon):
             LOGGER.warning("Received duplicate logon from %s", self.client_info)
             await self.reply_error(
-                msg.Error.Code.LOGON_ERROR,
+                msg.ErrorMessage.Code.LOGON_ERROR,
                 "Can only log on to the party once",
             )
 
@@ -503,7 +509,7 @@ class LoveletterPartyServer:
                     obj = getattr(obj, attrs.pop())
             except AttributeError as e:
                 await self.reply_error(
-                    msg.Error.Code.ATTRIBUTE_ERROR,
+                    msg.ErrorMessage.Code.ATTRIBUTE_ERROR,
                     format_exception(e),
                 )
                 return
@@ -514,7 +520,7 @@ class LoveletterPartyServer:
                 await self.send_message(message)
             except TypeError:
                 await self.reply_error(
-                    msg.Error.Code.SERIALIZE_ERROR,
+                    msg.ErrorMessage.Code.SERIALIZE_ERROR,
                     reason="Requested object can't be serialized",
                 )
                 return
@@ -585,7 +591,8 @@ class LoveletterPartyServer:
                 "Received unauthorized request form %s: ", self.client_info, cause
             )
             await self.reply_error(
-                msg.Error.Code.PERMISSION_DENIED, reason="Only the host can do this"
+                msg.ErrorMessage.Code.PERMISSION_DENIED,
+                reason="Only the host can do this",
             )
 
     # ---------------------- Coroutines for managing each stage -----------------------
@@ -607,9 +614,8 @@ class LoveletterPartyServer:
             except Exception as e:
                 LOGGER.error("Exception while trying to create game", exc_info=e)
                 self._ready_to_play.clear()
-                await self.party_host_session.reply_error(
-                    msg.Error.Code.EXCEPTION,
-                    f"Exception while trying to create game: {format_exception(e)}",
+                await self.party_host_session.reply_exception(
+                    f"Exception while trying to create game", exception=e
                 )
                 continue
 
@@ -726,7 +732,7 @@ class LoveletterPartyServer:
         LOGGER.critical("Aborting server: %s", reason)
 
         async def abort(session):
-            await session.reply_error(msg.Error.Code.SESSION_ABORTED, reason)
+            await session.reply_error(msg.ErrorMessage.Code.SESSION_ABORTED, reason)
             await session.abort()
 
         await asyncio.gather(*(abort(s) for s in self._client_sessions))
@@ -754,7 +760,7 @@ class LoveletterPartyServer:
 
     async def _reply_error(self, writer, code, reason):
         address = writer.get_extra_info("peername")
-        message = msg.Error(code, reason)
+        message = msg.ErrorMessage(code, reason)
         LOGGER.debug("Sending error response to %s: %s", address, message)
         await self._send_message(writer, message)
 

@@ -5,12 +5,16 @@ import enum
 import json
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
 
+import more_itertools as mitt
+import valid8
+
 from loveletter.cardpile import CardPile
 from loveletter.cards import Card
 from loveletter.game import Game
 from loveletter.gameevent import GameInputRequest
 from loveletter.round import Round
 from loveletter.roundplayer import RoundPlayer
+from loveletter.utils import safe_is_subclass
 from .message import Message
 from ..utils import (
     full_qualname,
@@ -28,6 +32,7 @@ DATACLASS_KEY = "_dataclass_"
 ENUM_KEY = "_enum_"
 SET_KEY = "_set_"
 TYPE_KEY = "_type_"
+VALID8_KEY = "_valid8_"
 FALLBACK_KEY = "_class_"
 FALLBACK_TYPES = (GameInputRequest, CardPile, Card, RoundPlayer.Hand)
 
@@ -52,7 +57,10 @@ class MessageSerializer(json.JSONEncoder):
         elif isinstance(o, (set, frozenset)):
             return self._make_set_serializable(o)
         elif isinstance(o, type):
-            return self._make_type_serializable(o)
+            if safe_is_subclass(o, valid8.ValidationError):
+                return self._make_valid8_serializable(o)
+            else:
+                return self._make_type_serializable(o)
         elif isinstance(o, Message):
             return self._make_message_serializable(o)
         elif dataclasses.is_dataclass(o) and not isinstance(o, type):
@@ -65,19 +73,40 @@ class MessageSerializer(json.JSONEncoder):
             return super().default(o)
 
     @staticmethod
-    def _make_enum_member_serializable(member):
+    def _make_enum_member_serializable(member) -> SerializableObject:
         return {ENUM_KEY: full_qualname(type(member)), "value": member.value}
 
     @staticmethod
-    def _make_set_serializable(o):
+    def _make_set_serializable(o) -> SerializableObject:
         return {SET_KEY: full_qualname(type(o)), "elements": list(o)}
 
     @staticmethod
-    def _make_type_serializable(o):
+    def _make_type_serializable(o) -> SerializableObject:
         return {TYPE_KEY: full_qualname(o)}
 
     @staticmethod
-    def _make_dataclass_serializable(obj):
+    def _make_valid8_serializable(
+        error_type: Type[valid8.ValidationError],
+    ) -> SerializableObject:
+        qualname = full_qualname(error_type)
+        extra = {}
+        try:
+            import_from_qualname(qualname)
+        except ImportError:
+            # this is a dynamically generated type
+            bases = error_type.__bases__
+            base = mitt.first(
+                b for b in bases if safe_is_subclass(b, valid8.ValidationError)
+            )
+            additional = mitt.first(
+                b for b in bases if b is not base and safe_is_subclass(b, Exception)
+            )
+            qualname = full_qualname(base)
+            extra["additional"] = full_qualname(additional)
+        return {VALID8_KEY: qualname} | extra
+
+    @staticmethod
+    def _make_dataclass_serializable(obj) -> SerializableObject:
         cls = type(obj)
         fields = {DATACLASS_KEY: full_qualname(cls)}
         for f in dataclasses.fields(obj):
@@ -85,7 +114,7 @@ class MessageSerializer(json.JSONEncoder):
         return fields
 
     @staticmethod
-    def _make_message_serializable(message: Message):
+    def _make_message_serializable(message: Message) -> SerializableObject:
         # special case to save some bytes
         d = MessageSerializer._make_dataclass_serializable(message)
         del d[DATACLASS_KEY]
@@ -98,8 +127,8 @@ class MessageSerializer(json.JSONEncoder):
         return d
 
     @staticmethod
-    def _make_serializable_fallback(obj):
-        return {FALLBACK_KEY: full_qualname(type(obj))} | obj.__dict__
+    def _make_serializable_fallback(obj) -> SerializableObject:
+        return {FALLBACK_KEY: full_qualname(type(obj))} | instance_attributes(obj)
 
 
 class MessageDeserializer(json.JSONDecoder):
@@ -133,6 +162,8 @@ class MessageDeserializer(json.JSONDecoder):
             return self._reconstruct_set(set_type_path, json_obj)
         elif (class_path := json_obj.pop(TYPE_KEY, None)) is not None:
             return self._reconstruct_type(class_path)
+        elif (class_path := json_obj.pop(VALID8_KEY, None)) is not None:
+            return self._reconstruct_valid8(class_path, json_obj)
         elif (dataclass_path := json_obj.pop(DATACLASS_KEY, None)) is not None:
             return self._reconstruct_dataclass_obj(dataclass_path, json_obj)
         elif (message_type := json_obj.pop(MESSAGE_TYPE_KEY, None)) is not None:
@@ -161,18 +192,45 @@ class MessageDeserializer(json.JSONDecoder):
         return import_from_qualname(class_path)
 
     @staticmethod
-    def _reconstruct_message(
-        message_type: int, json_obj: SerializableObject
-    ) -> Message:
-        message_class = Message.from_type_id(message_type)
-        # noinspection PyArgumentList
-        return message_class(**json_obj)
+    def _reconstruct_valid8(
+        class_path: str, json_obj: SerializableObject
+    ) -> Type[valid8.ValidationError]:
+        import valid8.entry_points
+
+        base = import_from_qualname(class_path)
+        if (additional := json_obj.pop("additional", None)) is not None:
+            additional = import_from_qualname(additional)
+            return valid8.entry_points.add_base_type_dynamically(base, additional)
+        else:
+            return base
 
     @staticmethod
+    def _reconstruct_valid8(
+        class_path: str, json_obj: SerializableObject
+    ) -> Type[valid8.ValidationError]:
+        import valid8.entry_points
+
+        base = import_from_qualname(class_path)
+        if (additional := json_obj.pop("additional", None)) is not None:
+            additional = import_from_qualname(additional)
+            return valid8.entry_points.add_base_type_dynamically(base, additional)
+        else:
+            return base
+
+    def _reconstruct_message(
+        self, message_type: int, json_obj: SerializableObject
+    ) -> Message:
+        message_class = Message.from_type_id(message_type)
+        return self._gcd_reconstruct_dataclass_obj(message_class, json_obj)
+
     def _reconstruct_dataclass_obj(
-        dataclass_path: str, json_obj: SerializableObject
+        self, dataclass_path: str, json_obj: SerializableObject
     ) -> Any:
         dataclass = import_from_qualname(dataclass_path)
+        return self._gcd_reconstruct_dataclass_obj(dataclass, json_obj)
+
+    @staticmethod
+    def _gcd_reconstruct_dataclass_obj(dataclass, json_obj: SerializableObject):
         fields = dataclasses.fields(dataclass)
         init_fields = {f.name: json_obj[f.name] for f in fields if f.init}
         other_fields = {n: json_obj[n] for n in set(json_obj) - set(init_fields)}
@@ -194,8 +252,9 @@ class MessageDeserializer(json.JSONDecoder):
     @staticmethod
     def _reconstruct_fallback(class_path: str, json_obj: SerializableObject) -> Any:
         cls = import_from_qualname(class_path)
-        obj = cls.__new__(cls)
-        obj.__dict__.update(json_obj)
+        obj = object.__new__(cls)
+        for name, value in json_obj.items():
+            object.__setattr__(obj, name, value)
         return obj
 
 

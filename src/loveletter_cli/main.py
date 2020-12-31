@@ -3,7 +3,8 @@ import logging
 import socket
 
 from loveletter_cli.session import (
-    CommandLineSession,
+    GuestCLISession,
+    HostCLISession,
     HostVisibility,
     PlayMode,
     UserInfo,
@@ -25,14 +26,13 @@ def main(logging_level: int = logging.INFO):
     print_header("Welcome to Love Letter (CLI)!", filler="~")
 
     user = ask_user()
-    session = CommandLineSession(user)
     print(f"Welcome, {user.username}!")
 
     mode = ask_play_mode()
     print()
 
     runners = {PlayMode.JOIN: join_game, PlayMode.HOST: host_game}
-    return runners[mode](session)
+    return runners[mode](user)
 
 
 def ask_user():
@@ -52,10 +52,10 @@ def ask_play_mode() -> PlayMode:
     )
 
 
-def host_game(session: CommandLineSession):
+def host_game(user: UserInfo):
     print_header("Hosting a game")
     mode = ask_valid_input(
-        "Choose the server's visibility:",
+        "Choose the server_addresses's visibility:",
         choices=HostVisibility,
         default=HostVisibility.PUBLIC,
     )
@@ -70,8 +70,9 @@ def host_game(session: CommandLineSession):
         )  # allow either localhost or local net.
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()
+    session = HostCLISession(user, hosts, port)
     print()
-    asyncio.run(session.host_game(hosts, port))
+    asyncio.run(session.manage())
 
 
 def ask_port_for_hosting() -> int:
@@ -91,11 +92,12 @@ def ask_port_for_hosting() -> int:
     )
 
 
-def join_game(session: CommandLineSession):
+def join_game(user: UserInfo):
     print_header("Joining game")
     address = ask_address_for_joining()
+    session = GuestCLISession(user, address)
     print()
-    asyncio.run(session.join_game(*address))
+    asyncio.run(session.manage())
 
 
 def ask_address_for_joining() -> Address:
@@ -108,7 +110,8 @@ def ask_address_for_joining() -> Address:
         return Address(host, port)
 
     return ask_valid_input(
-        prompt='Enter the server\'s address: (format: "<host>:<port>")', parser=parser
+        prompt='Enter the server_addresses\'s address: (format: "<host>:<port>")',
+        parser=parser,
     )
 
 

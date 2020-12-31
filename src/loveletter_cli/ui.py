@@ -4,6 +4,7 @@ import textwrap
 import traceback
 from typing import Callable, Tuple, Type, TypeVar
 
+from aioconsole import ainput
 from multimethod import multimethod
 
 from loveletter_multiplayer import RemoteException
@@ -41,6 +42,35 @@ def ask_valid_input(
 
     :returns: The user's choice, once it's valid.
     """
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        choices, default, error_message, parser, prompt, validation_errors
+    )
+
+    while True:
+        choice = input(prompt).strip()
+        try:
+            return parser(choice)
+        except validation_errors as exc:
+            print(error_message.format(choice=choice, error=exc))
+
+
+async def async_ask_valid_input(*args, **kwargs):
+    """Asynchronous version of :func:`ask_valid_input`."""
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        *args, **kwargs
+    )
+
+    while True:
+        choice = (await ainput(prompt)).strip()
+        try:
+            return parser(choice)
+        except validation_errors as exc:
+            print(error_message.format(choice=choice, error=exc))
+
+
+def _ask_valid_input_parse_args(
+    choices, default, error_message, parser, prompt, validation_errors
+):
     if not prompt.endswith(" "):
         prompt += " "
 
@@ -65,12 +95,7 @@ def ask_valid_input(
         def parser(s: str, wrapped=parser) -> T:
             return default if not s else wrapped(s)
 
-    while True:
-        choice = input(prompt).strip()
-        try:
-            return parser(choice)
-        except validation_errors as exc:
-            print(error_message.format(choice=choice, error=exc))
+    return error_message, parser, prompt, validation_errors
 
 
 @multimethod

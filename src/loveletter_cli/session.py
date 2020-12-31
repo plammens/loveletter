@@ -7,7 +7,9 @@ import sys
 from dataclasses import dataclass
 from typing import Tuple
 
-from loveletter_cli.ui import ask_valid_input, print_exception
+from aioconsole import ainput
+
+from loveletter_cli.ui import async_ask_valid_input, print_exception
 from loveletter_cli.utils import print_header
 from loveletter_multiplayer import (
     GuestClient,
@@ -89,7 +91,7 @@ class HostCLISession(CommandLineSession):
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None
         while game is None:
-            input("Press any key when ready to play... ")
+            await ainput("Enter something when ready to play... ")
             await self.client.ready()
             try:
                 game = await self.client.wait_for_game()
@@ -129,7 +131,7 @@ class GuestCLISession(CommandLineSession):
             except (ConnectionError, LogonError) as e:
                 print("Error while trying to connect to the server:")
                 print_exception(e)
-                choice = ask_valid_input(
+                choice = await async_ask_valid_input(
                     "What would you like to do?",
                     choices=ConnectionErrorOptions,
                     default=ConnectionErrorOptions.RETRY,

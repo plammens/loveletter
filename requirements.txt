@@ -3,3 +3,4 @@ valid8~=5.1.1
 more_itertools~=8.6.0
 -e git+https://github.com/plammens/python-pytest-cases.git@fork-master#egg=pytest_cases
 multimethod~=1.4
+aioconsole~=0.3.1

@@ -7,9 +7,13 @@ from loveletter_multiplayer.logging import setup_logging
 
 
 def main(logging_level: int, **kwargs):
-    setup_logging(logging_level)
-    server = LoveletterPartyServer(**kwargs)
-    asyncio.run(server.run_server())
+    try:
+        setup_logging(logging_level)
+        server = LoveletterPartyServer(**kwargs)
+        asyncio.run(server.run_server())
+    finally:
+        if 0 < logging_level <= logging.DEBUG:
+            input("Press any key... ")
 
 
 def define_cli() -> argparse.ArgumentParser:

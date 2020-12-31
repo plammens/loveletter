@@ -1,7 +1,13 @@
+import asyncio
 import logging
 import socket
 
-from loveletter_cli.session import HostVisibility, PlayMode, Session, UserInfo
+from loveletter_cli.session import (
+    CommandLineSession,
+    HostVisibility,
+    PlayMode,
+    UserInfo,
+)
 from loveletter_cli.utils import (
     ask_valid_input,
     get_local_ip,
@@ -19,7 +25,7 @@ def main(logging_level: int = logging.INFO):
     print_header("Welcome to Love Letter (CLI)!", filler="~")
 
     user = ask_user()
-    session = Session(user)
+    session = CommandLineSession(user)
     print(f"Welcome, {user.username}!")
 
     mode = ask_play_mode()
@@ -46,7 +52,7 @@ def ask_play_mode() -> PlayMode:
     )
 
 
-def host_game(session: Session):
+def host_game(session: CommandLineSession):
     print_header("Hosting a game")
     mode = ask_valid_input(
         "Choose the server's visibility:",
@@ -56,12 +62,16 @@ def host_game(session: Session):
     addresses = {"local": get_local_ip()}
     if mode == HostVisibility.PUBLIC:
         addresses["public"] = get_public_ip()
-        host = ""
+        hosts = ("",)
     else:
-        host = addresses["local"]
+        hosts = (
+            "127.0.0.1",
+            addresses["local"],
+        )  # allow either localhost or local net.
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()
-    session.host_game(host, port)
+    print()
+    asyncio.run(session.host_game(hosts, port))
 
 
 def ask_port_for_hosting() -> int:
@@ -81,10 +91,11 @@ def ask_port_for_hosting() -> int:
     )
 
 
-def join_game(session: Session):
+def join_game(session: CommandLineSession):
     print_header("Joining game")
     address = ask_address_for_joining()
-    session.join_game(*address)
+    print()
+    asyncio.run(session.join_game(*address))
 
 
 def ask_address_for_joining() -> Address:

@@ -7,14 +7,13 @@ import sys
 from dataclasses import dataclass
 from typing import Tuple
 
-import valid8
-
 from loveletter_cli.ui import ask_valid_input, print_exception
 from loveletter_cli.utils import print_header
 from loveletter_multiplayer import (
     GuestClient,
     HostClient,
     LogonError,
+    RemoteException,
     RemoteGameShadowCopy,
 )
 from loveletter_multiplayer.utils import Address
@@ -90,8 +89,9 @@ class HostCLISession(CommandLineSession):
             await self.client.ready()
             try:
                 return await self.client.wait_for_game()
-            except valid8.ValidationError as e:
-                print(e, file=sys.stderr)
+            except RemoteException as e:
+                print("Exception in server while creating game:")
+                print(f"{e.exc_type.__name__}: {e.exc_message}")
                 continue
 
 
@@ -107,6 +107,33 @@ class GuestCLISession(CommandLineSession):
 
     async def manage(self):
         await super().manage()
+        await self._connect_to_server()
+
+    async def _connect_to_server(self):
+        class ConnectionErrorOptions(enum.Enum):
+            RETRY = enum.auto()
+            ABORT = enum.auto()
+            QUIT = enum.auto()
+
+        while True:
+            try:
+                await self.client.connect(*self.server_address)
+            except (ConnectionError, LogonError) as e:
+                print("Error while trying to connect to the server:")
+                print_exception(e)
+                choice = ask_valid_input(
+                    "What would you like to do?",
+                    choices=ConnectionErrorOptions,
+                    default=ConnectionErrorOptions.RETRY,
+                )
+                if choice == ConnectionErrorOptions.RETRY:
+                    continue
+                elif choice == ConnectionErrorOptions.ABORT:
+                    raise
+                elif choice == ConnectionErrorOptions.QUIT:
+                    sys.exit(1)
+                else:
+                    assert False
 
 
 @dataclass(frozen=True)

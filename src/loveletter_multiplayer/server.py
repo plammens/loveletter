@@ -603,15 +603,6 @@ class LoveletterPartyServer:
                         for session in self._client_sessions
                     ]
                 self.game = self._deserializer.game = loveletter.game.Game(usernames)
-                LOGGER.info("Ready to play; created game: %s", self.game)
-                tasks = (
-                    s.send_message(
-                        msg.GameCreated(self.game.players, player_id=s.client_info.id)
-                    )
-                    for s in self._client_sessions
-                )
-                await asyncio.gather(*tasks)
-                asyncio.create_task(self._play_game(), name="play_game")
                 break
             except Exception as e:
                 LOGGER.error("Exception while trying to create game", exc_info=e)
@@ -621,6 +612,16 @@ class LoveletterPartyServer:
                     f"Exception while trying to create game: {format_exception(e)}",
                 )
                 continue
+
+        LOGGER.info("Ready to play; created game: %s", self.game)
+        tasks = (
+            s.send_message(
+                msg.GameCreated(self.game.players, player_id=s.client_info.id)
+            )
+            for s in self._client_sessions
+        )
+        await asyncio.gather(*tasks)
+        asyncio.create_task(self._play_game(), name="play_game")
 
     async def _play_game(self):
         """This coroutine manages the central (server's) copy of the game."""

@@ -104,7 +104,17 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             # noinspection PyArgumentList
             manager = self._ServerConnectionManager(server_info, reader, writer)
             await manager.logon()
-            return asyncio.create_task(self._handle_connection(manager))
+            task = asyncio.create_task(self._handle_connection(manager))
+            # let the task initialize before returning
+            # This idiom with asyncio.as_completed ensures that we never hang here
+            # indefinitely: if the task completes first, it means that the manager
+            # context was never entered and thus an exception was raised, so this will
+            # re-raise; otherwise, the event was first meaning that the connection
+            # attached successfully, so we can return.
+            for aw in asyncio.as_completed([task, manager.attached_event.wait()]):
+                await aw
+                break
+            return task
         except:  # noqa
             # we only close the stream if we weren't able to create the
             # _handle_connection task (e.g. something went wrong during logon,
@@ -169,6 +179,12 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         def __init__(
             self, client: "LoveletterClient", server_info: "ServerInfo", reader, writer
         ):
+            """
+            Initialise a new server connection manager.
+
+            Needs an active asyncio event loop (the same in which all other coroutines
+            will be called) to be initialised properly.
+            """
             self.client: LoveletterClient = client
             self.server_info = server_info
             self.reader: asyncio.StreamReader = reader
@@ -178,9 +194,13 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self._logged_on: bool = False
             self._receive_loop_active: bool = False
 
+            self.attached_event = asyncio.Event()
+            self._wait_for_game_finished = asyncio.Event()
             self._manage_task: Optional[asyncio.Task] = None
             self._wait_for_game_task: Optional[asyncio.Task] = None
             self._queue_waiters: Dict[asyncio.Queue, asyncio.Task] = {}
+            self._game_message_queue = asyncio.Queue()
+            self._other_message_queue = asyncio.Queue()
 
         def _reset_game_vars(self):
             self.game = None
@@ -189,11 +209,6 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 self._wait_for_game_finished.clear()
             except AttributeError:
                 pass
-
-        async def _init_async(self):
-            self._wait_for_game_finished = asyncio.Event()
-            self._game_message_queue = asyncio.Queue()
-            self._other_message_queue = asyncio.Queue()
 
         # ---------------------- Properties and special methods -----------------------
 
@@ -213,10 +228,12 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             if self.client._server_conn is not None:
                 raise RuntimeError("There is already an active connection")
             self.client._server_conn = self
+            self.attached_event.set()
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             self.client._server_conn = None
+            self.attached_event.clear()
             LOGGER.info("Deactivated %s", self)
 
         # ---------- "Public" methods (for Client and RemoteGameShadowCopy) -----------
@@ -262,7 +279,6 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 raise RuntimeError("manage has already been called")
             self._manage_task = task = asyncio.current_task()
             task.set_name(f"client<{self.client.username}>")
-            await self._init_async()
             while True:
                 try:
                     await asyncio.create_task(self._wait_for_game())

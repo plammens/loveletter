@@ -84,15 +84,17 @@ class HostCLISession(CommandLineSession):
         await self.client.connect("127.0.0.1", self.port)
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
-        while True:
+        game = None
+        while game is None:
             input("Press any key when ready to play... ")
             await self.client.ready()
             try:
-                return await self.client.wait_for_game()
+                game = await self.client.wait_for_game()
             except RemoteException as e:
                 print("Exception in server while creating game:")
                 print_exception(e)
                 continue
+        return game
 
 
 class GuestCLISession(CommandLineSession):
@@ -109,15 +111,16 @@ class GuestCLISession(CommandLineSession):
         await super().manage()
         await self._connect_to_server()
 
-    async def _connect_to_server(self):
+    async def _connect_to_server(self) -> asyncio.Task:
         class ConnectionErrorOptions(enum.Enum):
             RETRY = enum.auto()
             ABORT = enum.auto()
             QUIT = enum.auto()
 
-        while True:
+        connection = None
+        while connection is None:
             try:
-                await self.client.connect(*self.server_address)
+                connection = await self.client.connect(*self.server_address)
             except (ConnectionError, LogonError) as e:
                 print("Error while trying to connect to the server:")
                 print_exception(e)
@@ -134,6 +137,8 @@ class GuestCLISession(CommandLineSession):
                     sys.exit(1)
                 else:
                     assert False
+
+        return connection
 
 
 @dataclass(frozen=True)

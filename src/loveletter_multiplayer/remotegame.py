@@ -47,7 +47,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         """
         super().__init__(players)
         self.connection = connection
-        self.player_id = player_id
+        self.client_player_id = player_id
 
     @classmethod
     async def from_connection(cls, connection: Connection):
@@ -133,7 +133,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         async def handle(e: rnd.PlayerMoveChoice):
             current_player_id = self.current_round.current_player.id
             username = self.players[current_player_id].username
-            if self.player_id == current_player_id:
+            if self.client_player_id == current_player_id:
                 await self._sync_with_server(e)
                 ans = yield e
                 choice = ans.to_serializable()

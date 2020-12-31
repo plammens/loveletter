@@ -16,6 +16,7 @@ from loveletter_multiplayer import (
     RemoteException,
     RemoteGameShadowCopy,
 )
+from loveletter_multiplayer.client import watch_connection
 from loveletter_multiplayer.utils import Address
 
 
@@ -73,6 +74,7 @@ class HostCLISession(CommandLineSession):
             await self._connect_localhost()
             game = await self._ready_to_play()
             # TODO: actual game here...
+            await asyncio.sleep(100)
         finally:
             if sys.exc_info() == (None, None, None):
                 LOGGER.info("Waiting on server process to end")
@@ -81,7 +83,8 @@ class HostCLISession(CommandLineSession):
             await server_process.wait()
 
     async def _connect_localhost(self):
-        await self.client.connect("127.0.0.1", self.port)
+        connection = await self.client.connect("127.0.0.1", self.port)
+        watch_connection(connection)
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None
@@ -110,6 +113,8 @@ class GuestCLISession(CommandLineSession):
     async def manage(self):
         await super().manage()
         await self._connect_to_server()
+        # TODO: actual game logic...
+        await asyncio.sleep(100)
 
     async def _connect_to_server(self) -> asyncio.Task:
         class ConnectionErrorOptions(enum.Enum):
@@ -138,6 +143,7 @@ class GuestCLISession(CommandLineSession):
                 else:
                     assert False
 
+        watch_connection(connection)
         return connection
 
 

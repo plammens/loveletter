@@ -67,7 +67,7 @@ class LoveletterPartyServer:
         :param party_host_username: The username of the player that will host this party
                                     (has additional privileges to configure the party).
         """
-        self.host = host
+        self.host = host[0] if not isinstance(host, str) and len(host) == 1 else host
         self.port = port
         self._reset_game_vars()
 
@@ -96,6 +96,7 @@ class LoveletterPartyServer:
 
     async def _init_async(self):
         """Initialize asyncio-related attributes that need an active event loop."""
+        LOGGER.debug("Initializing async variables")
         self._server = await asyncio.start_server(
             self._connection_handler,
             host=self.host,
@@ -103,6 +104,7 @@ class LoveletterPartyServer:
             backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
             start_serving=False,
         )
+        LOGGER.debug(f"Created socket server bound to {self.host}:{self.port}")
         self._sessions_lock = asyncio.Lock()
         self._ready_to_play = asyncio.Event()
 
@@ -169,6 +171,7 @@ class LoveletterPartyServer:
                 self._start_game_when_ready(), name="start_game_when_ready"
             )
             try:
+                LOGGER.info("Starting socket server")
                 await self._server.serve_forever()
             except asyncio.CancelledError:
                 pass  # exiting gracefully

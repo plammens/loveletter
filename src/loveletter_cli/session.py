@@ -85,13 +85,13 @@ class HostCLISession(CommandLineSession):
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         while True:
-            input("Press any key when ready to play...")
+            input("Press any key when ready to play... ")
             await self.client.ready()
             try:
                 return await self.client.wait_for_game()
             except RemoteException as e:
                 print("Exception in server while creating game:")
-                print(f"{e.exc_type.__name__}: {e.exc_message}")
+                print_exception(e)
                 continue
 
 

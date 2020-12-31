@@ -1,7 +1,12 @@
 import enum
 import functools
+import textwrap
 import traceback
 from typing import Callable, Tuple, Type, TypeVar
+
+from multimethod import multimethod
+
+from loveletter_multiplayer import RemoteException
 
 
 T = TypeVar("T")
@@ -68,5 +73,18 @@ def ask_valid_input(
             print(error_message.format(choice=choice, error=exc))
 
 
-def print_exception(e: BaseException):
-    print(*traceback.format_exception_only(type(e), e), sep="\n", end="\n\n")
+@multimethod
+def print_exception(exception: BaseException):
+    text = "\n".join(traceback.format_exception_only(type(exception), exception))
+    return _gcd_print_exception(text)
+
+
+@print_exception.register
+def print_exception(exception: RemoteException):
+    text = f"{exception.exc_type.__name__}: {exception.exc_message}"
+    return _gcd_print_exception(text)
+
+
+def _gcd_print_exception(text: str):
+    text = textwrap.indent(text, prefix=" " * 4 + "!!! ")
+    print(text, end="\n\n")

@@ -14,17 +14,28 @@ T = TypeVar("T")
 _DEFAULT = object()
 
 
-def ask_valid_input(
+def ask_valid_input(*args, **kwargs) -> T:
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        *args, **kwargs
+    )
+
+    while True:
+        choice = input(prompt).strip()
+        try:
+            return parser(choice)
+        except validation_errors as exc:
+            print(error_message.format(choice=choice, error=exc))
+
+
+def _ask_valid_input_parse_args(
     prompt: str,
     parser: Callable[[str], T] = None,
     default: T = _DEFAULT,
     choices: enum.EnumMeta = None,
     error_message: str = "Not valid: {choice!r} ({error})",
     validation_errors: Tuple[Type[Exception]] = (ValueError,),
-) -> T:
+):
     """
-    Ask for user input until it satisfies a given validator.
-
     :param prompt: Prompt string to use with input().
     :param parser: A function that takes the string input and parses it to the
          corresponding object, or raises an exception if it's not valid.
@@ -39,38 +50,7 @@ def ask_valid_input(
          - `error`: the exception raised by ``parser``.
     :param validation_errors: A tuple of exception types to be caught when calling the
         parser and considered as validation errors.
-
-    :returns: The user's choice, once it's valid.
     """
-    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
-        choices, default, error_message, parser, prompt, validation_errors
-    )
-
-    while True:
-        choice = input(prompt).strip()
-        try:
-            return parser(choice)
-        except validation_errors as exc:
-            print(error_message.format(choice=choice, error=exc))
-
-
-async def async_ask_valid_input(*args, **kwargs):
-    """Asynchronous version of :func:`ask_valid_input`."""
-    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
-        *args, **kwargs
-    )
-
-    while True:
-        choice = (await ainput(prompt)).strip()
-        try:
-            return parser(choice)
-        except validation_errors as exc:
-            print(error_message.format(choice=choice, error=exc))
-
-
-def _ask_valid_input_parse_args(
-    choices, default, error_message, parser, prompt, validation_errors
-):
     if not prompt.endswith(" "):
         prompt += " "
 
@@ -96,6 +76,29 @@ def _ask_valid_input_parse_args(
             return default if not s else wrapped(s)
 
     return error_message, parser, prompt, validation_errors
+
+
+ask_valid_input.__doc__ = f"""
+Ask for user input until it satisfies a given validator.
+
+{_ask_valid_input_parse_args.__doc__}
+
+:returns: The user's choice, once it's valid.
+"""
+
+
+async def async_ask_valid_input(*args, **kwargs):
+    """Asynchronous version of :func:`ask_valid_input`."""
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        *args, **kwargs
+    )
+
+    while True:
+        choice = (await ainput(prompt)).strip()
+        try:
+            return parser(choice)
+        except validation_errors as exc:
+            print(error_message.format(choice=choice, error=exc))
 
 
 @multimethod

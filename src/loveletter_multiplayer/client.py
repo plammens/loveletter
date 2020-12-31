@@ -291,6 +291,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                                 "Remote exception while waiting for game; retrying",
                                 exc_info=e,
                             )
+                            self._wait_for_game_started.clear()
 
                     await self._receive_loop()
                     return
@@ -402,6 +403,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             """Wait for the server to create the game."""
             self._wait_for_game_task = asyncio.current_task()
             self._wait_for_game_started.set()
+            LOGGER.debug("Waiting for remote game")
             self.game = await RemoteGameShadowCopy.from_connection(self)
             self._deserializer = MessageDeserializer(
                 game=self.game, fill_placeholders=False
@@ -411,6 +413,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
 
         async def _receive_loop(self):
             self._receive_loop_active = True
+            LOGGER.debug("Started receive loop")
             try:
                 while True:
                     message = await self._receive_message()

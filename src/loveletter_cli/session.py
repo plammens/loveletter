@@ -9,8 +9,14 @@ from typing import Tuple
 
 import valid8
 
+from loveletter_cli.ui import ask_valid_input, print_exception
 from loveletter_cli.utils import print_header
-from loveletter_multiplayer import GuestClient, HostClient, RemoteGameShadowCopy
+from loveletter_multiplayer import (
+    GuestClient,
+    HostClient,
+    LogonError,
+    RemoteGameShadowCopy,
+)
 from loveletter_multiplayer.utils import Address
 
 
@@ -65,7 +71,8 @@ class HostCLISession(CommandLineSession):
         server_process = await asyncio.create_subprocess_shell(cmd)
         try:
             self.client = HostClient(self.user.username)
-            await self._connect_localhost_and_start_game()
+            await self._connect_localhost()
+            game = await self._ready_to_play()
             # TODO: actual game here...
         finally:
             if sys.exc_info() == (None, None, None):
@@ -74,9 +81,8 @@ class HostCLISession(CommandLineSession):
                 LOGGER.warning("manage raised, waiting on server process to end")
             await server_process.wait()
 
-    async def _connect_localhost_and_start_game(self) -> RemoteGameShadowCopy:
+    async def _connect_localhost(self):
         await self.client.connect("127.0.0.1", self.port)
-        return await self._ready_to_play()
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         while True:

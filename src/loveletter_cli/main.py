@@ -1,4 +1,5 @@
 import asyncio
+import enum
 import logging
 import socket
 
@@ -9,8 +10,8 @@ from loveletter_cli.session import (
     PlayMode,
     UserInfo,
 )
+from loveletter_cli.ui import ask_valid_input, print_exception
 from loveletter_cli.utils import (
-    ask_valid_input,
     get_local_ip,
     get_public_ip,
     print_header,
@@ -18,6 +19,11 @@ from loveletter_cli.utils import (
 from loveletter_multiplayer import DEFAULT_PORT, MAX_PORT, valid8
 from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.utils import Address
+
+
+class ErrorOptions(enum.Enum):
+    RETRY = enum.auto()
+    QUIT = enum.auto()
 
 
 def main(logging_level: int = logging.INFO):
@@ -29,10 +35,26 @@ def main(logging_level: int = logging.INFO):
     print(f"Welcome, {user.username}!")
 
     mode = ask_play_mode()
-    print()
 
     runners = {PlayMode.JOIN: join_game, PlayMode.HOST: host_game}
-    return runners[mode](user)
+    while True:
+        try:
+            print()
+            return runners[mode](user)
+        except Exception as e:
+            print("Unhandled exception while running the session:")
+            print_exception(e)
+            choice = ask_valid_input(
+                "What would you like to do?",
+                choices=ErrorOptions,
+                default=ErrorOptions.RETRY,
+            )
+            if choice == ErrorOptions.RETRY:
+                continue
+            elif choice == ErrorOptions.QUIT:
+                return
+            else:
+                assert False, f"Unhandled error option: {choice}"
 
 
 def ask_user():

@@ -26,7 +26,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def manage(self):
         """Main entry point to run and manage this session."""
-        pass
+        asyncio.current_task().set_name("cli_session_manage")
 
 
 class HostCLISession(CommandLineSession):
@@ -46,6 +46,7 @@ class HostCLISession(CommandLineSession):
         return tuple(Address(h, self.port) for h in self.hosts)
 
     async def manage(self):
+        await super().manage()
         print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
@@ -67,6 +68,10 @@ class HostCLISession(CommandLineSession):
             await self._connect_localhost_and_start_game()
             # TODO: actual game here...
         finally:
+            if sys.exc_info() == (None, None, None):
+                LOGGER.info("Waiting on server process to end")
+            else:
+                LOGGER.warning("manage raised, waiting on server process to end")
             await server_process.wait()
 
     async def _connect_localhost_and_start_game(self) -> RemoteGameShadowCopy:
@@ -95,7 +100,7 @@ class GuestCLISession(CommandLineSession):
         self.server_address = server_address
 
     async def manage(self):
-        pass
+        await super().manage()
 
 
 @dataclass(frozen=True)

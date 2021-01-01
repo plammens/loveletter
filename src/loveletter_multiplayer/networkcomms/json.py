@@ -1,5 +1,4 @@
 import abc
-import copy
 import dataclasses
 import enum
 import json
@@ -20,11 +19,14 @@ from ..utils import (
     full_qualname,
     import_from_qualname,
     instance_attributes,
+    recursive_apply,
 )
 
 
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]
 SerializableObject = Dict[str, Any]
+
+MESSAGE_SEPARATOR = b"\0"
 
 # noinspection SpellCheckingInspection
 MESSAGE_TYPE_KEY = "_msgtype_"
@@ -47,12 +49,25 @@ class MessageSerializer(json.JSONEncoder):
     def __init__(self):
         super().__init__(ensure_ascii=False, indent=None, separators=(",", ":"))
 
+    def encode(self, o: Any) -> str:
+        o = self._prepare_dicts(o)
+        return super().encode(o)
+
+    def _prepare_dicts(self, o):
+        return recursive_apply(
+            o,
+            predicate=lambda x: isinstance(x, dict),
+            function=lambda d: {self.encode(k): v for k, v in d.items()},
+        )
+
     def serialize(self, message: Message) -> bytes:
         json_string = self.encode(message)
         return json_string.encode() + MESSAGE_SEPARATOR
 
     def default(self, o: Any) -> JsonType:
-        if isinstance(o, enum.Enum):
+        if isinstance(o, dict):
+            return {self.encode(k): v for k, v in o.items()}
+        elif isinstance(o, enum.Enum):
             return self._make_enum_member_serializable(o)
         elif isinstance(o, (set, frozenset)):
             return self._make_set_serializable(o)
@@ -173,7 +188,8 @@ class MessageDeserializer(json.JSONDecoder):
         elif (class_path := json_obj.pop(FALLBACK_KEY, None)) is not None:
             return self._reconstruct_fallback(class_path, json_obj)
         else:
-            return json_obj  # regular dict
+            # regular dict
+            return {self.decode(k): v for k, v in json_obj.items()}
 
     @staticmethod
     def _reconstruct_enum_member(
@@ -390,58 +406,8 @@ def fill_placeholders(obj, game: Game):
     :return: Shallow copy of the object with filled placeholders, or the same object
              unmodified if no placeholders were found.
     """
-
-    processing = {}
-
-    def fill(o):
-        if id(o) in processing:
-            raise RecursionError(
-                f"Cycle detected: {list(processing.values())}, then {repr(o)} again"
-            )
-        processing[id(o)] = o
-        try:
-            return _do_fill(o)
-        finally:
-            processing.popitem()
-
-    def _do_fill(o):
-        if isinstance(o, Placeholder):
-            return o.fill(game)
-
-        elif isinstance(o, (tuple, list, set, frozenset)):
-            filled = type(o)(fill(x) for x in o)
-            modified = not all(x is y for x, y in zip(o, filled))
-            return filled if modified else o
-
-        elif isinstance(o, dict):
-            # noinspection PyArgumentList
-            filled = type(o)((fill(k), fill(v)) for k, v in o.items())
-            modified = not all(
-                k1 is k2 and v1 is v2
-                for (k1, v1), (k2, v2) in zip(o.items(), filled.items())
-            )
-            return filled if modified else o
-
-        else:
-            filled_values = {}
-            for name, attr in instance_attributes(o).items():
-                if name.startswith("__"):
-                    continue
-                filled = fill(attr)
-                if filled is not attr:
-                    filled_values[name] = filled
-            if not filled_values:
-                return o
-
-            if dataclasses.is_dataclass(o):
-                return dataclasses.replace(o, **filled_values)
-            else:
-                obj_copy = copy.copy(o)
-                for name, value in filled_values.items():
-                    setattr(obj_copy, name, value)
-                return obj_copy
-
-    return fill(obj)
-
-
-MESSAGE_SEPARATOR = b"\0"
+    return recursive_apply(
+        obj,
+        predicate=lambda x: isinstance(x, Placeholder),
+        function=lambda placeholder: placeholder.fill(game),
+    )

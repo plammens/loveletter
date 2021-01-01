@@ -1,5 +1,7 @@
 import asyncio
 import contextlib
+import copy
+import dataclasses
 import enum
 import importlib
 import inspect
@@ -10,7 +12,7 @@ import traceback
 import typing
 from collections import namedtuple
 from functools import lru_cache
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Union
 
 
 LOGGER = logging.getLogger(__name__)
@@ -214,3 +216,66 @@ class attrgetter:
 
     def __reduce__(self):
         return self._attrgetter.__reduce__()
+
+
+def recursive_apply(
+    obj, predicate: Callable[[Any], bool], function: Callable[[Any], Any]
+):
+    """
+    Recursively apply a function to all sub-objects that satisfy a predicate.
+
+    :return: Shallow copy of the object with replaced sub-objects, or the same object
+             unmodified if no sub-objects satisfying the predicate were found.
+    """
+
+    processing = {}
+
+    def apply(o):
+        if id(o) in processing:
+            raise RecursionError(
+                f"Cycle detected: {list(processing.values())}, then {repr(o)} again"
+            )
+        processing[id(o)] = o
+        try:
+            return _do_apply(o)
+        finally:
+            processing.popitem()
+
+    def _do_apply(o):
+        if predicate(o):
+            return function(o)
+
+        elif isinstance(o, (tuple, list, set, frozenset)):
+            filled = type(o)(apply(x) for x in o)
+            modified = not all(x is y for x, y in zip(o, filled))
+            return filled if modified else o
+
+        elif isinstance(o, dict):
+            # noinspection PyArgumentList
+            filled = type(o)((apply(k), apply(v)) for k, v in o.items())
+            modified = not all(
+                k1 is k2 and v1 is v2
+                for (k1, v1), (k2, v2) in zip(o.items(), filled.items())
+            )
+            return filled if modified else o
+
+        else:
+            filled_values = {}
+            for name, attr in instance_attributes(o).items():
+                if name.startswith("__"):
+                    continue
+                filled = apply(attr)
+                if filled is not attr:
+                    filled_values[name] = filled
+            if not filled_values:
+                return o
+
+            if dataclasses.is_dataclass(o):
+                return dataclasses.replace(o, **filled_values)
+            else:
+                obj_copy = copy.copy(o)
+                for name, value in filled_values.items():
+                    setattr(obj_copy, name, value)
+                return obj_copy
+
+    return apply(obj)

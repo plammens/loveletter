@@ -691,23 +691,28 @@ class LoveletterPartyServer:
             return handle[rnd.PlayerMoveChoice, ](e)
             # fmt:on
 
-        game = self.game
-        game_generator = game.play()
-        event = None
-        while True:
-            try:
-                # noinspection PyTypeChecker
-                event = game_generator.send(await handle(event))
-            except StopIteration as end:
-                (game_end,) = end.value
-                break
-            LOGGER.info("Server game generated event: %s", event)
+        try:
+            game = self.game
+            game_generator = game.play()
+            event = None
+            while True:
+                try:
+                    # noinspection PyTypeChecker
+                    event = game_generator.send(await handle(event))
+                except StopIteration as end:
+                    (game_end,) = end.value
+                    break
+                LOGGER.info("Server game generated event: %s", event)
 
-        LOGGER.info("Game has ended: %s", event)
-        end_message = msg.GameEndMessage(game_end)
-        await asyncio.gather(
-            *(s.send_message(end_message) for s in self._client_sessions)
-        )
+            LOGGER.info("Game has ended: %s", event)
+            end_message = msg.GameEndMessage(game_end)
+            await asyncio.gather(
+                *(s.send_message(end_message) for s in self._client_sessions)
+            )
+        except Exception as e:
+            LOGGER.critical("Unhandled exception while playing game", exc_info=e)
+        finally:
+            LOGGER.debug("_play_game has finished")
 
     # ---------------------------- Shutdown/abort methods -----------------------------
 

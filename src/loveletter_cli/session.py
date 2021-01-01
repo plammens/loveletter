@@ -53,8 +53,124 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             raise NotImplementedError(e)
 
         @handle.register
-        async def handle(e: gev.GameResultEvent) -> None:
-            print(e)
+        async def handle(e: loveletter.game.PlayingRound) -> None:
+            if e.points_update:
+                # print updates from last round
+                print("Points gained:")
+                for player, delta in (+e.points_update).items():
+                    print(f"    {player.username}: {delta:+}")
+                print()
+                print("Leaderboard:")
+                for i, (player, points) in enumerate(game.points.items(), start=1):
+                    print(f"    {i}. {player.username}")
+                print()
+                await ainput("Enter something to continue...")
+
+            print_header(f"ROUND {e.round_no}", filler="#")
+
+        @handle.register
+        async def handle(e: rnd.Turn) -> None:
+            draw_game(game)
+            player = game.get_player(e.current_player)
+            if player.id == game.client_player_id:
+                print("It's your turn!")
+            else:
+                print(f"It's {player.username}'s turn")
+
+        @handle.register
+        async def handle(e: rnd.RoundEnd) -> None:
+            print("\n>>>>> The round has ended! <<<<<\n")
+            winners = [game.get_player(p).username for p in e.winners]
+            print(f"Winner(s) of the round: {', '.join(winners)}")
+            # points update gets printed in PlayingRound handler
+
+        @handle.register
+        async def handle(e: mv.PlayerEliminated) -> None:
+            player = game.get_player(e.eliminated)
+            print(f"💀 Player {player.username} has been eliminated 💀")
+
+        @handle.register
+        async def handle(e: mv.ShowOpponentCard) -> None:
+            player, opponent = map(game.get_player, (e.player, e.opponent))
+            if player.id == game.client_player_id:
+                print(
+                    f"Player {opponent.username} shows their card to you, "
+                    f"revealing a {opponent.hand.card.name}."
+                )
+            else:
+                print(
+                    f"Player {opponent.username} shows their card to {player.username}."
+                )
+
+        @handle.register
+        async def handle(e: mv.CardComparison) -> None:
+            player, opponent = map(game.get_player, (e.player, e.opponent))
+            if player.id == game.client_player_id:
+                print(
+                    f"You and {opponent.username} compare your cards: "
+                    f"you have a {player.hand.card.name}, "
+                    f"they have a {opponent.hand.card.name}."
+                )
+            else:
+                print(
+                    f"Player {player.username} and {opponent.username} "
+                    f"compare their cards in secret."
+                )
+
+        @handle.register
+        async def handle(e: mv.CardDiscarded) -> None:
+            player = game.get_player(e.target)
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} "
+                f"discard{'s' if not is_client else ''} a {e.discarded.name}."
+            )
+
+        @handle.register
+        async def handle(e: mv.CardDealt) -> None:
+            player = game.get_player(e.target)
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} "
+                f"{'are' if is_client else 'is'} dealt another card from the deck."
+            )
+
+        @handle.register
+        async def handle(e: mv.CardChosen) -> None:
+            player = game.get_player(e.player)
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} "
+                f"{'have' if is_client else 'has'} chosen a card to keep."
+            )
+
+        @handle.register
+        async def handle(e: mv.CardsPlacedBottomOfDeck) -> None:
+            player = game.get_player(e.player)
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} "
+                f"{'have' if is_client else 'has'} placed back the other {len(e.cards)}"
+                f"card(s) at the bottom of the deck."
+            )
+
+        @handle.register
+        async def handle(e: mv.ImmunityGranted) -> None:
+            player = game.get_player(e.player)
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} "
+                f"{'have' if is_client else 'has'} been granted immunity."
+            )
+
+        @handle.register
+        async def handle(e: mv.CardsSwapped) -> None:
+            player, opponent = map(game.get_player, (e.player, e.opponent))
+            is_client = player.id == game.client_player_id
+            print(
+                f"{'You' if is_client else player.username} and {opponent.username}"
+                f"swap {'your' if is_client else 'their'} cards."
+            )
 
         @handle.register
         async def handle(e: RemoteEvent) -> None:
@@ -154,8 +270,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     print(exc)
                 else:
                     break
-
-            draw_game(game)
 
         await self._show_game_end(game)
 

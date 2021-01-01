@@ -30,6 +30,7 @@ MoveStepGenerator = Generator[
 
 class Card(metaclass=abc.ABCMeta):
     value: ClassVar[int]
+    description: ClassVar[str]
     steps: ClassVar[Tuple[Type[move.MoveStep]]]  # indicates the steps yielded by play()
     cancellable: ClassVar[bool] = True
 
@@ -103,6 +104,10 @@ class Card(metaclass=abc.ABCMeta):
 
 class Spy(Card):
     value = 0
+    description = (
+        "At the end of the round, if you are the only player sill in the round who "
+        "played or discarded a Spy, gain 1 token of affection."
+    )
     steps = ()
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -124,6 +129,10 @@ class Spy(Card):
 
 class Guard(Card):
     value = 1
+    description = (
+        "Name a non-Guard card and choose another player. If that player has that that "
+        "card, he or she is out of the round."
+    )
     steps = (move.OpponentChoice, move.CardGuess)
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -145,6 +154,7 @@ class Guard(Card):
 
 class Priest(Card):
     value = 2
+    description = "Look at another player's hand."
     steps = (move.OpponentChoice,)
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -157,6 +167,10 @@ class Priest(Card):
 
 class Baron(Card):
     value = 3
+    description = (
+        "You and another player secretly compare hands. The player with the lower "
+        "value is out of the round. In case of a tie, nothing happens."
+    )
     steps = (move.OpponentChoice,)
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -184,6 +198,7 @@ class Baron(Card):
 
 class Handmaid(Card):
     value = 4
+    description = "Until your next turn, you can't be targeted with any card."
     steps = ()
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -196,6 +211,10 @@ class Handmaid(Card):
 
 class Prince(Card):
     value = 5
+    description = (
+        "Choose any player (including yourself) to discard his or her hand and draw a "
+        "new card."
+    )
     steps = (move.PlayerChoice,)
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -216,6 +235,10 @@ class Prince(Card):
 
 class Chancellor(Card):
     value = 6
+    description = (
+        "Draw 2 cards. Keep 1 card and put the other 2 on the bottom of the deck in "
+        "any order."
+    )
     steps = (move.ChooseOneCard, move.ChooseOrderForDeckBottom)
     cancellable = False
 
@@ -253,6 +276,7 @@ class Chancellor(Card):
 
 class King(Card):
     value = 7
+    description = "Trade hands with another player of your choice."
     steps = (move.OpponentChoice,)
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -266,6 +290,10 @@ class King(Card):
 
 class Countess(Card):
     value = 8
+    description = (
+        "If you have this card and the Prince or King is in your hand, you must "
+        "discard this card."
+    )
     steps = ()
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
@@ -287,6 +315,7 @@ class Countess(Card):
 
 class Princess(Card):
     value = 9
+    description = "If you discard this card, you are out of this round."
     steps = ()
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:

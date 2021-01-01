@@ -30,10 +30,21 @@ from test_loveletter.utils import (
 )
 
 
-def test_cards_have_nonnegative_value():
-    values = {t.card_class.value for t in CardType}
-    assert all(type(v) is int for v in values)
-    assert all(v >= 0 for v in values)
+@pytest_cases.parametrize(card_type=CardType)
+def test_cardType_hasNonnegativeValue(card_type):
+    value = card_type.card_class.value
+    assert type(value) is int
+    assert value >= 0
+
+
+@pytest_cases.parametrize(card_type=CardType)
+def test_cardType_hasDescription(card_type):
+    cls = card_type.card_class
+    assert hasattr(cls, "description")
+    description = cls.description
+    assert isinstance(description, str)
+    assert description[0].isupper()
+    assert description.endswith(".")
 
 
 @pytest_cases.parametrize(card_type=card_cases.ALL_TYPES)

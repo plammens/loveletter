@@ -7,7 +7,7 @@ from typing import Callable, Tuple, Type, TypeVar
 from aioconsole import ainput
 from multimethod import multimethod
 
-from loveletter_multiplayer import RemoteException
+from loveletter_multiplayer import RemoteException, RemoteGameShadowCopy
 
 
 T = TypeVar("T")
@@ -118,3 +118,9 @@ def print_exception(exception: RemoteException):
 def _gcd_print_exception(text: str):
     text = textwrap.indent(text, prefix=" " * 4 + "!!! ")
     print(text, end="\n\n")
+
+
+def draw_game(game: RemoteGameShadowCopy):
+    print()
+
+    print()

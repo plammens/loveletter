@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Counter as CounterType, Dict, Optional, Sequence
 
 import valid8
+from multimethod import multimethod
 from valid8.validation_lib import instance_of, on_all_
 
 from loveletter.cards import CardType
@@ -17,6 +18,7 @@ from loveletter.gamenode import (
     IntermediateState,
 )
 from loveletter.round import FirstPlayerChoice, Round
+from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import extend_enum
 
 
@@ -67,6 +69,25 @@ class Game(GameNode):
     def current_round(self) -> Optional[Round]:
         """The current round being played, or None if not applicable."""
         return getattr(self.state, "round", None)
+
+    @multimethod
+    def get_player(self, player: "Game.Player") -> "Game.Player":
+        """Utility to get the appropriate Game.Player object."""
+        return player
+
+    @get_player.register
+    def get_player(self, player: int) -> "Game.Player":
+        return self.players[player]
+
+    @get_player.register
+    def get_player(self, player: RoundPlayer) -> "Game.Player":
+        valid8.validate(
+            "player",
+            player,
+            is_in=self.current_round.players,
+            help_msg="This RoundPlayer is not from this game",
+        )
+        return self.players[player.id]
 
     def play(self, **start_kwargs) -> GameEventGenerator:
         def iteration(self: Game) -> GameEventGenerator:

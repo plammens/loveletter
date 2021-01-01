@@ -91,7 +91,7 @@ class Game(GameNode):
         super().start()
         first_round = Round(self.num_players)
         self.state = state = PlayingRound(
-            round=first_round, round_no=1, first_player=None
+            round=first_round, round_no=1, first_player=None, points_update=None
         )
         return state
 
@@ -100,7 +100,8 @@ class Game(GameNode):
 
         self.state: PlayingRound
         old_round = self.state.round
-        self._collect_points(old_round)
+        points_update = self._collect_points(old_round)
+        self.points.update(points_update)
         if self._reached_end():
             return self._finalize()
 
@@ -115,7 +116,10 @@ class Game(GameNode):
             # more than one winner
             first_player = None
         self.state = state = PlayingRound(
-            round=new_round, round_no=new_round_no, first_player=first_player
+            round=new_round,
+            round_no=new_round_no,
+            first_player=first_player,
+            points_update=points_update,
         )
         return state
 
@@ -138,13 +142,16 @@ class Game(GameNode):
         self.state = end = GameEnd(winners=winners)
         return end
 
-    def _collect_points(self, game_round: Round):
+    def _collect_points(self, game_round: Round) -> Counter["Game.Player"]:
         """Collect tokens of affection from a round that has ended."""
+        assert game_round.ended
         # noinspection PyUnresolvedReferences
         points = Counter(game_round.state.winners)
         for card_type in CardType:
             points.update(card_type.card_class.collect_extra_points(game_round))
-        self.points.update({self.players[p.id]: pts for p, pts in points.items()})
+        points_update = Counter({self.players[p.id]: pts for p, pts in points.items()})
+        # TODO: figure out something better for communicating points update
+        return points_update
 
     def _repr_hook(self) -> Dict[str, Any]:
         attrs = super()._repr_hook()
@@ -181,7 +188,8 @@ class PlayingRound(GameState, IntermediateState):
 
     round: Round
     round_no: int
-    first_player: Optional[Game.Player]  # who will start the round, if known
+    first_player: Optional[Game.Player]  #: who will start the round, if known
+    points_update: Optional[Counter[Game.Player]]  #: the points delta from last round
 
     @IntermediateState.can_advance.getter
     def can_advance(self) -> bool:

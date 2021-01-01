@@ -142,8 +142,9 @@ class GameNode(metaclass=abc.ABCMeta):
             help_msg=f"Can't advance {intermediate_name} before previous one has ended",
         )
 
+    @classmethod
     @abc.abstractmethod
-    def _make_init_state(self):
+    def _make_init_state(cls):
         return InitState()
 
     @abc.abstractmethod

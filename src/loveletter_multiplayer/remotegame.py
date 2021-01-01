@@ -21,7 +21,6 @@ import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.cards import CardType
 from loveletter_multiplayer.networkcomms import (
     Message,
-    dataclasses,
     full_qualname,
     import_from_qualname,
 )
@@ -104,8 +103,6 @@ class RemoteGameShadowCopy(loveletter.game.Game):
             LOGGER.debug("Synchronizing initial deck to %s", deck)
             game_round = self.current_round
             game_round.deck = deck
-            # noinspection PyArgumentList
-            game_round.state = dataclasses.replace(game_round.state, deck=deck)
             yield e
             yield None
 

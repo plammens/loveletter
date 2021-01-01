@@ -1,6 +1,6 @@
 import shutil
 import textwrap
-from typing import Sequence, Tuple, Union
+from typing import Sequence
 
 import more_itertools
 import numpy as np
@@ -17,8 +17,12 @@ CARD_ASPECT = 3 / 5  #: card aspect ratio
 def draw_game(game: RemoteGameShadowCopy):
     game_round = game.current_round
     you = game_round.players[game.client_player_id]
-    width, _ = shutil.get_terminal_size()
+    width, _ = shutil.get_terminal_size(fallback=(99, 0))
     center_fmt = f"^{width}"
+
+    def get_player(offset: int) -> RoundPlayer:
+        players = game_round.players
+        return players[(you.id + offset) % len(players)]
 
     def cards_discarded_string(p: RoundPlayer) -> str:
         return (
@@ -26,10 +30,16 @@ def draw_game(game: RemoteGameShadowCopy):
         )
 
     def username(p: RoundPlayer) -> str:
-        return game.players[p.id].username
+        name = game.players[p.id].username
+        if game_round.current_player is p:
+            return f">>> {name} <<<"
+        elif not p.alive:
+            return f"💀 {name} 💀"
+        else:
+            return name
 
     # opposite opponent (at least one)
-    opposite = game_round.get_player(you, offset=min(2, game_round.num_players - 1))
+    opposite = get_player(offset=min(2, game_round.num_players - 1))
     sprites = [card_back_sprite(char="#")] * len(opposite.hand)
     print_char_array(_horizontal_join(sprites), align="^", width=width)
     print(" " * width)
@@ -39,33 +49,30 @@ def draw_game(game: RemoteGameShadowCopy):
 
     # print left and maybe right opponent(s):
     if game_round.num_players >= 3:
-        center_block = _empty_rectangle(10, width)
+        center_cards = _empty_rectangle(2 * 5, width)
+        center_footer = _empty_rectangle(2, width)
 
         # left opponent
-        left = game_round.get_player(you, offset=1)
+        left = get_player(1)
         sprites = [horizontal_card_back_sprite(char="\\")] * len(left.hand)
         cards = _vertical_join(sprites)
-        _embed(center_block, cards, col=1, vcenter=True)
+        _embed(center_cards, cards, col=2, vcenter=True)
+        _write_string(center_footer, username(left), row=0, align="<")
+        _write_string(center_footer, cards_discarded_string(left), row=1, align="<")
 
         # right opponent
         if game_round.num_players == 4:
-            right = game_round.get_player(you, offset=-1)
+            right = get_player(3)
             sprites = [horizontal_card_back_sprite(char="/")] * len(right.hand)
             cards = _vertical_join(sprites)
-            _embed(center_block, cards, col=-1, vcenter=True)
-
-        print_char_array(center_block)
-        if game_round.num_players == 3:
-            print(format(f" {username(left)}", f"<{width}"))
-            print(format(f" {cards_discarded_string(left)}", f"<{width}"))
-        else:
-            r = width - (l := round(width / 2))
-            print(f"{' ' + username(left):<{l}}{username(right) + ' ':>{r}}")
-            print(
-                f"{' ' + cards_discarded_string(left):<{l}}"
-                f"{cards_discarded_string(right) + ' ':>{r}}"
+            _embed(center_cards, cards, col=-2, vcenter=True)
+            _write_string(center_footer, username(right), row=0, align=">")
+            _write_string(
+                center_footer, cards_discarded_string(right), row=1, align=">"
             )
 
+        center_block = _vertical_join([center_cards, center_footer], sep_lines=1)
+        print_char_array(center_block)
         print(" " * width)
 
     # hand
@@ -80,7 +87,7 @@ def card_sprite(card: Card, size=15) -> np.array:
     arr = _empty_card(size)
     width = arr.shape[1]
 
-    _write_string(arr, f"({card.value})", row=2, align="<", margins=(2, 3))
+    _write_string(arr, f"({card.value})", row=2, align="<", margin=3)
     _write_string(arr, CardType(card).name, row=2, align="^")
 
     min_description_start = 4
@@ -94,7 +101,7 @@ def card_sprite(card: Card, size=15) -> np.array:
     )
     description_start = description_end - len(lines)
     for i, line in enumerate(lines, start=description_start):
-        _write_string(arr, line, row=i, align="^", margins=(2, description_margin))
+        _write_string(arr, line, row=i, align="^", margin=description_margin)
 
     return arr
 
@@ -142,16 +149,12 @@ def _write_string(
     s: str,
     row: int,
     align: str = "",
-    margins: Union[int, Tuple[int, int]] = 2,
+    margin: int = 2,
 ) -> None:
-    try:
-        row_margin, col_margin = margins
-    except TypeError:
-        row_margin, col_margin = margins, round(margins * ROW_TO_COL_RATIO)
-    string_width = arr.shape[1] - 2 * col_margin
+    string_width = arr.shape[1] - 2 * margin
 
     chars = _char_array(format(s, f"{align}{string_width}"))
-    idx = (row, slice(col_margin, -col_margin))
+    idx = (row, slice(margin, -margin))
     arr[idx] = _overlay(arr[idx], chars)
 
 
@@ -202,6 +205,8 @@ def _horizontal_join(arrays: Sequence[np.ndarray], sep="  ") -> np.ndarray:
 
 
 def _vertical_join(arrays: Sequence[np.ndarray], sep_lines=0) -> np.ndarray:
+    if not arrays:
+        return _empty_rectangle(0, 0)
     cols = arrays[0].shape[1]
     assert all(a.shape[1] == cols for a in arrays)
     joint = _empty_rectangle(sep_lines, cols)

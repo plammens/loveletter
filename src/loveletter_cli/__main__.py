@@ -27,9 +27,9 @@ parser.add_argument(
     "--logging",
     "-l",
     type=logging_level,
-    default=logging.INFO,
+    default=logging.WARNING,
     dest="logging_level",
-    help="Logging level (either a name or a numeric value). Default: INFO",
+    help="Logging level (either a name or a numeric value). Default: WARNING",
 )
 parsed = parser.parse_args()
 

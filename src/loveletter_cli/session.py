@@ -242,6 +242,12 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     f"you have a {player.hand.card.name}, "
                     f"they have a {opponent.hand.card.name}."
                 )
+            elif opponent is game.client_player:
+                print(
+                    f"{opponent.username} compares their hand with yours: "
+                    f"they have a {opponent.hand.card.name}, "
+                    f"you have a {player.hand.card.name}."
+                )
             else:
                 print(
                     f"Player {player.username} and {opponent.username} "

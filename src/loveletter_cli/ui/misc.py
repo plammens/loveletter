@@ -121,7 +121,17 @@ def _ask_valid_input_parse_args(
         def parser(s: str, wrapped=parser) -> T:
             return default if not s else wrapped(s)
 
+    prompt = _decorate_prompt(prompt)
+
     return error_message, parser, prompt, validation_errors
+
+
+def _decorate_prompt(prompt: str) -> str:
+    printable_width()
+    text = f"? {prompt}"
+    lines = textwrap.wrap(text, width=110, subsequent_indent="... " + " " * 4)
+    lines.append("> ")
+    return "\n".join(lines)
 
 
 ask_valid_input.__doc__ = f"""

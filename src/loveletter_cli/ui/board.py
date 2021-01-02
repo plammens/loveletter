@@ -6,8 +6,8 @@ import numpy as np
 
 from loveletter.cards import Card, CardType
 from loveletter.roundplayer import RoundPlayer
-from loveletter_cli.ui import printable_width
 from loveletter_multiplayer import RemoteGameShadowCopy
+from .misc import printable_width
 
 
 ROW_TO_COL_RATIO = 2.8  #: approximate terminal character aspect ratio

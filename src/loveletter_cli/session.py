@@ -414,9 +414,11 @@ class HostCLISession(CommandLineSession):
         server_process.start()
         try:
             self.client = HostClient(self.user.username)
-            await self._connect_localhost()
+            connection = await self._connect_localhost()
             game = await self._ready_to_play()
             await self.play_game(game)
+            await self.client.send_shutdown()
+            await connection
         finally:
             if (exc_info := sys.exc_info()) == (None, None, None):
                 LOGGER.info("Waiting on server process to end")
@@ -427,9 +429,10 @@ class HostCLISession(CommandLineSession):
             server_process.join(5)
             LOGGER.debug("Server process ended")
 
-    async def _connect_localhost(self):
+    async def _connect_localhost(self) -> asyncio.Task:
         connection = await self.client.connect("127.0.0.1", self.port)
         watch_connection(connection)
+        return connection
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None

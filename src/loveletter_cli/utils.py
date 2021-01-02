@@ -3,6 +3,7 @@ import shutil
 import socket
 from functools import lru_cache
 
+import more_itertools as mitt
 import valid8
 
 
@@ -36,3 +37,8 @@ def print_header(text: str, filler: str = "-"):
     print()
     width, _ = shutil.get_terminal_size()
     print(format(f" {text} ", f"{filler}^{width - 1}"), end="\n\n")
+
+
+def camel_to_phrase(name: str) -> str:
+    """Convert camel/Pascal-case into a phrase with space-separated lowercase words."""
+    return " ".join("".join(w).lower() for w in mitt.split_before(name, str.isupper))

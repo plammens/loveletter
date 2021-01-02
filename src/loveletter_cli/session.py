@@ -18,7 +18,7 @@ import loveletter.move as mv
 import loveletter.round as rnd
 from loveletter.cards import CardType
 from loveletter_cli.ui import async_ask_valid_input, draw_game, pause, print_exception
-from loveletter_cli.utils import print_header
+from loveletter_cli.utils import camel_to_phrase, print_header
 from loveletter_multiplayer import (
     GuestClient,
     HostClient,
@@ -52,6 +52,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: gev.GameEvent) -> Optional[gev.GameInputRequest]:
             raise NotImplementedError(e)
 
+        # ----------------------------- Game node stages -----------------------------
+
         @handle.register
         async def handle(e: loveletter.game.PlayingRound) -> None:
             if e.points_update:
@@ -80,11 +82,134 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 print(f"It's {player.username}'s turn.")
 
         @handle.register
+        async def handle(e: rnd.PlayingCard) -> None:
+            player, card = game.get_player(e.player), e.card
+            is_client = player is game.client_player
+            print(
+                f"{'You' if is_client else player.username} "
+                f"{'have' if is_client else 'has'} chosen to play a {card.name}."
+            )
+
+        @handle.register
         async def handle(e: rnd.RoundEnd) -> None:
             print("\n>>>>> The round has ended! <<<<<\n")
             winners = [game.get_player(p).username for p in e.winners]
             print(f"Winner(s) of the round: {', '.join(winners)}")
             # points update gets printed in PlayingRound handler
+
+        # ------------------------------ Remote events -------------------------------
+
+        @handle.register
+        async def handle(e: RemoteEvent) -> None:
+            msg = f"{e.description}..."
+            if isinstance(e.wrapped, mv.MoveStep):
+                name = e.wrapped.__class__.__name__
+                msg += f" ({camel_to_phrase(name)})"
+            print(msg)
+
+        # ----------------------------- Pre-move choices -----------------------------
+
+        @handle.register
+        async def handle(e: rnd.FirstPlayerChoice) -> rnd.FirstPlayerChoice:
+            e.choice = await _player_choice(prompt="Who goes first?")
+            return e
+
+        @handle.register
+        async def handle(e: rnd.ChooseCardToPlay) -> rnd.ChooseCardToPlay:
+            choice = await async_ask_valid_input(
+                "What card do you want to play?", choices=MoveChoice
+            )
+            e.choice = mitt.nth(game.current_round.current_player.hand, choice.value)
+            return e
+
+        # -------------------------------- Move steps --------------------------------
+
+        @handle.register
+        async def handle(e: mv.CardGuess):
+            choices = enum.Enum(
+                "CardGuess",
+                names={n: m for n, m in CardType.__members__ if m != CardType.GUARD},
+            )
+            choice = await async_ask_valid_input("Guess a card:", choices=choices)
+            e.choice = choice.value
+            return e
+
+        @handle.register
+        async def handle(e: mv.PlayerChoice):
+            e.choice = await _player_choice(
+                prompt="Choose a target (you can choose yourself):"
+            )
+            return e
+
+        @handle.register
+        async def handle(e: mv.OpponentChoice):
+            e.choice = await _player_choice(
+                prompt="Choose an opponent to target:", include_self=False
+            )
+            return e
+
+        @handle.register
+        async def handle(e: mv.ChooseOneCard):
+            choices = enum.Enum(
+                "CardOption", names={CardType(c).name: c for c in e.options}
+            )
+            choice = await async_ask_valid_input("Choose one card:", choices=choices)
+            e.choice = choice.value
+            return e
+
+        @handle.register
+        async def handle(e: mv.ChooseOrderForDeckBottom):
+            fmt = ", ".join(f"{i}: {CardType(c).name}" for i, c in enumerate(e.cards))
+            print(f"Leftover cards: {fmt}")
+            print(
+                "You can choose which order to place these cards at the bottom of the "
+                "deck. Use the numbers shown above to refer to each of the cards."
+            )
+
+            idx_range = range(len(e.cards))
+
+            def parser(s: str) -> Tuple[int, ...]:
+                nums = tuple(map(int, s.split(",")))
+                valid8.validate(
+                    "nums",
+                    set(nums),
+                    equals=set(idx_range),
+                    help_msg=f"Each number in {set(idx_range)} should appear exactly "
+                    f"once, and nothing else.",
+                )
+                return nums
+
+            example = list(idx_range)
+            random.shuffle(example)
+            prompt = (
+                f"Choose an order to place these cards at the bottom of the deck\n"
+                f"    as a comma-separated list of integers, from bottommost to\n"
+                f"    topmost (e.g. {', '.join(map(str, example))}):"
+            )
+            choice = await async_ask_valid_input(prompt, parser=parser)
+            e.set_from_serializable(choice)
+            return e
+
+        # ------------------------------- Move results -------------------------------
+
+        @handle.register
+        async def handle(e: mv.CorrectCardGuess) -> None:
+            player, opponent = map(game.get_player, (e.player, e.opponent))
+            is_client = player is game.client_player
+            print(
+                f"{'You' if is_client else player.username} correctly guessed "
+                f"{opponent.username}'s {opponent.hand.card.name}!"
+            )
+
+        @handle.register
+        async def handle(e: mv.WrongCardGuess) -> None:
+            player, opponent = map(game.get_player, (e.player, e.opponent))
+            is_client = player is game.client_player
+            print(
+                f"{'You' if is_client else player.username} played the Guard against"
+                f"{opponent.username} and guessed a {e.guess.name.title()}, but "
+                f"{opponent.username} doesn't have that card."
+            )
 
         @handle.register
         async def handle(e: mv.PlayerEliminated) -> None:
@@ -175,88 +300,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 f"swap {'your' if is_client else 'their'} cards."
             )
 
-        @handle.register
-        async def handle(e: RemoteEvent) -> None:
-            print(f"{e.description}...")
-
-        @handle.register
-        async def handle(e: rnd.FirstPlayerChoice) -> rnd.FirstPlayerChoice:
-            e.choice = await _player_choice(prompt="Who goes first?")
-            return e
-
-        @handle.register
-        async def handle(e: rnd.ChooseCardToPlay) -> rnd.ChooseCardToPlay:
-            choice = await async_ask_valid_input(
-                "What card do you want to play?", choices=MoveChoice
-            )
-            e.choice = mitt.nth(game.current_round.current_player.hand, choice.value)
-            return e
-
-        @handle.register
-        async def handle(e: mv.CardGuess):
-            choices = enum.Enum(
-                "CardGuess",
-                names={n: m for n, m in CardType.__members__ if m != CardType.GUARD},
-            )
-            choice = await async_ask_valid_input("Guess a card:", choices=choices)
-            e.choice = choice.value
-            return e
-
-        @handle.register
-        async def handle(e: mv.PlayerChoice):
-            e.choice = await _player_choice(
-                prompt="Choose a target (you can choose yourself):"
-            )
-            return e
-
-        @handle.register
-        async def handle(e: mv.OpponentChoice):
-            e.choice = await _player_choice(
-                prompt="Choose an opponent to target:", include_self=False
-            )
-            return e
-
-        @handle.register
-        async def handle(e: mv.ChooseOneCard):
-            choices = enum.Enum(
-                "CardOption", names={CardType(c).name: c for c in e.options}
-            )
-            choice = await async_ask_valid_input("Choose one card:", choices=choices)
-            e.choice = choice.value
-            return e
-
-        @handle.register
-        async def handle(e: mv.ChooseOrderForDeckBottom):
-            fmt = ", ".join(f"{i}: {CardType(c).name}" for i, c in enumerate(e.cards))
-            print(f"Leftover cards: {fmt}")
-            print(
-                "You can choose which order to place these cards at the bottom of the "
-                "deck. Use the numbers shown above to refer to each of the cards."
-            )
-
-            idx_range = range(len(e.cards))
-
-            def parser(s: str) -> Tuple[int, ...]:
-                nums = tuple(map(int, s.split(",")))
-                valid8.validate(
-                    "nums",
-                    set(nums),
-                    equals=set(idx_range),
-                    help_msg=f"Each number in {set(idx_range)} should appear exactly "
-                    f"once, and nothing else.",
-                )
-                return nums
-
-            example = list(idx_range)
-            random.shuffle(example)
-            prompt = (
-                f"Choose an order to place these cards at the bottom of the deck\n"
-                f"    as a comma-separated list of integers, from bottommost to\n"
-                f"    topmost (e.g. {', '.join(map(str, example))}):"
-            )
-            choice = await async_ask_valid_input(prompt, parser=parser)
-            e.set_from_serializable(choice)
-            return e
+        # --------------------------------- Helpers ----------------------------------
 
         async def _player_choice(
             prompt: str, include_self=True

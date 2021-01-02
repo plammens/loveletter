@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from .main import main
+from loveletter_cli.main import main
 
 
 def logging_level(level: str) -> int:

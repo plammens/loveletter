@@ -71,6 +71,11 @@ class Round(GameNode):
         """The subsequence of living players."""
         return [p for p in self.players if p.alive]
 
+    @property
+    def targetable_players(self) -> Sequence[RoundPlayer]:
+        """The subsequence of players that can be targeted (alive and not immune)."""
+        return [p for p in self.players if p.alive and not p.immune]
+
     def get_player(self, player: RoundPlayer, offset: int):
         """
         Get the living player that is ``offset`` turns away from a given player.

@@ -19,8 +19,8 @@ from ..utils import (
     full_qualname,
     import_from_qualname,
     instance_attributes,
-    recursive_apply,
 )
+from ..utils.rapply import recursive_apply
 
 
 JsonType = Union[None, bool, int, float, str, Dict[str, "JsonType"], List["JsonType"]]

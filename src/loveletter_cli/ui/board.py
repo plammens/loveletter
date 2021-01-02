@@ -18,6 +18,7 @@ def draw_game(game: RemoteGameShadowCopy):
     game_round = game.current_round
     you = game.client_player
     width, _ = shutil.get_terminal_size(fallback=(99, 0))
+    width -= 5  # leave some margin for safety (avoid ugly wrapping)
     center_fmt = f"^{width}"
 
     def get_player(offset: int) -> RoundPlayer:
@@ -58,8 +59,8 @@ def draw_game(game: RemoteGameShadowCopy):
     print_blank_line()
 
     deck_msg = (
-        f"deck: {len(game.current_round.deck)}"
-        f" + {int(game.current_round.deck.set_aside is not None)} card(s)"
+        f"[deck: {len(game.current_round.deck)}"
+        f" + {int(game.current_round.deck.set_aside is not None)} card(s)]"
     )
     if game_round.num_players >= 3:
         # print left and maybe right opponent(s):

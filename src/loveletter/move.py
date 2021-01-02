@@ -223,11 +223,14 @@ class PlayerEliminated(MoveResult):
 @dataclass(frozen=True)
 class ShowOpponentCard(MoveResult):
     opponent: "RoundPlayer"
+    card_shown: "Card"
 
 
 @dataclass(frozen=True)
 class CardComparison(MoveResult):
     opponent: "RoundPlayer"
+    player_card: "Card"
+    opponent_card: "Card"
 
 
 @dataclass(frozen=True)

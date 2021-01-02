@@ -165,7 +165,7 @@ class Priest(Card):
         opponent = (yield from move.OpponentChoice(owner, self)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
-        return (move.ShowOpponentCard(owner, self, opponent),)
+        return (move.ShowOpponentCard(owner, self, opponent, opponent.card),)
 
 
 class Baron(Card):
@@ -182,7 +182,11 @@ class Baron(Card):
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
 
-        results = [move.CardComparison(owner, self, opponent)]
+        results = [
+            move.CardComparison(
+                owner, self, opponent, owner.hand.card, opponent.hand.card
+            )
+        ]
         # owner.hand.card is guaranteed not to be the card being played (i.e. self)
         owner_value, opponent_value = owner.hand.card.value, opponent.hand.card.value
         eliminated = (

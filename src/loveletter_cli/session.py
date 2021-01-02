@@ -200,7 +200,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} correctly guessed "
-                f"{opponent.username}'s {opponent.hand.card.name}!"
+                f"{opponent.username}'s {e.guess.name.title()}!"
             )
 
         @handle.register
@@ -224,10 +224,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             if player is game.client_player:
                 print(
                     f"Player {opponent.username} shows their card to you, "
-                    f"revealing a {opponent.hand.card.name}."
+                    f"revealing a {e.card_shown.name}."
                 )
             elif opponent is game.client_player:
-                print(f"You show your {opponent.hand.card.name} to {player.username}.")
+                print(f"You show your {e.card_shown.name} to {player.username}.")
             else:
                 print(
                     f"Player {opponent.username} shows their card to {player.username}."
@@ -239,14 +239,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             if player is game.client_player:
                 print(
                     f"You and {opponent.username} compare your cards: "
-                    f"you have a {player.hand.card.name}, "
-                    f"they have a {opponent.hand.card.name}."
+                    f"you have a {e.player_card.name}, "
+                    f"they have a {e.opponent_card.name}."
                 )
             elif opponent is game.client_player:
                 print(
                     f"{opponent.username} compares their hand with yours: "
-                    f"they have a {opponent.hand.card.name}, "
-                    f"you have a {player.hand.card.name}."
+                    f"they have a {e.opponent_card.name}, "
+                    f"you have a {e.player_card.name}."
                 )
             else:
                 print(

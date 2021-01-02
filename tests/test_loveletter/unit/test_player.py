@@ -6,8 +6,8 @@ import valid8
 # from ... import * imports are needed because of how fixtures are generated;
 # see pytest-cases#174
 import loveletter.cards as cards
+import loveletter.move as mv  # noqa
 from loveletter.cards import Card, CardType  # noqa
-from loveletter.move import CancelMove
 from loveletter.roundplayer import RoundPlayer  # noqa
 from test_loveletter.unit.test_cards_cases import *
 from test_loveletter.unit.test_player_cases import *
@@ -144,7 +144,7 @@ def test_play_cancelMove_stateResetSuccessfully(
     with assert_state_is_preserved(current_player.round):
         autofill_move(move, num_steps=len(card.steps) - 1)
         with pytest.raises(StopIteration):
-            move.throw(CancelMove)
+            move.throw(mv.CancelMove)
 
 
 @pytest_cases.parametrize_with_cases("card", cases=CardCases)
@@ -156,7 +156,7 @@ def test_play_choiceFromSerializable_inverseOfToSerializable(
     while True:
         try:
             step = autofill_step(step)
-            if isinstance(step, move.ChoiceStep):
+            if isinstance(step, mv.ChoiceStep):
                 choice = step.choice
                 assert step.from_serializable(step.to_serializable()) == choice
             step = move_.send(step)

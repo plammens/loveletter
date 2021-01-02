@@ -7,7 +7,7 @@ import valid8
 # from ... import * imports are needed because of how fixtures are generated;
 # see pytest-cases#174
 import loveletter.cards as cards
-import loveletter.move
+import loveletter.move as mv
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType  # noqa
 from loveletter.round import Round, Turn  # noqa
@@ -87,7 +87,7 @@ def test_cardSteps_correspondsToReality(player: RoundPlayer, card: cards.Card):
         step = move.send(autofill_step(step))
         assert type(step) == expected_step_type
     results = send_gracious(move, autofill_step(step))
-    assert loveletter.move.is_move_results(results)
+    assert mv.is_move_results(results)
 
 
 def test_spy_noOnePlayed_noOneGetsPoint(started_round: Round):
@@ -194,7 +194,7 @@ def test_priest_validOpponent_showsCard(started_round: Round):
     target_step.choice = opponent
     result, *_ = send_gracious(move, target_step)
     assert len(_) == 0
-    assert isinstance(result, loveletter.move.ShowOpponentCard)
+    assert isinstance(result, mv.ShowOpponentCard)
     move.close()
     assert result.opponent is opponent
 
@@ -214,8 +214,8 @@ def test_baron_weakerOpponent_opponentEliminated(started_round: Round, card1, ca
     comparison, elimination, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
-    assert isinstance(comparison, loveletter.move.CardComparison)
-    assert isinstance(elimination, loveletter.move.PlayerEliminated)
+    assert isinstance(comparison, mv.CardComparison)
+    assert isinstance(elimination, mv.PlayerEliminated)
     assert comparison.opponent is opponent
     assert elimination.eliminated is opponent
 
@@ -239,8 +239,8 @@ def test_baron_strongerOpponent_selfEliminated(started_round: Round, card1, card
     comparison, elimination, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
-    assert isinstance(comparison, loveletter.move.CardComparison)
-    assert isinstance(elimination, loveletter.move.PlayerEliminated)
+    assert isinstance(comparison, mv.CardComparison)
+    assert isinstance(elimination, mv.PlayerEliminated)
     assert comparison.opponent is opponent
     assert elimination.eliminated is player
 
@@ -261,7 +261,7 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
     comparison, *_ = send_gracious(move, target_step)
     move.close()
     assert len(_) == 0
-    assert isinstance(comparison, loveletter.move.CardComparison)
+    assert isinstance(comparison, mv.CardComparison)
 
     assert player.alive
     assert opponent.alive
@@ -270,7 +270,7 @@ def test_baron_equalOpponent_noneEliminated(started_round: Round, card):
 def test_handmaid_playerBecomesImmune(current_player: RoundPlayer):
     assert not current_player.immune
     results = play_card(current_player, cards.Handmaid())
-    assert tuple(map(type, results)) == (loveletter.move.ImmunityGranted,)
+    assert tuple(map(type, results)) == (mv.ImmunityGranted,)
     assert results[0].player is current_player
     assert current_player.immune
 
@@ -328,8 +328,8 @@ def test_prince_againstNonPrincess_dealsCard(
     target_step.choice = target
     results = send_gracious(move, target_step)
     assert tuple(map(type, results)) == (
-        loveletter.move.CardDiscarded,
-        loveletter.move.CardDealt,
+        mv.CardDiscarded,
+        mv.CardDealt,
     )
     assert results[0].target is target
     assert target.alive
@@ -352,8 +352,8 @@ def test_prince_againstPrincess_kills(started_round: Round):
     target_step.choice = victim
     results = send_gracious(move, target_step)
     assert tuple(map(type, results)) == (
-        loveletter.move.CardDiscarded,
-        loveletter.move.PlayerEliminated,
+        mv.CardDiscarded,
+        mv.PlayerEliminated,
     )
     assert results[0].target is victim
     assert results[0].discarded is victim_card
@@ -386,13 +386,13 @@ def test_chancellor_correctlyHandlesCards(started_round):
     top_2 = started_round.deck.stack[-2:]
 
     move = play_card(player, cards.Chancellor())
-    card_choice: loveletter.move.ChooseOneCard = next(move)
+    card_choice: mv.ChooseOneCard = next(move)
     assert player.hand.card is other_card
     assert other_card in card_choice.options
     assert set(top_2).issubset(set(card_choice.options))
 
     card_choice.choice = random.choice(card_choice.options)
-    order_choice: loveletter.move.ChooseOrderForDeckBottom = move.send(card_choice)
+    order_choice: mv.ChooseOrderForDeckBottom = move.send(card_choice)
     assert player.hand.card is card_choice.choice
     assert len(player.hand) == 1
     assert set(card_choice.options) - {card_choice.choice} == set(order_choice.cards)
@@ -404,8 +404,8 @@ def test_chancellor_correctlyHandlesCards(started_round):
     assert started_round.deck.stack[:2] == order
 
     assert tuple(map(type, results)) == (
-        loveletter.move.CardChosen,
-        loveletter.move.CardsPlacedBottomOfDeck,
+        mv.CardChosen,
+        mv.CardsPlacedBottomOfDeck,
     )
     assert results[0].choice is card_choice.choice
     assert results[1].cards == order_choice.choice
@@ -432,8 +432,8 @@ def test_chancellor_cancelAfterStart_raises(current_player: RoundPlayer):
         next(move)
         # player has already seen cards so shouldn't be able to cancel:
         assert not chancellor.cancellable
-        with pytest.raises(loveletter.move.CancellationError):
-            move.throw(loveletter.move.CancelMove)
+        with pytest.raises(mv.CancellationError):
+            move.throw(mv.CancelMove)
         assert current_player.round.state.stage == Turn.Stage.INVALID
 
 
@@ -446,7 +446,7 @@ def test_king_againstOpponent_swapsCards(current_player: RoundPlayer):
     results = send_gracious(move, target_step)
     assert current_player.hand.card is target_card
     assert target.hand.card is player_card
-    assert tuple(map(type, results)) == (loveletter.move.CardsSwapped,)
+    assert tuple(map(type, results)) == (mv.CardsSwapped,)
     assert results[0].opponent is target
 
 
@@ -462,7 +462,7 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: RoundPlayer, card_typ
         step = None
         for _ in card.steps:
             step = move.send(step)
-            if isinstance(step, loveletter.move.PlayerChoice):
+            if isinstance(step, mv.PlayerChoice):
                 step.choice = target
             else:
                 step = autofill_step(step)
@@ -505,5 +505,5 @@ def test_targetCard_allOpponentsImmune_canChooseNone(started_round: Round, card)
     ) as mocked_round:
         move = play_card(mocked_round.current_player, card)
         target_step = next(move)
-        target_step.choice = loveletter.move.OpponentChoice.NO_TARGET
+        target_step.choice = mv.OpponentChoice.NO_TARGET
         send_gracious(move, target_step)

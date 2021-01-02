@@ -1,5 +1,5 @@
 import loveletter.cards as cards
-import loveletter.move as move
+import loveletter.move as mv
 from loveletter.cards import CardType
 from loveletter.round import RoundState
 from test_loveletter.utils import (
@@ -28,7 +28,7 @@ def test_1_prince_victory():
     (immunity,) = play_with_choices(player0, CardType.HANDMAID)
     assert immunity.player is player0
 
-    results = play_with_choices(player1, CardType.PRIEST, move.OpponentChoice.NO_TARGET)
+    results = play_with_choices(player1, CardType.PRIEST, mv.OpponentChoice.NO_TARGET)
     assert results == ()
 
     discarded, dealt = play_with_choices(player0, CardType.PRINCE, player0)

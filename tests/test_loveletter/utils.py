@@ -20,7 +20,7 @@ import more_itertools as mitt
 import pytest
 from multimethod import multimethod
 
-import loveletter.move as move
+import loveletter.move as mv
 import loveletter.round
 from loveletter import cards as cards
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
@@ -61,7 +61,7 @@ def play_random_move(player):
 
 def autofill_move(
     move_: cards.MoveStepGenerator, start_step=None, num_steps: int = None, close=None
-) -> Union[move.MoveStep, Tuple[move.MoveResult, ...]]:
+) -> Union[mv.MoveStep, Tuple[mv.MoveResult, ...]]:
     """
     Automatically play a move by making (arbitrary) choices for each of the steps.
 
@@ -143,36 +143,36 @@ def autofill_step(step: loveletter.round.PlayerMoveChoice):
 
 
 @autofill_step.register
-def autofill_step(step: move.PlayerChoice):
+def autofill_step(step: mv.PlayerChoice):
     options = [p for p in step.player.round.living_players if not p.immune]
     step.choice = random.choice(options)
     return step
 
 
 @autofill_step.register
-def autofill_step(step: move.OpponentChoice):
+def autofill_step(step: mv.OpponentChoice):
     game_round = step.player.round
     player = step.player
     players = set(game_round.living_players)
     opponents = players - {player} - {p for p in players if p.immune}
-    step.choice = random.choice(list(opponents) or [move.OpponentChoice.NO_TARGET])
+    step.choice = random.choice(list(opponents) or [mv.OpponentChoice.NO_TARGET])
     return step
 
 
 @autofill_step.register
-def autofill_step(step: move.CardGuess):
+def autofill_step(step: mv.CardGuess):
     step.choice = random.choice(list(set(CardType) - {CardType.GUARD}))
     return step
 
 
 @autofill_step.register
-def autofill_step(step: move.ChooseOneCard):
+def autofill_step(step: mv.ChooseOneCard):
     step.choice = random.choice(step.options)
     return step
 
 
 @autofill_step.register
-def autofill_step(step: move.ChooseOrderForDeckBottom):
+def autofill_step(step: mv.ChooseOrderForDeckBottom):
     order = list(step.cards)
     random.shuffle(order)
     step.choice = tuple(order)
@@ -216,7 +216,7 @@ def play_card_with_cleanup(player: RoundPlayer, card: cards.Card):
         yield move_
     finally:
         try:
-            move_.throw(move.CancelMove)
+            move_.throw(mv.CancelMove)
         except StopIteration:
             return
         except RuntimeError:

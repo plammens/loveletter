@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 import pytest_cases
 
-import loveletter.move as move
+import loveletter.move as mv
 from loveletter.cards import CardType, Spy
 from test_loveletter.utils import card_from_card_type
 
@@ -15,7 +15,7 @@ NO_CANCEL_TYPES = frozenset(t for t in CardType if not t.card_class.cancellable)
 TARGET_TYPES = frozenset(
     t
     for t in CardType
-    if (lambda s: len(s) >= 1 and s[0] == move.OpponentChoice)(t.card_class.steps)
+    if (lambda s: len(s) >= 1 and s[0] == mv.OpponentChoice)(t.card_class.steps)
 )
 
 
@@ -57,7 +57,7 @@ class CardMockCases:
     def case_generic(self) -> MagicMock:
         def play(owner):
             yield MagicMock()
-            return (move.MoveResult(owner, mock),)
+            return (mv.MoveResult(owner, mock),)
 
         mock = MagicMock(spec=Spy())  # Will look like a Spy, but does nothing
         mock.play.side_effect = play

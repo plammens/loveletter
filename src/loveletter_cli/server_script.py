@@ -1,19 +1,17 @@
 import argparse
 import asyncio
 import logging
+import threading
 
 from loveletter_multiplayer import LoveletterPartyServer
 from loveletter_multiplayer.logging import setup_logging
 
 
 def main(logging_level: int, **kwargs):
-    try:
-        setup_logging(logging_level)
-        server = LoveletterPartyServer(**kwargs)
-        asyncio.run(server.run_server())
-    finally:
-        if 0 < logging_level <= logging.DEBUG:
-            input("Press any key... ")
+    threading.current_thread().name = "ServerThread"
+    setup_logging(logging_level)
+    server = LoveletterPartyServer(**kwargs)
+    asyncio.run(server.run_server())
 
 
 def define_cli() -> argparse.ArgumentParser:

@@ -2,8 +2,8 @@ import abc
 import asyncio
 import enum
 import logging
+import multiprocessing
 import random
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
@@ -395,23 +395,23 @@ class HostCLISession(CommandLineSession):
         return tuple(Address(h, self.port) for h in self.hosts)
 
     async def manage(self):
+        import loveletter_cli.server_script
+
         await super().manage()
         print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
-        script_path = "loveletter_cli.server_script"
-        # for now Windows-only (start is a cmd shell thing)
-        args = [
-            *self.hosts,
-            self.port,
-            self.user.username,
-            "--logging",
-            LOGGER.getEffectiveLevel(),
-        ]
-        args = subprocess.list2cmdline(list(map(str, args)))
-        cmd = f'start "{script_path}" /wait /min python -m {script_path} {args}'
-        LOGGER.debug(f"Starting server script with {repr(cmd)}")
-        server_process = await asyncio.create_subprocess_shell(cmd)
+        server_process = multiprocessing.Process(
+            target=loveletter_cli.server_script.main,
+            kwargs=dict(
+                logging_level=LOGGER.getEffectiveLevel(),
+                host=self.hosts,
+                port=self.port,
+                party_host_username=self.user.username,
+            ),
+        )
+        LOGGER.debug(f"Starting server process: %s", server_process)
+        server_process.start()
         try:
             self.client = HostClient(self.user.username)
             await self._connect_localhost()
@@ -424,7 +424,7 @@ class HostCLISession(CommandLineSession):
                 LOGGER.warning(
                     "manage raised, waiting on server process to end", exc_info=exc_info
                 )
-            await server_process.wait()
+            server_process.join(5)
             LOGGER.debug("Server process ended")
 
     async def _connect_localhost(self):

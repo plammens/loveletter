@@ -1,5 +1,6 @@
 import argparse
 import logging
+import multiprocessing
 
 from loveletter_cli.main import main
 
@@ -22,15 +23,18 @@ def logging_level(level: str) -> int:
             raise ValueError(f"Not a valid level name: {level}")
 
 
-parser = argparse.ArgumentParser(prog="python -m loveletter_cli")
-parser.add_argument(
-    "--logging",
-    "-l",
-    type=logging_level,
-    default=logging.WARNING,
-    dest="logging_level",
-    help="Logging level (either a name or a numeric value). Default: WARNING",
-)
-parsed = parser.parse_args()
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
 
-main(**vars(parsed))
+    parser = argparse.ArgumentParser(prog="python -m loveletter_cli")
+    parser.add_argument(
+        "--logging",
+        "-l",
+        type=logging_level,
+        default=logging.WARNING,
+        dest="logging_level",
+        help="Logging level (either a name or a numeric value). Default: WARNING",
+    )
+    parsed = parser.parse_args()
+
+    main(**vars(parsed))

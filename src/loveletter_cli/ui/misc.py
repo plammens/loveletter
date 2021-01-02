@@ -9,6 +9,7 @@ from typing import (
     TypeVar,
 )
 
+import more_itertools
 from aioconsole import ainput
 from multimethod import multimethod
 
@@ -62,14 +63,33 @@ def _ask_valid_input_parse_args(
     if choices is not None:
         names = list(choices.__members__.keys())
         prompt += f"[{' | '.join(names)}] "
-        error_message += f"; valid choices: {names}"
 
         def parser(s: str) -> choices:
-            if all(map(str.isupper, names)):
-                s = s.upper()
-            return choices[s]
+            if s.islower():
+                print("[Interpreted case-insensitively]")
+                case_fold = True
+                s = s.casefold()
+            else:
+                print("[Interpreted case-*sensitively*]")
+                case_fold = False
 
-        validation_errors = (KeyError,)
+            matches = {
+                name: member
+                for name, member in choices.__members__.items()
+                if (name.casefold() if case_fold else name).startswith(s)
+            }
+            return more_itertools.one(
+                matches.values(),
+                too_long=ValueError(
+                    f"Ambiguous choice: which of {set(matches)} did you mean?"
+                ),
+                too_short=ValueError(
+                    f"Not a valid choice: {s}; valid choices: {names}"
+                ),
+            )
+
+        validation_errors = (ValueError,)
+        error_message = "{error}"
 
     if parser is None:
         parser = lambda x: x  # noqa

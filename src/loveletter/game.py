@@ -64,7 +64,7 @@ class Game(GameNode):
         """
         players = [Game.Player(self, i, uname) for i, uname in enumerate(players)]
         super().__init__(players)
-        self.points = Counter()
+        self.points = Counter({p: 0 for p in self.players})
 
     @property
     def points_threshold(self) -> int:
@@ -184,7 +184,7 @@ class Game(GameNode):
     def _repr_hook(self) -> Dict[str, Any]:
         attrs = super()._repr_hook()
         attrs["players"] = [player.username for player in self.players]
-        attrs["points"] = {p.username: self.points[p] for p in self.players}
+        attrs["points"] = self.points
         return attrs
 
 

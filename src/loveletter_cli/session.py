@@ -203,7 +203,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: mv.OpponentChoice):
-            e.choice = await _player_choice(prompt="Choose an opponent to target:")
+            e.choice = await _player_choice(
+                prompt="Choose an opponent to target:", include_self=False
+            )
             return e
 
         @handle.register
@@ -248,12 +250,20 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             e.set_from_serializable(choice)
             return e
 
-        async def _player_choice(prompt: str) -> loveletter.game.Game.Player:
+        async def _player_choice(
+            prompt: str, include_self=True
+        ) -> loveletter.game.Game.Player:
+            options = set(map(game.get_player, game.current_round.targetable_players))
+            if not include_self:
+                options -= {game.client_player}
             choices = enum.Enum(
-                "FirstPlayer", names=[p.username for p in game.players], start=0
+                "Player",
+                names={
+                    p.username: game.current_round.players[p.id] for p in options
+                },
             )
             choice = await async_ask_valid_input(prompt, choices=choices)
-            return game.current_round.players[choice.value]
+            return choice.value
 
         generator = game.track_remote()
         game_input = None

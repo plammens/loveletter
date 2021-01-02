@@ -2,6 +2,8 @@ import asyncio
 import enum
 import logging
 import socket
+import time
+import traceback
 
 from loveletter_cli.session import (
     GuestCLISession,
@@ -42,8 +44,11 @@ def main(logging_level: int = logging.INFO):
             print()
             return runners[mode](user)
         except Exception as e:
+            traceback.print_exc()
+            time.sleep(0.2)
             print("Unhandled exception while running the session:")
             print_exception(e)
+            time.sleep(0.2)
             choice = ask_valid_input(
                 "What would you like to do?",
                 choices=ErrorOptions,

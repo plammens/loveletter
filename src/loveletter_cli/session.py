@@ -128,7 +128,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.CardGuess):
             choices = enum.Enum(
                 "CardGuess",
-                names={n: m for n, m in CardType.__members__ if m != CardType.GUARD},
+                names={
+                    n: m for n, m in CardType.__members__.items() if m != CardType.GUARD
+                },
             )
             choice = await async_ask_valid_input("Guess a card:", choices=choices)
             e.choice = choice.value

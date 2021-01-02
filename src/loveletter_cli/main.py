@@ -93,7 +93,6 @@ def host_game(user: UserInfo):
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()
     session = HostCLISession(user, hosts, port)
-    print()
     asyncio.run(session.manage())
 
 
@@ -118,7 +117,6 @@ def join_game(user: UserInfo):
     print_header("Joining game")
     address = ask_address_for_joining()
     session = GuestCLISession(user, address)
-    print()
     asyncio.run(session.manage())
 
 

@@ -221,6 +221,8 @@ def _underlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
 
 
 def _horizontal_join(arrays: Sequence[np.ndarray], sep="  ") -> np.ndarray:
+    if not arrays:
+        return _empty_rectangle(0, 0)
     rows = arrays[0].shape[0]
     assert all(a.shape[0] == rows for a in arrays)
     joint = _empty_rectangle(rows, len(sep))

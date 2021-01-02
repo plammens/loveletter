@@ -142,6 +142,15 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     assert cards.Spy.collect_extra_points(started_round) == {}
 
 
+def test_guard_guessGuard_raises(started_round: Round):
+    player = started_round.current_player
+    move = play_card(player, cards.Guard())
+    target_step = next(move)
+    guess_step = move.send(autofill_step(target_step))
+    with pytest.raises(valid8.ValidationError):
+        guess_step.choice = CardType.GUARD
+
+
 def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
     player = started_round.current_player
     for other in set(started_round.players) - {player}:
@@ -161,12 +170,16 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
     player = started_round.current_player
     for other in set(started_round.players) - {player}:
         assert other.alive
-        for wrong_type in set(CardType) - {CardType(type(other.hand.card))}:
+        wrong_guesses = set(CardType) - {
+            CardType(type(other.hand.card)),
+            CardType.GUARD,
+        }
+        for guess in wrong_guesses:
             move = play_card(player, cards.Guard())
             target_step = next(move)
             target_step.choice = other
             guess_step = move.send(target_step)
-            guess_step.choice = wrong_type
+            guess_step.choice = guess
             send_gracious(move, guess_step)
             assert other.alive
             # artificially start new turn with same player

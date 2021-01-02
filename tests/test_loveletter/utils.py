@@ -161,7 +161,7 @@ def autofill_step(step: move.OpponentChoice):
 
 @autofill_step.register
 def autofill_step(step: move.CardGuess):
-    step.choice = random.choice(list(CardType))
+    step.choice = random.choice(list(set(CardType) - {CardType.GUARD}))
     return step
 
 

@@ -59,8 +59,15 @@ class CardGuess(ChoiceStep):
         return CardType(value)
 
     def _validate_choice(self, value):
-        # Validation and setter implemented in one step with CardType.__new__
-        pass
+        from loveletter.cards import CardType
+
+        card_type = CardType(value)
+        valid8.validate(
+            "card_type",
+            card_type,
+            custom=lambda t: t != CardType.GUARD,  # TODO: use minilambda
+            help_msg="You can't guess a Guard",
+        )
 
 
 class PlayerChoice(ChoiceStep):

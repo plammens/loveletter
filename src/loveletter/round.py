@@ -3,13 +3,19 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence
 
 import valid8
 from valid8.validation_lib import instance_of
 
 from loveletter.cardpile import Deck, DiscardPile
-from loveletter.gameevent import ChoiceEvent, GameEventGenerator, Serializable
+from loveletter.cards import Card
+from loveletter.gameevent import (
+    ChoiceEvent,
+    GameEventGenerator,
+    GameResultEvent,
+    Serializable,
+)
 from loveletter.gamenode import (
     EndState,
     GameNode,
@@ -20,9 +26,6 @@ from loveletter.gamenode import (
 from loveletter.move import CancelMove
 from loveletter.roundplayer import RoundPlayer
 from loveletter.utils import argmax, cycle_from, extend_enum
-
-if TYPE_CHECKING:
-    from loveletter.cards import Card
 
 
 class Round(GameNode):
@@ -122,9 +125,10 @@ class Round(GameNode):
 
     def play(self, **start_kwargs) -> GameEventGenerator:
         def iteration(self: Round) -> GameEventGenerator:
-            # noinspection PyUnresolvedReferences
-            card = (yield from ChooseCardToPlay(self.current_player)).choice
-            results = yield from self.current_player.play_card(card)
+            player = self.current_player
+            card = (yield from ChooseCardToPlay(player)).choice
+            yield PlayingCard(player, card)
+            results = yield from player.play_card(card)
             return results
 
         yield from super().play()
@@ -355,3 +359,11 @@ class ChooseCardToPlay(ChoiceEvent):
             is_in=self.player.hand,
             help_msg="Card not in player's hand",
         )
+
+
+@dataclass(frozen=True)
+class PlayingCard(GameResultEvent):
+    """The result after fulfilling the ChooseCardToPlay event."""
+
+    player: RoundPlayer
+    card: Card

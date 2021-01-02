@@ -333,6 +333,8 @@ def test_eventGenerator_yieldsCorrectTypes(new_round: Round):
         # next, the player's move choice
         event = next(round_generator)
         assert isinstance(event, loveletter.round.ChooseCardToPlay)
+        event = round_generator.send(autofill_step(event))
+        assert isinstance(event, loveletter.round.PlayingCard)
 
         # the whole move is wrapped in a StopIteration catcher because there are some
         # moves with 0 steps and 0 results

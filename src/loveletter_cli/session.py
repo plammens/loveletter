@@ -256,14 +256,22 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             options = set(map(game.get_player, game.current_round.targetable_players))
             if not include_self:
                 options -= {game.client_player}
-            choices = enum.Enum(
-                "Player",
-                names={
-                    p.username: game.current_round.players[p.id] for p in options
-                },
-            )
-            choice = await async_ask_valid_input(prompt, choices=choices)
-            return choice.value
+            if options:
+                choices = enum.Enum(
+                    "Player",
+                    names={
+                        p.username: game.current_round.players[p.id] for p in options
+                    },
+                )
+                choice = await async_ask_valid_input(prompt, choices=choices)
+                return choice.value
+            else:
+                print(
+                    "There are no valid targets (all living opponents are immune); "
+                    "playing this card will have no effect."
+                )
+                await ainput("Enter anything to continue... ")
+                return mv.OpponentChoice.NO_TARGET
 
         generator = game.track_remote()
         game_input = None

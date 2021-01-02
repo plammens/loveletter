@@ -213,10 +213,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.ChooseOneCard):
             choices = enum.Enum(
-                "CardOption", names=(CardType(c).name for c in e.options), start=0
+                "CardOption", names={CardType(c).name: c for c in e.options}
             )
             choice = await async_ask_valid_input("Choose one card:", choices=choices)
-            e.choice = e.options[choice.value]
+            e.choice = choice.value
             return e
 
         @handle.register

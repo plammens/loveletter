@@ -16,7 +16,7 @@ CARD_ASPECT = 3 / 5  #: card aspect ratio
 
 def draw_game(game: RemoteGameShadowCopy):
     game_round = game.current_round
-    you = game_round.players[game.client_player_id]
+    you = game.client_player
     width, _ = shutil.get_terminal_size(fallback=(99, 0))
     center_fmt = f"^{width}"
 
@@ -24,13 +24,15 @@ def draw_game(game: RemoteGameShadowCopy):
         players = game_round.players
         return players[(you.id + offset) % len(players)]
 
-    def cards_discarded_string(p: RoundPlayer) -> str:
+    def cards_discarded_string(p) -> str:
+        p = game.get_player(p)
         return (
             f"cards discarded: [{', '.join(f'({c.value})' for c in p.discarded_cards)}]"
         )
 
-    def username(p: RoundPlayer) -> str:
-        name = game.players[p.id].username
+    def username(p) -> str:
+        p = game.get_player(p)
+        name = "You" if p is you else p.username
         if game_round.current_player is p:
             return f">>> {name} <<<"
         elif not p.alive:
@@ -55,6 +57,10 @@ def draw_game(game: RemoteGameShadowCopy):
     print(format(cards_discarded_string(opposite), center_fmt))
     print_blank_line()
 
+    deck_msg = (
+        f"deck: {len(game.current_round.deck)}"
+        f" + {int(game.current_round.deck.set_aside is not None)} card(s)"
+    )
     if game_round.num_players >= 3:
         # print left and maybe right opponent(s):
         center_cards = _empty_rectangle(2 * 5, width)
@@ -80,14 +86,20 @@ def draw_game(game: RemoteGameShadowCopy):
             )
 
         center_block = _vertical_join([center_cards, center_footer], sep_lines=1)
+        _write_string(center_block, deck_msg, row=len(center_block) // 2, align="^")
         print_char_array(center_block)
+    else:
         print_blank_line()
+        print(format(deck_msg, center_fmt))
+        print_blank_line()
+
+    print_blank_line()
 
     # this client's hand
     sprites = [card_sprite(c) for c in you.hand]
     print_char_array(_horizontal_join(sprites), align="^", width=width)
     print_blank_line()
-    print(format("Your hand", center_fmt))
+    print(format(username(you), center_fmt))
     print(format(cards_discarded_string(you), center_fmt))
 
     print_blank_line()

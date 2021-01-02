@@ -62,7 +62,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 print()
                 print("Leaderboard:")
                 for i, (player, points) in enumerate(game.points.items(), start=1):
-                    print(f"    {i}. {player.username}")
+                    print(f"    {i}. {player.username:16} {points} tokens of affection")
                 print()
                 await pause()
 
@@ -99,6 +99,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     f"Player {opponent.username} shows their card to you, "
                     f"revealing a {opponent.hand.card.name}."
                 )
+            elif opponent is game.client_player:
+                print(f"You show your {opponent.hand.card.name} to {player.username}.")
             else:
                 print(
                     f"Player {opponent.username} shows their card to {player.username}."
@@ -140,11 +142,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardChosen) -> None:
             player = game.get_player(e.player)
-            is_client = player is game.client_player
-            print(
-                f"{'You' if is_client else player.username} "
-                f"{'have' if is_client else 'has'} chosen a card to keep."
-            )
+            if player is game.client_player:
+                print(f"You have chosen to keep the {e.choice.name}.")
+            else:
+                print(f"{player.username} has chosen a card to keep.")
 
         @handle.register
         async def handle(e: mv.CardsPlacedBottomOfDeck) -> None:
@@ -152,8 +153,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
-                f"{'have' if is_client else 'has'} placed back the other {len(e.cards)}"
-                f"card(s) at the bottom of the deck."
+                f"{'have' if is_client else 'has'} placed back the other "
+                f"{len(e.cards)} card(s) at the bottom of the deck."
             )
 
         @handle.register
@@ -193,7 +194,12 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: mv.CardGuess):
-            e.choice = await async_ask_valid_input("Guess a card:", choices=CardType)
+            choices = enum.Enum(
+                "CardGuess",
+                names={n: m for n, m in CardType.__members__ if m != CardType.GUARD},
+            )
+            choice = await async_ask_valid_input("Guess a card:", choices=choices)
+            e.choice = choice.value
             return e
 
         @handle.register
@@ -275,21 +281,25 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 await pause()
                 return mv.OpponentChoice.NO_TARGET
 
+        @handle.register
+        async def handle(e: None):  # special case for first "event" in loop below
+            return e
+
         generator = game.track_remote()
-        game_input = None
+        event = None
         while True:
             try:
-                event = await generator.asend(game_input)
+                old_event = event
+                while event is old_event:
+                    try:
+                        game_input = await handle(event)
+                        event = await generator.asend(game_input)
+                        break
+                    except valid8.ValidationError as exc:
+                        print(exc)
+                        continue
             except StopAsyncIteration:
                 break
-
-            while True:
-                try:
-                    game_input = await handle(event)
-                except valid8.ValidationError as exc:
-                    print(exc)
-                else:
-                    break
 
         await self._show_game_end(game)
 

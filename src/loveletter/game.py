@@ -40,11 +40,17 @@ class Game(GameNode):
 
     @dataclass(frozen=True, eq=False)
     class Player:
+        game: "Game"
         id: int
         username: str
 
         def __str__(self):
             return f"{self.username} (player-{self.id})"
+
+        def __getattr__(self, item):
+            if (round_ := self.game.current_round) is not None:
+                return getattr(round_.players[self.id], item)
+            raise AttributeError(item)
 
     points: CounterType[Player]  # tokens of affection
 
@@ -56,7 +62,7 @@ class Game(GameNode):
         :param players: The usernames of each player in the round. Must be of length
                         between 2 and 4.
         """
-        players = [Game.Player(i, uname) for i, uname in enumerate(players)]
+        players = [Game.Player(self, i, uname) for i, uname in enumerate(players)]
         super().__init__(players)
         self.points = Counter()
 

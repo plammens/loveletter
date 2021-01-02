@@ -7,12 +7,18 @@ import importlib
 import inspect
 import logging
 import operator
+import sys
 import threading
 import traceback
+import types
 import typing
+import warnings
 from collections import namedtuple
 from functools import lru_cache
-from typing import Any, Callable, ClassVar, Dict, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
+
+import multimethod
+from multimethod import isa
 
 
 LOGGER = logging.getLogger(__name__)
@@ -228,54 +234,162 @@ def recursive_apply(
              unmodified if no sub-objects satisfying the predicate were found.
     """
 
-    processing = {}
+    # mapping of sub-object id to the transformed sub-object
+    processed: Dict[int, Any] = {}
+    # placeholder for cyclic references
+    cyclic_reference_placeholder = object()
+    # map of referred object id to patch function to update a cyclic reference
+    patches: Dict[int, List[Callable[[Any], None]]] = {}
+    # LIFO stack of objects being processed (id(o): o); used to detect reference cycles
+    processing: Dict[int, Any] = {}
 
-    def apply(o):
+    def apply(o: Any, patch_func: Callable[[Any], None] = None):
         if id(o) in processing:
-            raise RecursionError(
-                f"Cycle detected: {list(processing.values())}, then {repr(o)} again"
+            # there is a reference cycle; we try to deal with it by returning a
+            # placeholder for now and leaving a memo to remember updating this
+            # reference when the referred object has been fully processed too
+            msg = (
+                f"Cycle detected: {' --> '.join(map(str, processing.values()))}"
+                f" --> {repr(o)}"
             )
+            if patch_func is None:
+                # no patch function available; can't deal with the cyclic reference
+                raise RecursionError(msg)
+
+            # determine stacklevel for warning
+            stacklevel = compute_stacklevel(public_call_site=recursive_apply)
+            warnings.warn(msg, category=RecursionWarning, stacklevel=stacklevel)
+
+            patches.setdefault(id(o), []).append(patch_func)
+            return cyclic_reference_placeholder
+
         processing[id(o)] = o
         try:
-            return _do_apply(o)
+            if id(o) in processed:
+                maybe_transformed = processed[id(o)]
+            else:
+                maybe_transformed = _do_apply(o)
+                processed[id(o)] = maybe_transformed
+
+            # restore the correct value in any cyclic reference placeholders
+            if (patch_functions := patches.pop(id(o), None)) is not None:
+                # noinspection PyUnboundLocalVariable
+                for patch in patch_functions:
+                    patch(maybe_transformed)
+
+            return maybe_transformed
         finally:
-            processing.popitem()
+            processing.popitem()  # relies on Python 3.7+ behaviour
 
+    # _do_apply is overloaded based on whether the object satisfies the predicate first,
+    # and its type. Overloads are checked in reverse order of registration.
+
+    @multimethod.overload
     def _do_apply(o):
-        if predicate(o):
-            return function(o)
+        # fallback for other objects; do attribute lookup
 
-        elif isinstance(o, (tuple, list, set, frozenset)):
-            filled = type(o)(apply(x) for x in o)
-            modified = not all(x is y for x, y in zip(o, filled))
-            return filled if modified else o
+        def attribute_patch(attr: str):
+            def patch_func(maybe_transformed):
+                object.__setattr__(attribute_patch.the_object, attr, maybe_transformed)
 
-        elif isinstance(o, dict):
-            # noinspection PyArgumentList
-            filled = type(o)((apply(k), apply(v)) for k, v in o.items())
-            modified = not all(
-                k1 is k2 and v1 is v2
-                for (k1, v1), (k2, v2) in zip(o.items(), filled.items())
-            )
-            return filled if modified else o
+            return patch_func
+
+        filled_values = {}
+        for name, value in instance_attributes(o).items():
+            if name.startswith("__"):
+                continue
+            transformed = apply(value, patch_func=attribute_patch(name))
+            if transformed is not value:
+                filled_values[name] = transformed
+        if not filled_values:
+            return o
+
+        if dataclasses.is_dataclass(o):
+            transformed = dataclasses.replace(o, **filled_values)
+        else:
+            obj_copy = copy.copy(o)
+            for name, value in filled_values.items():
+                setattr(obj_copy, name, value)
+            transformed = obj_copy
+        attribute_patch.the_object = transformed
+        return transformed
+
+    @_do_apply.register
+    def _do_apply(o: isa(dict)):
+        def key_patch(key: Any):
+            def patch_func(maybe_transformed):
+                d = key_patch.the_dict
+                # warning: this might change the order
+                value = d.pop(key)
+                d[maybe_transformed] = value
+
+            return patch_func
+
+        def value_patch(key: Any):
+            def patch_func(maybe_transformed):
+                value_patch.the_dict[key] = maybe_transformed
+
+            return patch_func
+
+        # noinspection PyArgumentList
+        transformed = type(o)(
+            (apply(k, patch_func=key_patch(k)), apply(v, patch_func=value_patch(v)))
+            for k, v in o.items()
+        )
+        value_patch.the_dict = key_patch.the_dict = transformed
+
+        # "maybe" is because the changes might just be cyclic reference placeholders
+        maybe_modified = not all(
+            k1 is k2 and v1 is v2
+            for (k1, v1), (k2, v2) in zip(o.items(), transformed.items())
+        )
+        return transformed if maybe_modified else o
+
+    @_do_apply.register
+    def _do_apply(o: isa(tuple, list, set, frozenset)):
+        if isinstance(o, list):
+
+            def item_patch(index: int):
+                def patch_func(maybe_transformed):
+                    item_patch.the_list[index] = maybe_transformed
+
+                return patch_func
 
         else:
-            filled_values = {}
-            for name, attr in instance_attributes(o).items():
-                if name.startswith("__"):
-                    continue
-                filled = apply(attr)
-                if filled is not attr:
-                    filled_values[name] = filled
-            if not filled_values:
-                return o
+            item_patch = lambda i: None  # noqa
 
-            if dataclasses.is_dataclass(o):
-                return dataclasses.replace(o, **filled_values)
-            else:
-                obj_copy = copy.copy(o)
-                for name, value in filled_values.items():
-                    setattr(obj_copy, name, value)
-                return obj_copy
+        transformed = type(o)(
+            apply(x, patch_func=item_patch(i)) for i, x in enumerate(o)
+        )
+        item_patch.the_list = transformed
 
-    return apply(obj)
+        # "maybe" is because the changes might just be cyclic reference placeholders
+        maybe_modified = not all(x is y for x, y in zip(o, transformed))
+        return transformed if maybe_modified else o
+
+    @_do_apply.register
+    def _do_apply(o: predicate):
+        return function(o)
+
+    result = apply(obj)
+    assert len(patches) == 0
+    return result
+
+
+class RecursionWarning(UserWarning):
+    pass
+
+
+def compute_stacklevel(public_call_site: callable) -> int:
+    """Compute the stacklevel necessary to emit a warning at the "public" call site."""
+    function = (
+        public_call_site
+        if isinstance(public_call_site, types.FunctionType)  # noqa
+        else public_call_site.__call__
+    )
+    stacklevel = 2
+    frame = sys._getframe()  # noqa
+    while frame.f_code is not function.__code__:
+        frame = frame.f_back
+        stacklevel += 1
+    return stacklevel - 1

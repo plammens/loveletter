@@ -54,7 +54,7 @@ def autoplay_round(game_round: Round):
 
 
 def play_random_move(player):
-    card = autofill_step(loveletter.round.PlayerMoveChoice(player)).choice
+    card = autofill_step(loveletter.round.ChooseCardToPlay(player)).choice
     autofill_move(player.play_card(card))
     player.round.advance_turn()
 
@@ -129,7 +129,7 @@ def autofill_step(step: loveletter.round.FirstPlayerChoice):
 
 
 @autofill_step.register
-def autofill_step(step: loveletter.round.PlayerMoveChoice):
+def autofill_step(step: loveletter.round.ChooseCardToPlay):
     hand = step.player.hand
     card_types = tuple(map(CardType, hand))
     if CardType.COUNTESS in card_types and (

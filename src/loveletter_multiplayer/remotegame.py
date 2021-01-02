@@ -132,7 +132,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
                 yield await self._set_choice_from_remote(e)
 
         @handle.register
-        async def handle(e: rnd.PlayerMoveChoice, description=None):
+        async def handle(e: rnd.ChooseCardToPlay, description=None):
             current_player_id = self.current_round.current_player.id
             username = self.players[current_player_id].username
             if self.client_player_id == current_player_id:
@@ -152,7 +152,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         @handle.register
         def handle(e: move.ChoiceStep):
             # fmt:off
-            return handle[rnd.PlayerMoveChoice, ](
+            return handle[rnd.ChooseCardToPlay,](
                 e,
                 description=f"Player {self.get_player(e.player).username}"
                 f" is playing a {e.card_played.name}"
@@ -236,7 +236,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         return message
 
     @_sync_with_server.register
-    async def _sync_with_server(self, event: rnd.PlayerMoveChoice):
+    async def _sync_with_server(self, event: rnd.ChooseCardToPlay):
         # "super" call to reuse code from _sync_with_server for GameInputRequest:
         super_func = self._sync_with_server.__func__[object, gev.GameInputRequest]
         message = await super_func(self, event)

@@ -677,7 +677,7 @@ class LoveletterPartyServer:
             return e
 
         @handle.register
-        async def handle(e: rnd.PlayerMoveChoice):
+        async def handle(e: rnd.ChooseCardToPlay):
             player = self.game.current_round.current_player
             session = self._client_sessions[player.id]
             assert session.client_info.id == player.id
@@ -686,9 +686,9 @@ class LoveletterPartyServer:
 
         @handle.register
         def handle(e: move.MoveStep):
-            # reuse code from PlayerMoveChoice handler
+            # reuse code from ChooseCardToPlay handler
             # fmt:off
-            return handle[rnd.PlayerMoveChoice, ](e)
+            return handle[rnd.ChooseCardToPlay,](e)
             # fmt:on
 
         try:

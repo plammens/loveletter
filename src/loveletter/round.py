@@ -123,7 +123,7 @@ class Round(GameNode):
     def play(self, **start_kwargs) -> GameEventGenerator:
         def iteration(self: Round) -> GameEventGenerator:
             # noinspection PyUnresolvedReferences
-            card = (yield from PlayerMoveChoice(self.current_player)).choice
+            card = (yield from ChooseCardToPlay(self.current_player)).choice
             results = yield from self.current_player.play_card(card)
             return results
 
@@ -333,7 +333,7 @@ class FirstPlayerChoice(ChoiceEvent):
         )
 
 
-class PlayerMoveChoice(ChoiceEvent):
+class ChooseCardToPlay(ChoiceEvent):
     """Make the player chose a card to play."""
 
     def __init__(self, player: RoundPlayer):

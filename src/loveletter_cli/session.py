@@ -185,7 +185,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             return e
 
         @handle.register
-        async def handle(e: rnd.PlayerMoveChoice) -> rnd.PlayerMoveChoice:
+        async def handle(e: rnd.ChooseCardToPlay) -> rnd.ChooseCardToPlay:
             choice = await async_ask_valid_input(
                 "What card do you want to play?", choices=MoveChoice
             )

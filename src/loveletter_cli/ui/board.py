@@ -35,6 +35,8 @@ def draw_game(game: RemoteGameShadowCopy):
             return f">>> {name} <<<"
         elif not p.alive:
             return f"💀 {name} 💀"
+        elif p.immune:
+            return f"🛡️ {name} 🛡️"
         else:
             return name
 

@@ -73,20 +73,24 @@ def _ask_valid_input_parse_args(
                 print("[Interpreted case-*sensitively*]")
                 case_fold = False
 
-            matches = {
-                name: member
-                for name, member in choices.__members__.items()
-                if (name.casefold() if case_fold else name).startswith(s)
-            }
-            return more_itertools.one(
-                matches.values(),
-                too_long=ValueError(
-                    f"Ambiguous choice: which of {set(matches)} did you mean?"
-                ),
-                too_short=ValueError(
-                    f"Not a valid choice: {s}; valid choices: {names}"
-                ),
-            )
+            for name, member in choices.__members__.items():
+                if s == (name.casefold() if case_fold else name):
+                    return member
+            else:
+                matches = {
+                    name: member
+                    for name, member in choices.__members__.items()
+                    if (name.casefold() if case_fold else name).startswith(s)
+                }
+                return more_itertools.one(
+                    matches.values(),
+                    too_long=ValueError(
+                        f"Ambiguous choice: which of {set(matches)} did you mean?"
+                    ),
+                    too_short=ValueError(
+                        f"Not a valid choice: {s}; valid choices: {names}"
+                    ),
+                )
 
         validation_errors = (ValueError,)
         error_message = "{error}"

@@ -208,7 +208,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             player, opponent = map(game.get_player, (e.player, e.opponent))
             is_client = player is game.client_player
             print(
-                f"{'You' if is_client else player.username} played the Guard against"
+                f"{'You' if is_client else player.username} played the Guard against "
                 f"{opponent.username} and guessed a {e.guess.name.title()}, but "
                 f"{opponent.username} doesn't have that card."
             )

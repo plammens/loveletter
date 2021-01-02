@@ -14,6 +14,8 @@ This project exposes the following top-level Python packages:
   A command line user interface for single- or multiplayer games. It's intended just
   for debugging and testing purposes.
 
+  ![CLI screenshot](docs/img/cli-screenshot.png)
+
 The reason these are split into several top-level packages instead of having all be part
 of a single `loveletter` package is to make it more modular and easier to replace any 
 of the components:

@@ -162,10 +162,10 @@ class Priest(Card):
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
         self._validate_move(owner)
-        opponent = (yield from move.OpponentChoice(owner, self)).choice
+        opponent: RoundPlayer = (yield from move.OpponentChoice(owner, self)).choice
         if opponent is move.OpponentChoice.NO_TARGET:
             return ()
-        return (move.ShowOpponentCard(owner, self, opponent, opponent.card),)
+        return (move.ShowOpponentCard(owner, self, opponent, opponent.hand.card),)
 
 
 class Baron(Card):

@@ -84,6 +84,7 @@ class MessageSerializer(json.JSONEncoder):
             return self._make_set_serializable(o)
         elif isinstance(o, type):
             if safe_is_subclass(o, valid8.ValidationError):
+                # noinspection PyTypeChecker
                 return self._make_valid8_serializable(o)
             else:
                 return self._make_type_serializable(o)
@@ -221,19 +222,6 @@ class MessageDeserializer(json.JSONDecoder):
     @staticmethod
     def _reconstruct_type(class_path: str) -> type:
         return import_from_qualname(class_path)
-
-    @staticmethod
-    def _reconstruct_valid8(
-        class_path: str, json_obj: SerializableObject
-    ) -> Type[valid8.ValidationError]:
-        import valid8.entry_points
-
-        base = import_from_qualname(class_path)
-        if (additional := json_obj.pop("additional", None)) is not None:
-            additional = import_from_qualname(additional)
-            return valid8.entry_points.add_base_type_dynamically(base, additional)
-        else:
-            return base
 
     @staticmethod
     def _reconstruct_valid8(

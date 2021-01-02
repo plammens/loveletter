@@ -318,9 +318,11 @@ def force_end_round(game_round: Round):
 
 def send_gracious(gen: Generator, value: Any):
     try:
-        return gen.send(value)
+        gen.send(value)
     except StopIteration as e:
         return e.value
+    else:
+        assert False, "This wasn't the last iteration"
 
 
 def make_round_mock():

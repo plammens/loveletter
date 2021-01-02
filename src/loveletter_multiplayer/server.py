@@ -588,7 +588,7 @@ class LoveletterPartyServer:
 
         async def _reply_permission_denied(self, cause):
             LOGGER.warning(
-                "Received unauthorized request form %s: ", self.client_info, cause
+                "Received unauthorized request form %s: %s", self.client_info, cause
             )
             await self.reply_error(
                 msg.ErrorMessage.Code.PERMISSION_DENIED,

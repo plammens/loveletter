@@ -123,3 +123,7 @@ def print_exception(exception: RemoteException):
 def _gcd_print_exception(text: str):
     text = textwrap.indent(text, prefix=" " * 4 + "!!! ")
     print(text, end="\n\n")
+
+
+async def pause() -> None:
+    await ainput("Enter something to continue... ")

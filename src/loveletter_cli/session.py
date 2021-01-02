@@ -17,7 +17,7 @@ import loveletter.gameevent as gev
 import loveletter.move as mv
 import loveletter.round as rnd
 from loveletter.cards import CardType
-from loveletter_cli.ui import async_ask_valid_input, draw_game, print_exception
+from loveletter_cli.ui import async_ask_valid_input, draw_game, pause, print_exception
 from loveletter_cli.utils import print_header
 from loveletter_multiplayer import (
     GuestClient,
@@ -64,18 +64,20 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 for i, (player, points) in enumerate(game.points.items(), start=1):
                     print(f"    {i}. {player.username}")
                 print()
-                await ainput("Enter something to continue...")
+                await pause()
 
             print_header(f"ROUND {e.round_no}", filler="#")
 
         @handle.register
         async def handle(e: rnd.Turn) -> None:
+            if e.turn_no > 1:
+                await pause()
             draw_game(game)
             player = game.get_player(e.current_player)
             if player is game.client_player:
-                print("It's your turn!")
+                print(">>>>> It's your turn! <<<<<\a")
             else:
-                print(f"It's {player.username}'s turn")
+                print(f"It's {player.username}'s turn...")
 
         @handle.register
         async def handle(e: rnd.RoundEnd) -> None:
@@ -270,7 +272,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     "There are no valid targets (all living opponents are immune); "
                     "playing this card will have no effect."
                 )
-                await ainput("Enter anything to continue... ")
+                await pause()
                 return mv.OpponentChoice.NO_TARGET
 
         generator = game.track_remote()
@@ -364,7 +366,7 @@ class HostCLISession(CommandLineSession):
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None
         while game is None:
-            await ainput("Enter something when ready to play... ")
+            await ainput("Enter anything when ready to play... ")
             await self.client.ready()
             try:
                 game = await self.client.wait_for_game()

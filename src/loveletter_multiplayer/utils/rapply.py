@@ -62,6 +62,7 @@ def recursive_apply(
     cyclic_reference_placeholder = object()
     # map of referred object id to patch function to update a cyclic reference
     patches: Dict[int, List[Callable[[Any], None]]] = {}
+    raise_if_modified: Dict[int, RecursionError] = {}
     # LIFO stack of objects being processed (id(o): o); used to detect reference cycles
     processing: Dict[int, Any] = {}
 
@@ -70,21 +71,22 @@ def recursive_apply(
             # there is a reference cycle; we try to deal with it by returning a
             # placeholder for now and leaving a memo to remember updating this
             # reference when the referred object has been fully processed too
-            cycle = " --> ".join(map(repr, itertools.chain(processing.values(), [o])))
-            if patch_func is None:
-                # no patch function available; can't deal with the cyclic reference
-                raise RecursionError(
-                    f"Cycle detected and I'm not able to deal with it:\n{cycle}"
-                )
 
-            # determine stacklevel for warning
+            cycle = " --> ".join(map(repr, itertools.chain(processing.values(), [o])))
             stacklevel = compute_stacklevel(public_call_site=recursive_apply)
             warnings.warn(
                 f"Attempting to resolve detected cycle "
-                f"(this might have undesired side effects):\n{cycle}",
+                f"(this might have undesired side effects): {cycle}",
                 category=RecursionWarning,
                 stacklevel=stacklevel,
             )
+            if patch_func is None:
+                # no patch function available; can't deal with the cyclic reference
+                exc = RecursionError(
+                    f"Cycle detected and I'm not able to deal with it: {cycle}"
+                )
+                raise_if_modified[id(o)] = exc
+                return o
 
             patches.setdefault(id(o), []).append(patch_func)
             return cyclic_reference_placeholder
@@ -96,6 +98,12 @@ def recursive_apply(
             else:
                 maybe_transformed = _do_apply(o)
                 processed[id(o)] = maybe_transformed
+
+            if (
+                maybe_transformed is not o
+                and (exc := raise_if_modified.get(id(o), None)) is not None
+            ):
+                raise exc  # noqa
 
             # restore the correct value in any cyclic reference placeholders
             if (patch_functions := patches.pop(id(o), None)) is not None:

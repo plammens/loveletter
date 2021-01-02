@@ -151,7 +151,7 @@ class MessageDeserializer(json.JSONDecoder):
     Deserializes the results of :class:`MessageSerializer` into an equivalent Message.
     """
 
-    def __init__(self, game: Optional[Game] = None, fill_placeholders=True):
+    def __init__(self, game: Optional[Game] = None, fill_placeholders: bool = None):
         """
         Construct a configured message deserializer.
 
@@ -164,7 +164,11 @@ class MessageDeserializer(json.JSONDecoder):
         """
         super().__init__(object_hook=self._reconstruct_object)
         self.game = game
-        self.fill_placeholders = fill_placeholders
+        self.fill_placeholders = (
+            fill_placeholders
+            if fill_placeholders is not None
+            else self.game is not None
+        )
 
     def deserialize(self, message: bytes) -> Message:
         # noinspection PyTypeChecker
@@ -260,10 +264,12 @@ class MessageDeserializer(json.JSONDecoder):
         return instance
 
     def _reconstruct_from_placeholder(self, json_obj: SerializableObject):
+        placeholder = Placeholder.from_serializable(json_obj)
+        if not self.fill_placeholders:
+            return placeholder
         if self.game is None:
             raise ValueError("Can't fill placeholder without a game context")
-        placeholder = Placeholder.from_serializable(json_obj)
-        return placeholder.fill(self.game) if self.fill_placeholders else placeholder
+        return placeholder.fill(self.game)
 
     @staticmethod
     def _reconstruct_fallback(class_path: str, json_obj: SerializableObject) -> Any:

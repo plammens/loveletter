@@ -321,7 +321,7 @@ class HostCLISession(CommandLineSession):
             LOGGER.getEffectiveLevel(),
         ]
         args = subprocess.list2cmdline(list(map(str, args)))
-        cmd = f'start "{script_path}" /wait python -m {script_path} {args}'
+        cmd = f'start "{script_path}" /wait /min python -m {script_path} {args}'
         LOGGER.debug(f"Starting server script with {repr(cmd)}")
         server_process = await asyncio.create_subprocess_shell(cmd)
         try:

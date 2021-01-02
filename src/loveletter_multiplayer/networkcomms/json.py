@@ -54,11 +54,22 @@ class MessageSerializer(json.JSONEncoder):
         return super().encode(o)
 
     def _prepare_dicts(self, o):
-        return recursive_apply(
-            o,
-            predicate=lambda x: isinstance(x, dict),
-            function=lambda d: {self.encode(k): v for k, v in d.items()},
-        )
+        def predicate(x):
+            return (
+                isinstance(x, dict)
+                or Placeholder.get_placeholder_type(x) is not None  # see below
+            )
+
+        def encode_dict_keys(x):
+            if isinstance(x, dict):
+                return {self.encode(k): v for k, v in x.items()}
+            else:
+                # this is a placeholder type; explicitly return it to avoid
+                # recursing into it, which can cause cyclic reference problems (e.g.
+                # Round references RoundPlayer which references Round).
+                return x
+
+        return recursive_apply(o, predicate=predicate, function=encode_dict_keys)
 
     def serialize(self, message: Message) -> bytes:
         json_string = self.encode(message)

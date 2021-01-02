@@ -1,5 +1,6 @@
 import enum
 import functools
+import shutil
 import textwrap
 import traceback
 from typing import (
@@ -10,10 +11,24 @@ from typing import (
 )
 
 import more_itertools
+import valid8
 from aioconsole import ainput
 from multimethod import multimethod
 
 from loveletter_multiplayer import RemoteException
+
+
+def printable_width() -> int:
+    width, _ = shutil.get_terminal_size(fallback=(100, 0))
+    width -= 2  # leave some margin for safety (avoid ugly wrapping)
+    return width
+
+
+@valid8.validate_arg("filler", valid8.validation_lib.length_between(1, 1))
+def print_header(text: str, filler: str = "-"):
+    print()
+    width = printable_width()
+    print(format(f" {text} ", f"{filler}^{width - 1}"), end="\n\n")
 
 
 T = TypeVar("T")

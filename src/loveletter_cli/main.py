@@ -12,11 +12,10 @@ from loveletter_cli.session import (
     PlayMode,
     UserInfo,
 )
-from loveletter_cli.ui import ask_valid_input, print_exception
+from loveletter_cli.ui import ask_valid_input, print_exception, print_header
 from loveletter_cli.utils import (
     get_local_ip,
     get_public_ip,
-    print_header,
 )
 from loveletter_multiplayer import DEFAULT_PORT, MAX_PORT, valid8
 from loveletter_multiplayer.logging import setup_logging

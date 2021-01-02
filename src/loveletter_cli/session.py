@@ -17,8 +17,14 @@ import loveletter.gameevent as gev
 import loveletter.move as mv
 import loveletter.round as rnd
 from loveletter.cards import CardType
-from loveletter_cli.ui import async_ask_valid_input, draw_game, pause, print_exception
-from loveletter_cli.utils import camel_to_phrase, print_header
+from loveletter_cli.ui import (
+    async_ask_valid_input,
+    draw_game,
+    pause,
+    print_exception,
+    print_header,
+)
+from loveletter_cli.utils import camel_to_phrase
 from loveletter_multiplayer import (
     GuestClient,
     HostClient,
@@ -184,9 +190,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             example = list(idx_range)
             random.shuffle(example)
             prompt = (
-                f"Choose an order to place these cards at the bottom of the deck\n"
-                f"    as a comma-separated list of integers, from bottommost to\n"
-                f"    topmost (e.g. {', '.join(map(str, example))}):"
+                f"Choose an order to place these cards at the bottom of the deck "
+                f"as a comma-separated list of integers, from bottommost to "
+                f"topmost (e.g. {', '.join(map(str, example))}):"
             )
             choice = await async_ask_valid_input(prompt, parser=parser)
             e.set_from_serializable(choice)

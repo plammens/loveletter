@@ -1,4 +1,3 @@
-import shutil
 import textwrap
 from typing import Sequence
 
@@ -7,6 +6,7 @@ import numpy as np
 
 from loveletter.cards import Card, CardType
 from loveletter.roundplayer import RoundPlayer
+from loveletter_cli.ui import printable_width
 from loveletter_multiplayer import RemoteGameShadowCopy
 
 
@@ -17,8 +17,7 @@ CARD_ASPECT = 3 / 5  #: card aspect ratio
 def draw_game(game: RemoteGameShadowCopy):
     game_round = game.current_round
     you = game.client_player
-    width, _ = shutil.get_terminal_size(fallback=(99, 0))
-    width -= 5  # leave some margin for safety (avoid ugly wrapping)
+    width = printable_width()
     center_fmt = f"^{width}"
 
     def get_player(offset: int) -> RoundPlayer:

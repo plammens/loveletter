@@ -1,10 +1,8 @@
 import ipaddress
-import shutil
 import socket
 from functools import lru_cache
 
 import more_itertools as mitt
-import valid8
 
 
 @lru_cache
@@ -30,13 +28,6 @@ def is_valid_ipv4(ip: str) -> bool:
         return False
     else:
         return True
-
-
-@valid8.validate_arg("filler", valid8.validation_lib.length_between(1, 1))
-def print_header(text: str, filler: str = "-"):
-    print()
-    width, _ = shutil.get_terminal_size()
-    print(format(f" {text} ", f"{filler}^{width - 1}"), end="\n\n")
 
 
 def camel_to_phrase(name: str) -> str:

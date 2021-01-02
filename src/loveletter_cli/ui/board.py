@@ -27,7 +27,8 @@ def draw_game(game: RemoteGameShadowCopy):
     def cards_discarded_string(p) -> str:
         p = game.get_player(p)
         return (
-            f"cards discarded: [{', '.join(f'({c.value})' for c in p.discarded_cards)}]"
+            f"cards played/discarded: "
+            f"[{', '.join(f'({c.value})' for c in p.discarded_cards)}]"
         )
 
     def username(p) -> str:

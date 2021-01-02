@@ -38,17 +38,23 @@ def draw_game(game: RemoteGameShadowCopy):
         else:
             return name
 
+    def print_blank_line():
+        print(" " * width)
+
+    print_blank_line()
+    print_blank_line()
+
     # opposite opponent (at least one)
     opposite = get_player(offset=min(2, game_round.num_players - 1))
     sprites = [card_back_sprite(char="#")] * len(opposite.hand)
     print_char_array(_horizontal_join(sprites), align="^", width=width)
-    print(" " * width)
+    print_blank_line()
     print(format(username(opposite), center_fmt))
     print(format(cards_discarded_string(opposite), center_fmt))
-    print(" " * width)
+    print_blank_line()
 
-    # print left and maybe right opponent(s):
     if game_round.num_players >= 3:
+        # print left and maybe right opponent(s):
         center_cards = _empty_rectangle(2 * 5, width)
         center_footer = _empty_rectangle(2, width)
 
@@ -73,14 +79,17 @@ def draw_game(game: RemoteGameShadowCopy):
 
         center_block = _vertical_join([center_cards, center_footer], sep_lines=1)
         print_char_array(center_block)
-        print(" " * width)
+        print_blank_line()
 
-    # hand
+    # this client's hand
     sprites = [card_sprite(c) for c in you.hand]
     print_char_array(_horizontal_join(sprites), align="^", width=width)
-    print(" " * width)
+    print_blank_line()
     print(format("Your hand", center_fmt))
     print(format(cards_discarded_string(you), center_fmt))
+
+    print_blank_line()
+    print_blank_line()
 
 
 def card_sprite(card: Card, size=15) -> np.array:

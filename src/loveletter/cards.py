@@ -146,8 +146,11 @@ class Guard(Card):
         # execute move:
         results = []
         if guess == CardType(opponent.hand.card):
+            results.append(move.CorrectCardGuess(owner, self, opponent, guess))
             opponent.eliminate()
             results.append(move.PlayerEliminated(owner, self, opponent))
+        else:
+            results.append(move.WrongCardGuess(owner, self, opponent, guess))
 
         return tuple(results)
 

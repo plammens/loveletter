@@ -14,7 +14,7 @@ from loveletter.gameevent import (
 
 
 if TYPE_CHECKING:
-    from loveletter.cards import Card
+    from loveletter.cards import Card, CardType
     from loveletter.roundplayer import RoundPlayer
 
 
@@ -201,6 +201,18 @@ class ChooseOrderForDeckBottom(ChoiceStep):
 class MoveResult(GameResultEvent, metaclass=abc.ABCMeta):
     player: "RoundPlayer"
     card_played: "Card"
+
+
+@dataclass(frozen=True)
+class CorrectCardGuess(MoveResult):
+    opponent: "RoundPlayer"
+    guess: "CardType"
+
+
+@dataclass(frozen=True)
+class WrongCardGuess(MoveResult):
+    opponent: "RoundPlayer"
+    guess: "CardType"
 
 
 @dataclass(frozen=True)

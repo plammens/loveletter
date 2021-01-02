@@ -7,7 +7,6 @@ import valid8
 # from ... import * imports are needed because of how fixtures are generated;
 # see pytest-cases#174
 import loveletter.cards as cards
-import loveletter.move as mv
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType  # noqa
 from loveletter.round import Round, Turn  # noqa
@@ -159,8 +158,11 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         target_step = move.send(None)
         target_step.choice = other
         guess_step = move.send(target_step)
-        guess_step.choice = type(other.hand.card)
-        send_gracious(move, guess_step)
+        guess_step.choice = guess = type(other.hand.card)
+        results = send_gracious(move, guess_step)
+        assert tuple(map(type, results)) == (mv.CorrectCardGuess, mv.PlayerEliminated)
+        assert results[0].guess == CardType(guess)
+        assert results[1].eliminated == other
         assert not other.alive
         # artificially start new turn with same player
         restart_turn(started_round)
@@ -180,7 +182,9 @@ def test_guard_incorrectGuess_doesNotEliminateOpponent(started_round: Round):
             target_step.choice = other
             guess_step = move.send(target_step)
             guess_step.choice = guess
-            send_gracious(move, guess_step)
+            results = send_gracious(move, guess_step)
+            assert tuple(map(type, results)) == (mv.WrongCardGuess,)
+            assert results[0].guess == CardType(guess)
             assert other.alive
             # artificially start new turn with same player
             restart_turn(started_round)

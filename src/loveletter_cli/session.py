@@ -77,7 +77,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             if player is game.client_player:
                 print(">>>>> It's your turn! <<<<<\a")
             else:
-                print(f"It's {player.username}'s turn...")
+                print(f"It's {player.username}'s turn.")
 
         @handle.register
         async def handle(e: rnd.RoundEnd) -> None:

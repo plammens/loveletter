@@ -132,7 +132,7 @@ class RemoteGameShadowCopy(loveletter.game.Game):
                 yield await self._set_choice_from_remote(e)
 
         @handle.register
-        async def handle(e: rnd.PlayerMoveChoice):
+        async def handle(e: rnd.PlayerMoveChoice, description=None):
             current_player_id = self.current_round.current_player.id
             username = self.players[current_player_id].username
             if self.client_player_id == current_player_id:
@@ -143,14 +143,20 @@ class RemoteGameShadowCopy(loveletter.game.Game):
                 await self._communicate_choice(type(ans), choice)
             else:
                 yield RemoteEvent(
-                    wrapped=e, description=f"Player {username} is making a move"
+                    wrapped=e,
+                    description=description
+                    or f"Player {username} is choosing which card to play",
                 )
                 yield (await self._set_choice_from_remote(e))
 
         @handle.register
         def handle(e: move.ChoiceStep):
             # fmt:off
-            return handle[rnd.PlayerMoveChoice, ](e)
+            return handle[rnd.PlayerMoveChoice, ](
+                e,
+                description=f"Player {self.get_player(e.player).username}"
+                f" is playing a {e.card_played.name}"
+            )
             # fmt:on
 
         asyncio.current_task().set_name(f"game<{self.connection.client.username}>")

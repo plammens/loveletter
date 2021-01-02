@@ -72,7 +72,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: rnd.Turn) -> None:
             draw_game(game)
             player = game.get_player(e.current_player)
-            if player.id == game.client_player_id:
+            if player is game.client_player:
                 print("It's your turn!")
             else:
                 print(f"It's {player.username}'s turn")
@@ -92,7 +92,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.ShowOpponentCard) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
-            if player.id == game.client_player_id:
+            if player is game.client_player:
                 print(
                     f"Player {opponent.username} shows their card to you, "
                     f"revealing a {opponent.hand.card.name}."
@@ -105,7 +105,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardComparison) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
-            if player.id == game.client_player_id:
+            if player is game.client_player:
                 print(
                     f"You and {opponent.username} compare your cards: "
                     f"you have a {player.hand.card.name}, "
@@ -120,7 +120,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardDiscarded) -> None:
             player = game.get_player(e.target)
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
                 f"discard{'s' if not is_client else ''} a {e.discarded.name}."
@@ -129,7 +129,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardDealt) -> None:
             player = game.get_player(e.target)
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
                 f"{'are' if is_client else 'is'} dealt another card from the deck."
@@ -138,7 +138,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardChosen) -> None:
             player = game.get_player(e.player)
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} chosen a card to keep."
@@ -147,7 +147,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardsPlacedBottomOfDeck) -> None:
             player = game.get_player(e.player)
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} placed back the other {len(e.cards)}"
@@ -157,7 +157,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.ImmunityGranted) -> None:
             player = game.get_player(e.player)
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} been granted immunity."
@@ -166,7 +166,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.CardsSwapped) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
-            is_client = player.id == game.client_player_id
+            is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} and {opponent.username}"
                 f"swap {'your' if is_client else 'their'} cards."
@@ -284,7 +284,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             print("There were multiple winners!")
             print(f"{', '.join(p.username for p in end.winners)} all won in a tie.")
         else:
-            if winner.id == game.client_player_id:
+            if winner is game.client_player:
                 print("You win!")
             else:
                 print(f"{winner.username} wins!")
@@ -369,8 +369,10 @@ class GuestCLISession(CommandLineSession):
 
     async def manage(self):
         await super().manage()
+        address = self.server_address
+        print_header(f"Joining game @ {address.host}:{address.port}")
         await self._connect_to_server()
-        game = await self.client.wait_for_game()
+        game = await self._wait_for_game()
         await self.play_game(game)
 
     async def _connect_to_server(self) -> asyncio.Task:
@@ -400,8 +402,13 @@ class GuestCLISession(CommandLineSession):
                 else:
                     assert False
 
+        print("Successfully connected to the server.")
         watch_connection(connection)
         return connection
+
+    async def _wait_for_game(self) -> RemoteGameShadowCopy:
+        print("Waiting for the host to start the game...")
+        return await self.client.wait_for_game()
 
 
 @dataclass(frozen=True)

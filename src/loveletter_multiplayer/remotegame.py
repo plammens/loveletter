@@ -48,6 +48,11 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         self.connection = connection
         self.client_player_id = player_id
 
+    @property
+    def client_player(self) -> loveletter.game.Game.Player:
+        """The Game.Player object corresponding to this client."""
+        return self.get_player(self.client_player_id)
+
     @classmethod
     async def from_connection(cls, connection: Connection):
         # noinspection PyTypeChecker

@@ -69,10 +69,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     print(f"    {player.username}: {delta:+}")
                 print()
                 print("Leaderboard:")
+                width = max(map(len, (p.username for p in game.players))) + 2
                 for i, (player, points) in enumerate(
                     game.points.most_common(), start=1
                 ):
-                    print(f"    {i}. {player.username:24} {points} tokens of affection")
+                    print(
+                        " " * 4
+                        + f"{i}. {player.username:{width}} {points} tokens of affection"
+                    )
                 print()
                 await pause()
 

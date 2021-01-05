@@ -69,8 +69,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     print(f"    {player.username}: {delta:+}")
                 print()
                 print("Leaderboard:")
-                for i, (player, points) in enumerate(game.points.items(), start=1):
-                    print(f"    {i}. {player.username:16} {points} tokens of affection")
+                for i, (player, points) in enumerate(
+                    game.points.most_common(), start=1
+                ):
+                    print(f"    {i}. {player.username:24} {points} tokens of affection")
                 print()
                 await pause()
 

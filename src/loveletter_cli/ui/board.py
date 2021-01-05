@@ -59,7 +59,7 @@ def draw_game(game: RemoteGameShadowCopy):
     print_blank_line()
 
     deck_msg = (
-        f"[deck: {len(game.current_round.deck)}"
+        f"[deck: {len(game.current_round.deck.stack)}"
         f" + {int(game.current_round.deck.set_aside is not None)} card(s)]"
     )
     if game_round.num_players >= 3:

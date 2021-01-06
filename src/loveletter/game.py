@@ -1,7 +1,7 @@
 import abc
 import enum
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Counter as CounterType, Dict, Optional, Sequence
 
 import valid8
@@ -40,7 +40,7 @@ class Game(GameNode):
 
     @dataclass(frozen=True, eq=False)
     class Player:
-        game: "Game"
+        game: "Game" = field(repr=False)
         id: int
         username: str
 

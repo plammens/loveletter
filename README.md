@@ -1,5 +1,8 @@
 # LoveLetter
 
+![](https://github.com/plammens/loveletter/workflows/Python%20application/badge.svg)
+
+A Python replica of the board game [Love Letter by Z-MAN Games](https://www.zmangames.com/en/games/love-letter/).
 
 This project exposes the following top-level Python packages:
 

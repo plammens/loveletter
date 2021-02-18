@@ -40,7 +40,7 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
     def username(p) -> str:
         p = game.get_player(p)
         name = f"{p.username} (you)" if p is you else p.username
-        if game_round.current_player is p:
+        if game_round.current_player.id == p.id:
             return f">>> {name} <<<"
         elif not p.alive:
             return f"💀 {name} 💀"

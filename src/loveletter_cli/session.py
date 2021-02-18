@@ -87,9 +87,13 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: rnd.Turn) -> None:
             if e.turn_no > 1:
                 await pause()
-            draw_game(game)
             player = game.get_player(e.current_player)
-            if player is game.client_player:
+            is_client = player is game.client_player
+
+            possessive = "Your" if is_client else f"{player.username}'s"
+            print_header(f"{possessive} turn", filler="—")
+            draw_game(game)
+            if is_client:
                 print(">>>>> It's your turn! <<<<<\a")
             else:
                 print(f"It's {player.username}'s turn.")

@@ -7,7 +7,7 @@ import numpy as np
 from loveletter.cards import Card, CardType
 from loveletter.roundplayer import RoundPlayer
 from loveletter_multiplayer import RemoteGameShadowCopy
-from .misc import printable_width
+from .misc import pluralize, printable_width
 
 
 ROW_TO_COL_RATIO = 2.8  #: approximate terminal character aspect ratio
@@ -58,9 +58,11 @@ def draw_game(game: RemoteGameShadowCopy):
     print(format(cards_discarded_string(opposite), center_fmt))
     print_blank_line()
 
+    len_stack = len(game.current_round.deck.stack)
+    num_set_aside = int(game.current_round.deck.set_aside is not None)
     deck_msg = (
-        f"[deck: {len(game.current_round.deck.stack)}"
-        f" + {int(game.current_round.deck.set_aside is not None)} card(s)]"
+        f"[deck: {len_stack} (+ {num_set_aside})"
+        f" {pluralize('card', len_stack + num_set_aside)}]"
     )
     if game_round.num_players >= 3:
         # print left and maybe right opponent(s):

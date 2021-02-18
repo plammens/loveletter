@@ -21,6 +21,7 @@ from loveletter_cli.ui import (
     async_ask_valid_input,
     draw_game,
     pause,
+    pluralize,
     print_exception,
     print_header,
 )
@@ -74,8 +75,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     game.points.most_common(), start=1
                 ):
                     print(
-                        " " * 4
-                        + f"{i}. {player.username:{width}} {points} tokens of affection"
+                        " " * 4 + f"{i}. {player.username:{width}} {points} "
+                        f"{pluralize('token', points)} of affection"
                     )
                 print()
                 await pause()
@@ -106,7 +107,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: rnd.RoundEnd) -> None:
             print("\n>>>>> The round has ended! <<<<<\n")
             winners = [game.get_player(p).username for p in e.winners]
-            print(f"Winner(s) of the round: {', '.join(winners)}")
+            print(
+                f"{pluralize('Winner', len(winners))} of the round: "
+                f"{', '.join(winners)}"
+            )
             # points update gets printed in PlayingRound handler
 
         # ------------------------------ Remote events -------------------------------
@@ -299,7 +303,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             print(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} placed back the other "
-                f"{len(e.cards)} card(s) at the bottom of the deck."
+                f"{len(e.cards)} {pluralize('card', len(e.cards))} "
+                f"at the bottom of the deck."
             )
 
         @handle.register

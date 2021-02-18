@@ -176,3 +176,8 @@ def _gcd_print_exception(text: str):
 
 async def pause() -> None:
     input("Enter something to continue... ")
+
+
+def pluralize(word: str, count: int) -> str:
+    """Pluralize (or not) a word as appropriate given a count."""
+    return word if abs(count) == 1 else f"{word}s"

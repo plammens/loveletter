@@ -145,10 +145,10 @@ class Guard(Card):
 
         # execute move:
         results = []
-        if guess == CardType(opponent.hand.card):
+        if guess == CardType(target_card := opponent.hand.card):
             results.append(move.CorrectCardGuess(owner, self, opponent, guess))
             opponent.eliminate()
-            results.append(move.PlayerEliminated(owner, self, opponent))
+            results.append(move.PlayerEliminated(owner, self, opponent, target_card))
         else:
             results.append(move.WrongCardGuess(owner, self, opponent, guess))
 
@@ -197,8 +197,9 @@ class Baron(Card):
             else None
         )
         if eliminated:
+            last_card = eliminated.hand.card
             eliminated.eliminate()
-            results.append(move.PlayerEliminated(owner, self, eliminated))
+            results.append(move.PlayerEliminated(owner, self, eliminated, last_card))
 
         return tuple(results)
 
@@ -333,8 +334,9 @@ class Princess(Card):
 
     def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         if owner.alive:
+            last_card = owner.hand.card or self
             owner.eliminate()
-            return (move.PlayerEliminated(owner, self, owner),)
+            return (move.PlayerEliminated(owner, self, owner, last_card),)
         else:
             return ()
 

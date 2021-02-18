@@ -214,40 +214,58 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.CorrectCardGuess) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
             is_client = player is game.client_player
+            target_is_client = opponent is game.client_player
+            possessive = "your" if target_is_client else f"{opponent.username}'s"
             print(
                 f"{'You' if is_client else player.username} correctly guessed "
-                f"{opponent.username}'s {e.guess.name.title()}!"
+                f"{possessive} {e.guess.name.title()}!"
             )
 
         @handle.register
         async def handle(e: mv.WrongCardGuess) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
-            is_client = player is game.client_player
-            print(
-                f"{'You' if is_client else player.username} played the Guard against "
-                f"{opponent.username} and guessed a {e.guess.name.title()}, but "
-                f"{opponent.username} doesn't have that card."
-            )
+            if player is game.client_player:
+                print(
+                    f"You played a Guard against {opponent.username} and guessed a "
+                    f"{e.guess.name.title()}, but {opponent.username} doesn't have "
+                    f"that card."
+                )
+            elif opponent is game.client_player:
+                print(
+                    f"{opponent.username} played a Guard against you and guessed a "
+                    f"{e.guess.name.title()}, but you don't have that card."
+                )
+            else:
+                print(
+                    f"{player.username} played a Guard against {opponent.username} "
+                    f"and guessed a {e.guess.name.title()}, but {opponent.username} "
+                    f"doesn't have that card."
+                )
 
         @handle.register
         async def handle(e: mv.PlayerEliminated) -> None:
             player = game.get_player(e.eliminated)
-            print(f"💀 Player {player.username} has been eliminated 💀")
+            is_client = player is game.client_player
+            msg = (
+                f"💀 {'You' if is_client else player.username} "
+                f"{'have' if is_client else 'has'} been eliminated! 💀"
+            )
+            if not is_client:
+                msg += f" They had a {e.eliminated_card.name}."
+            print(msg)
 
         @handle.register
         async def handle(e: mv.ShowOpponentCard) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
             if player is game.client_player:
                 print(
-                    f"Player {opponent.username} shows their card to you, "
+                    f"{opponent.username} shows their card to you, "
                     f"revealing a {e.card_shown.name}."
                 )
             elif opponent is game.client_player:
                 print(f"You show your {e.card_shown.name} to {player.username}.")
             else:
-                print(
-                    f"Player {opponent.username} shows their card to {player.username}."
-                )
+                print(f"{opponent.username} shows their card to {player.username}.")
 
         @handle.register
         async def handle(e: mv.CardComparison) -> None:
@@ -260,13 +278,13 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 )
             elif opponent is game.client_player:
                 print(
-                    f"{opponent.username} compares their hand with yours: "
+                    f"{player.username} compares their hand with yours: "
                     f"they have a {e.player_card.name}, "
                     f"you have a {e.opponent_card.name}."
                 )
             else:
                 print(
-                    f"Player {player.username} and {opponent.username} "
+                    f"{player.username} and {opponent.username} "
                     f"compare their cards in secret."
                 )
 
@@ -363,10 +381,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     try:
                         game_input = await handle(event)
                         event = await generator.asend(game_input)
-                        break
                     except valid8.ValidationError as exc:
                         print(exc)
-                        continue
             except StopAsyncIteration:
                 break
 

@@ -77,25 +77,34 @@ def _ask_valid_input_parse_args(
 
     if choices is not None:
         names = list(choices.__members__.keys())
+        single_case = all(map(str.islower, names)) or all(map(str.isupper, names))
         prompt += f"[{' | '.join(names)}] "
 
         def parser(s: str) -> choices:
-            if s.islower():
-                print("[Interpreted case-insensitively]")
+            if single_case or s.islower():
                 case_fold = True
                 s = s.casefold()
             else:
-                print("[Interpreted case-*sensitively*]")
                 case_fold = False
+                print("(interpreted case-*sensitively*)")
 
-            for name, member in choices.__members__.items():
-                if s == (name.casefold() if case_fold else name):
-                    return member
-            else:
+            normalized_members = (
+                {
+                    name.casefold(): member
+                    for name, member in choices.__members__.items()
+                }
+                if case_fold
+                else choices.__members__
+            )
+
+            try:
+                return normalized_members[s]  # complete match
+            except KeyError:
+                # try with a partial match
                 matches = {
                     name: member
-                    for name, member in choices.__members__.items()
-                    if (name.casefold() if case_fold else name).startswith(s)
+                    for name, member in normalized_members.items()
+                    if name.startswith(s)
                 }
                 return more_itertools.one(
                     matches.values(),

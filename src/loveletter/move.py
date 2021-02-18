@@ -218,6 +218,7 @@ class WrongCardGuess(MoveResult):
 @dataclass(frozen=True)
 class PlayerEliminated(MoveResult):
     eliminated: "RoundPlayer"
+    eliminated_card: "Card"
 
 
 @dataclass(frozen=True)

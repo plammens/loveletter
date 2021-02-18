@@ -92,7 +92,7 @@ def host_game(user: UserInfo):
     else:
         hosts = (
             "127.0.0.1",
-            addresses["local"],
+            str(addresses["local"]),
         )  # allow either localhost or local net.
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()

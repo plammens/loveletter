@@ -2,7 +2,7 @@ import functools
 import itertools
 import math
 import textwrap
-from typing import Optional, Sequence
+from typing import Literal, Optional, Sequence, Union
 
 import more_itertools
 import numpy as np
@@ -58,7 +58,7 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
     # opposite opponent (at least one)
     opposite = get_player(offset=min(2, game_round.num_players - 1))
     sprites = [card_back_sprite(char="#")] * len(opposite.hand)
-    print_char_array(_horizontal_join(sprites), align="^", width=board_cols)
+    print_canvas(horizontal_join(sprites), align="^", width=board_cols)
     print_blank_line()
     print(format(username(opposite), center_fmt))
     print(format(cards_discarded_string(opposite), center_fmt))
@@ -76,30 +76,31 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
             left_right_players.append(get_player(3))
 
         # print left and maybe right opponent(s):
-        center_main = _empty_canvas(
+        center_main = empty_canvas(
             rows=math.ceil(2 * DEFAULT_CARD_BACK_SIZE * CARD_ASPECT),
             cols=board_cols,
         )
-        center_footer = _empty_canvas(rows=2, cols=board_cols)
+        center_footer = empty_canvas(rows=2, cols=board_cols)
 
         for player, char, col, align in zip(left_right_players, r"\/", [2, -2], "<>"):
-            sprites = [horizontal_card_back_sprite(char=char)] * len(player.hand)
-            cards = _vertical_join(sprites)
-            _embed(center_main, cards, col=col, vcenter=True)
-            _write_string(center_footer, username(player), row=0, align=align)
-            _write_string(
+            sprite = card_back_sprite(orientation="sideways", char=char)
+            sprites = [sprite] * len(player.hand)
+            cards = vertical_join(sprites)
+            embed(center_main, cards, col=col, vcenter=True)
+            write_string(center_footer, username(player), row=0, align=align)
+            write_string(
                 center_footer, cards_discarded_string(player), row=1, align=align
             )
 
         # join the hands strip with their footers to form a single central strip
-        center_block = _vertical_join([center_main, center_footer], sep_lines=1)
+        center_block = vertical_join([center_main, center_footer], sep_lines=1)
 
         # make use of extra vertical space to make a deck sprite
-        _embed(center_block, deck_sprite(game_round.deck), hcenter=True, vcenter=True)
-        _write_string(center_block, deck_msg, row=-2, align="^")
+        embed(center_block, deck_sprite(game_round.deck), hcenter=True, vcenter=True)
+        write_string(center_block, deck_msg, row=-2, align="^")
 
         # print everything in this central strip:
-        print_char_array(center_block)
+        print_canvas(center_block)
     else:
         # print "economical" representation of deck to avoid increasing vertical length
         print_blank_line()
@@ -110,7 +111,7 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
 
     # this client's hand
     sprites = [card_sprite(c) for c in you.hand]
-    print_char_array(_horizontal_join(sprites), align="^", width=board_cols)
+    print_canvas(horizontal_join(sprites), align="^", width=board_cols)
     print_blank_line()
     print(format(username(you), center_fmt))
     print(format(cards_discarded_string(you), center_fmt))
@@ -119,106 +120,44 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
     print_blank_line()
 
 
-def card_sprite(card: Card, size=15) -> np.array:
-    arr = _empty_card(size)
-    width = arr.shape[1]
-
-    _write_string(arr, f"({card.value})", row=2, align="<", margin=3)
-    _write_string(arr, CardType(card).name, row=2, align="^")
-
-    min_description_start = 4
-    bottom_margin = 2
-    description_margin = 4
-    description_end = size - bottom_margin
-    lines = textwrap.wrap(
-        card.description,
-        width=width - 2 * description_margin,
-        max_lines=description_end - min_description_start,
-    )
-    description_start = description_end - len(lines)
-    for i, line in enumerate(lines, start=description_start):
-        _write_string(arr, line, row=i, align="^", margin=description_margin)
-
-    return arr
+# ---------------------------------- canvas creation ----------------------------------
 
 
-def card_back_sprite(size=DEFAULT_CARD_BACK_SIZE, char="#") -> np.ndarray:
-    card = _empty_card(size)
-    # stripy diagonal pattern:
-    layer = _checkerboard(card.shape, char)
-    return _underlay(card, layer)
+def empty_canvas(rows: Union[int, float], cols: Union[int, float]) -> np.ndarray:
+    """
+    Create an empty canvas of the specified dimensions.
+
+    The canvas will be a 2D numpy array of dtype U1 (unicode strings of length 1, i.e.
+    characters). The space character is considered as the "identity"/transparency/empty
+    symbol.
+    """
+    rows, cols = map(round, (rows, cols))
+    return np.full((rows, cols), fill_value=" ", dtype="U1")
 
 
-def horizontal_card_back_sprite(size=DEFAULT_CARD_BACK_SIZE, char="/") -> np.ndarray:
-    card = _empty_canvas(round(CARD_ASPECT * size), round(COLS_PER_ROW_RATIO * size))
-    _frame(card)
-    layer = _checkerboard(card.shape, char)
-    return _underlay(card, layer)
+def empty_canvas_adjusted(
+    rows: Union[int, float], cols: Union[int, float]
+) -> np.ndarray:
+    """
+    Create an empty canvas of the specified dimensions, adjusting for a 1:1 base ratio.
+
+    Adjusts the dimensions so the vertical length of 1 (virtual) row unit and the
+    horizontal length of 1 (virtual) column unit are approximately equal, by increasing
+    the number of physical columns per virtual row to adjust for the aspect ratio of
+    physical rows/columns.
+
+    :param rows: Height in virtual row units (will correspond 1:1 to physical rows).
+    :param cols: Height in virtual column units (will *not* correspond 1:1 to
+        physical columns).
+    :return: An empty canvas of the specified dimensions.
+    """
+    return empty_canvas(rows, COLS_PER_ROW_RATIO * cols)
 
 
-def deck_sprite(deck: Deck) -> np.ndarray:
-    max_stack_size = sum(STANDARD_DECK_COUNTS.values()) - 1
-    num_card_sprites = math.ceil((len(deck.stack) / max_stack_size) * 3)
-
-    card_size = DEFAULT_CARD_BACK_SIZE - 1
-    sprite = card_back_sprite(size=card_size)
-
-    canvas_size = np.array(sprite.shape) + (num_card_sprites - 1)
-    stack_canvas = _empty_canvas(*canvas_size)
-    for i in range(num_card_sprites):
-        _embed(stack_canvas, sprite, row=i, col=i)
-
-    set_aside_sprite = card_back_sprite(size=card_size, char="@")
-
-    return _horizontal_join([stack_canvas, set_aside_sprite])
+# -------------------------- graphical primitives/operations --------------------------
 
 
-def print_char_array(array: np.ndarray, align="", width=None):
-    if width is None:
-        width = array.shape[1]
-    fmt = f"{align}{width}"
-    for row in array:
-        print(format(_as_string(row), fmt))
-
-
-def _checkerboard(shape, char):
-    layer = _empty_canvas(*shape)
-    mask = np.arange(shape[1]) % 2 == np.arange(shape[0])[:, np.newaxis] % 2
-    layer[mask] = char
-    return layer
-
-
-def _empty_card(height: int) -> np.ndarray:
-    width = round(COLS_PER_ROW_RATIO * height * CARD_ASPECT)
-    arr1 = _empty_canvas(height, width)
-    arr = arr1
-    _frame(arr)
-    return arr
-
-
-def _frame(arr):
-    arr[[0, -1], :] = "¯"
-    arr[-1, :] = "_"
-    arr[:, [0, -1]] = "|"
-    for idx, corner in zip(itertools.product([0, -1], repeat=2), "⎾⏋⎿⏌"):
-        arr[idx] = corner
-
-
-def _write_string(
-    arr: np.ndarray,
-    s: str,
-    row: int,
-    align: str = "",
-    margin: int = 2,
-) -> None:
-    string_width = arr.shape[1] - 2 * margin
-
-    chars = _char_array(format(s, f"{align}{string_width}"))
-    idx = (row, slice(margin, -margin))
-    arr[idx] = _overlay(arr[idx], chars)
-
-
-def _embed(
+def embed(
     canvas: np.ndarray,
     sprite: np.ndarray,
     row: int = 0,
@@ -226,6 +165,19 @@ def _embed(
     hcenter=False,
     vcenter=False,
 ) -> None:
+    """
+    Embed a sprite at the specified position within a larger canvas.
+
+    The sprite overwrites any previous content that was in that area previously.
+
+    :param canvas: Canvas (rectangular character array) in which to draw the sprite.
+    :param sprite: Rectangular character array to draw in the canvas.
+    :param row: Row index of the top-left corner of the embedding.
+    :param col: Column index of the top-left corner of the embedding.
+    :param hcenter: Whether to center horizontally; if so, `row` is ignored.
+    :param vcenter: Whether to center vertically; if so, `col` is ignored.
+    :return:
+    """
     board_height, board_width = canvas.shape
     sprite_height, sprite_width = sprite.shape
 
@@ -248,60 +200,240 @@ def _embed(
     canvas[idx] = sprite
 
 
-def _overlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
+def overlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
+    """
+    Overlay the contents of a layer on top of a base layer of the same dimensions.
+
+    Any blanks in the overlaid layer will allow to "see through" to the base layer;
+    i.e. blanks in the top layer will be replaced with whatever is below them in the
+    base layer. This is a pure function.
+
+    :returns: The result of overlaying `layer` on top of `base`.
+    """
     return np.where(layer != " ", layer, base)
 
 
-def _underlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
+def underlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
+    """
+    Underlay the contents of a layer below a base layer of the same dimensions.
+
+    Any blanks in the base layer will allow to "see through" to the underlaid layer;
+    i.e. blanks in the base layer will be replaced with whatever is below them in the
+    underlaid layer. This is a pure function.
+
+    :returns: The result of underlaying `layer` below `base`.
+    """
     return np.where(base == " ", layer, base)
 
 
-def _pad(sprite: np.ndarray, rows: Optional[int], cols: Optional[int]) -> np.ndarray:
+def pad(sprite: np.ndarray, rows: Optional[int], cols: Optional[int]) -> np.ndarray:
     """
-    Embed a given sprite (centered) into a bigger canvas of a given size.
+    Embed a given sprite (centered) into a bigger blank canvas of a given size.
 
-    If rows/cols is None, it means no padding along that axis
-    (its length stays the same).
+    If rows/cols is None, it means no padding along that axis (its length stays the
+    same as in the original sprite).
+
+    :returns: The result of growing the margins of `sprite` up to a target canvas size.
     """
     rows, cols = rows or sprite.shape[0], cols or sprite.shape[1]
-    canvas = _empty_canvas(rows, cols)
-    _embed(canvas, sprite, hcenter=True, vcenter=True)
+    canvas = empty_canvas(rows, cols)
+    embed(canvas, sprite, hcenter=True, vcenter=True)
     return canvas
 
 
 def _join(arrays: Sequence[np.ndarray], axis: int, separation: int) -> np.ndarray:
+    """
+    Join a sequence of drawings along the given axis with the given separation.
+
+    Each drawing is padded along the other axis with :func:`pad` to ensure that they
+    all have the same width (axis=0) or height (axis=1) so that they can be
+    concatenated together.
+
+    :param arrays: Sequence of arrays to join.
+    :param axis: Axis along which to join - 0: rows, 1: columns.
+    :param separation: Number of blank rows (axis=0) or columns (axis=1) separating
+        each drawing in `arrays` in the final result.
+    :return: A new array consisting of the concatenation of `arrays` with the
+        given separation between each.
+    """
     if not arrays:
-        return _empty_canvas(0, 0)
+        return empty_canvas(0, 0)
 
     other_axis = (axis + 1) % 2
     other_length = max(a.shape[other_axis] for a in arrays)
     joint_shape = np.roll([separation, other_length], shift=axis)
-    joint = _empty_canvas(*joint_shape)
+    joint = empty_canvas(*joint_shape)
 
     pad_shape = dict(zip(["cols", "rows"], np.roll([other_length, None], shift=axis)))
-    padder = functools.partial(_pad, **pad_shape)
+    padder = functools.partial(pad, **pad_shape)
     return np.concatenate(
         list(more_itertools.intersperse(joint, map(padder, arrays))),
         axis=axis,
     )
 
 
-def _horizontal_join(arrays: Sequence[np.ndarray], sep_columns: int = 2) -> np.ndarray:
+def horizontal_join(arrays: Sequence[np.ndarray], sep_columns: int = 2) -> np.ndarray:
+    """Join a sequence of sprites horizontally; see :func:`_join`."""
     return _join(arrays, axis=1, separation=sep_columns)
 
 
-def _vertical_join(arrays: Sequence[np.ndarray], sep_lines=0) -> np.ndarray:
+def vertical_join(arrays: Sequence[np.ndarray], sep_lines: int = 0) -> np.ndarray:
+    """Join a sequence of sprites vertically; see :func:`_join`."""
     return _join(arrays, axis=0, separation=sep_lines)
 
 
-def _empty_canvas(rows, cols) -> np.ndarray:
-    # TODO: refactor into _empty_canvas_adjusted
-    return np.full((rows, cols), fill_value=" ", dtype="U1")
+# ------------------------------------- patterns --------------------------------------
 
 
-def _char_array(s: str) -> np.ndarray:
+def draw_checkerboard(canvas: np.ndarray, char: str) -> None:
+    """Draw a checkerboard pattern with the given character on the given canvas."""
+    nrows, ncols = canvas.shape
+    mask = np.arange(ncols) % 2 == np.arange(nrows)[:, np.newaxis] % 2
+    canvas[mask] = char
+
+
+def draw_frame(canvas: np.ndarray) -> None:
+    """Draw a frame along the perimeter of the canvas, in-place."""
+    canvas[[0, -1], :] = "¯"
+    canvas[-1, :] = "_"
+    canvas[:, [0, -1]] = "|"
+    for idx, corner in zip(itertools.product([0, -1], repeat=2), "⎾⏋⎿⏌"):
+        canvas[idx] = corner
+
+
+# -------------------------------------- sprites --------------------------------------
+
+
+def _empty_card_canvas(
+    height: int, orientation: Literal["upright", "sideways"] = "upright"
+):
+    """
+    Make an rectangle of the size of a card.
+
+    :param height: Height in (virtual) row units of the upright card.
+    :param orientation: Orientation of the card: upright (vert.) or sideways (horiz.).
+    :return: An empty canvas for a card of the given size in the given orientation.
+    """
+    assert orientation in ("upright", "sideways")
+    shape = (height, height * CARD_ASPECT)
+    if orientation == "sideways":
+        shape = shape[::-1]
+    return empty_canvas_adjusted(*shape)
+
+
+def _empty_card(
+    height: int, orientation: Literal["upright", "sideways"] = "upright"
+) -> np.ndarray:
+    """Make an empty card sprite (a drawn rectangle of the appropriate size)."""
+    arr = _empty_card_canvas(height, orientation)
+    draw_frame(arr)
+    return arr
+
+
+def card_sprite(card: Card, size=15) -> np.array:
+    """Make a face-up card sprite for a given card object."""
+    arr = _empty_card(size)
+    width = arr.shape[1]
+
+    write_string(arr, f"({card.value})", row=2, align="<", margin=3)
+    write_string(arr, CardType(card).name, row=2, align="^")
+
+    min_description_start = 4
+    bottom_margin = 2
+    description_margin = 4
+    description_end = size - bottom_margin
+    lines = textwrap.wrap(
+        card.description,
+        width=width - 2 * description_margin,
+        max_lines=description_end - min_description_start,
+    )
+    description_start = description_end - len(lines)
+    for i, line in enumerate(lines, start=description_start):
+        write_string(arr, line, row=i, align="^", margin=description_margin)
+
+    return arr
+
+
+def card_back_sprite(
+    size=DEFAULT_CARD_BACK_SIZE,
+    orientation: Literal["upright", "sideways"] = "upright",
+    char="#",
+) -> np.ndarray:
+    """Make a face-down card sprite."""
+    card = _empty_card(size, orientation)
+    layer = _empty_card_canvas(size, orientation)
+    draw_checkerboard(layer, char)
+    return underlay(card, layer)
+
+
+def deck_sprite(deck: Deck) -> np.ndarray:
+    """Make a sprite illustrating the state of the deck."""
+    max_stack_size = sum(STANDARD_DECK_COUNTS.values()) - 1
+    num_card_sprites = math.ceil((len(deck.stack) / max_stack_size) * 3)
+
+    card_size = DEFAULT_CARD_BACK_SIZE - 1
+    sprite = card_back_sprite(size=card_size)
+
+    canvas_size = np.array(sprite.shape) + (num_card_sprites - 1)
+    stack_canvas = empty_canvas(*canvas_size)
+    for i in range(num_card_sprites):
+        embed(stack_canvas, sprite, row=i, col=i)
+
+    set_aside_sprite = card_back_sprite(size=card_size, char="@")
+
+    return horizontal_join([stack_canvas, set_aside_sprite])
+
+
+# --------------------------------- string utilities ----------------------------------
+
+
+def as_char_array(s: str) -> np.ndarray:
+    """Make a 1D character array representing the given string."""
     return np.array(list(s), dtype="U1")
 
 
-def _as_string(row: np.ndarray) -> str:
+def as_string(row: np.ndarray) -> str:
+    """Convert a 1D character array into a string."""
     return "".join(row)
+
+
+def write_string(
+    canvas: np.ndarray,
+    s: str,
+    row: int,
+    align: str = "",
+    margin: int = 2,
+) -> None:
+    """
+    Inscribe the given single-line string into a row of a given canvas, in-place.
+
+    :param canvas: Canvas in which to write the string.
+    :param s: String to inscribe.
+    :param row: Index of the row in which to write the string.
+    :param align: Horizontal alignment of the string as recognized by .format() syntax.
+    :param margin: (Minimum) left and right margin to leave when embedding the string.
+    """
+    string_width = canvas.shape[1] - 2 * margin
+    chars = as_char_array(format(s, f"{align}{string_width}"))
+    idx = (row, slice(margin, -margin))
+    canvas[idx] = overlay(canvas[idx], chars)
+
+
+# ------------------------------------- utilities -------------------------------------
+
+
+def print_canvas(canvas: np.ndarray, align="", width: Optional[int] = None) -> None:
+    """
+    Print the given canvas to stdout.
+
+    :param canvas: Canvas to print.
+    :param width: Width to which to print each row of the canvas (useful for
+        left and/or right padding). The default is the width of the canvas itself.
+    :param align: Alignment (as understood by .format()) of each row of the canvas
+        within the wider printed row (useful together with `width`).
+    """
+    if width is None:
+        width = canvas.shape[1]
+    fmt = f"{align}{width}"
+    for row in canvas:
+        print(format(as_string(row), fmt))

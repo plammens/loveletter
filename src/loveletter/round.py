@@ -352,13 +352,16 @@ class ChooseCardToPlay(ChoiceEvent):
     def from_serializable(self, value: Serializable) -> "Card":
         return list(self.player.hand)[value]
 
-    def _validate_choice(self, value):
+    def _validate_choice(self, card):
+        hand = self.player.hand
         valid8.validate(
             "choice",
-            value,
-            is_in=self.player.hand,
-            help_msg="Card not in player's hand",
+            card,
+            is_in=hand,
+            help_msg="This card is not in the player's hand",
         )
+        other_card = next(c for c in hand if c is not card)
+        other_card.check_move(self.player, card)
 
 
 @dataclass(frozen=True)

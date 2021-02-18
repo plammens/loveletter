@@ -62,7 +62,7 @@ class RoundPlayer:
             return old
 
         @contextlib.contextmanager
-        def _play_card(self, card: "Card"):
+        def _stage_card_for_playing(self, card: "Card"):
             # set card aside in temporary holding area:
             idx = self._cards.index(card)
             self._playing = self._cards.pop(idx)
@@ -77,6 +77,7 @@ class RoundPlayer:
                 # Move completed successfully
                 pass
             finally:
+                # Flush staging area
                 self._playing = None
 
     round: "Round"
@@ -146,8 +147,8 @@ class RoundPlayer:
             # The context manager ensures the move is completed before the round moves
             # on to the next turn
             with turn:
-                # tentatively remove card from hand; only do if move terminates OK
-                with self.hand._play_card(card):
+                # tentatively remove card from hand; only commit if move terminates OK
+                with self.hand._stage_card_for_playing(card):  # noqa
                     self.hand.card.check_move(self, card)  # does other card approve?
                     results = yield from card.play(self)
                 results += self._discard_actions(card)

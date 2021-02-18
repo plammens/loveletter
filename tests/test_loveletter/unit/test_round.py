@@ -145,6 +145,22 @@ def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
     assert state.winner is winner
 
 
+def test_chooseCardToPlay_validatesCardInHand(current_player: RoundPlayer):
+    event = loveletter.round.ChooseCardToPlay(current_player)
+    with pytest.raises(valid8.ValidationError):
+        event.choice = cards.Guard()  # this card object is not in the player's hand
+
+
+def test_chooseCardToPlay_checksMoveWithOtherCard(current_player: RoundPlayer):
+    card_mock = CardMockCases.case_generic()
+    give_card(current_player, card_mock)
+    other_card = next(c for c in current_player.hand if c is not card_mock)
+
+    event = loveletter.round.ChooseCardToPlay(current_player)
+    event.choice = other_card
+    card_mock.check_move.assert_called_once_with(current_player, other_card)
+
+
 # noinspection PyTypeChecker
 def test_advanceTurn_turnNoIncreases(started_round: Round):
     old_turn: Turn = started_round.state

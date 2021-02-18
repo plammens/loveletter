@@ -6,6 +6,7 @@ import valid8
 
 # from ... import * imports are needed because of how fixtures are generated;
 # see pytest-cases#174
+import loveletter
 import loveletter.cards as cards
 from loveletter.cardpile import Deck
 from loveletter.cards import CardType  # noqa
@@ -473,10 +474,21 @@ def test_countess_playNotPrinceOrKing_noOp(current_player: RoundPlayer, card_typ
         send_gracious(move, step)
 
 
-@pytest_cases.parametrize("card_type", {CardType.PRINCE, CardType.KING})
-def test_countess_playPrinceOrKing_raises(current_player: RoundPlayer, card_type):
+@pytest_cases.parametrize("other_card_type", {CardType.PRINCE, CardType.KING})
+def test_countess_choosePrinceOrKing_raises(current_player, other_card_type):
     give_card(current_player, cards.Countess(), replace=True)
-    give_card(current_player, card := card_from_card_type(card_type))
+    give_card(current_player, other_card := card_from_card_type(other_card_type))
+
+    event = loveletter.round.ChooseCardToPlay(current_player)
+    with pytest.raises(valid8.ValidationError):
+        event.choice = other_card
+
+
+@pytest_cases.parametrize("other_card_type", {CardType.PRINCE, CardType.KING})
+def test_countess_playPrinceOrKing_raises(current_player, other_card_type):
+    give_card(current_player, cards.Countess(), replace=True)
+    give_card(current_player, card := card_from_card_type(other_card_type))
+
     with assert_state_is_preserved(current_player.round) as mocked_round:
         with pytest.raises(valid8.ValidationError):
             autofill_move(mocked_round.current_player.play_card(card))

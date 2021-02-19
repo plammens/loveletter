@@ -111,7 +111,7 @@ def test_currentPlayer_isValid(started_round):
     assert started_round.current_player.alive
 
 
-def test_nextTurn_currentPlayerIsValid(started_round: Round):
+def test_advanceTurn_currentPlayerIsValid(started_round: Round):
     before = started_round.current_player
     play_mock_move(before)
     started_round.advance_turn()
@@ -120,29 +120,40 @@ def test_nextTurn_currentPlayerIsValid(started_round: Round):
     assert after is not before
 
 
-def test_nextTurn_dealsCard(started_round: Round):
+def test_advanceTurn_turnNoIncreases(started_round: Round):
+    old_turn: Turn = started_round.state  # noqa
+    play_mock_move(started_round.current_player)
+    new_turn: Turn = started_round.advance_turn()  # noqa
+    assert new_turn.turn_no == old_turn.turn_no + 1
+
+
+def test_advanceTurn_dealsCard(started_round: Round):
     next_player = started_round.next_player(started_round.current_player)
     with unittest.mock.patch.object(started_round, "deal_card") as mock:
         force_next_turn(started_round)
         mock.assert_called_once_with(next_player)
 
 
-def test_nextTurn_ongoingRound_roundStateIsTurn(started_round):
+def test_advanceTurn_ongoingRound_roundStateIsTurn(started_round):
     play_mock_move(started_round.current_player)
     state = started_round.advance_turn()
     assert state.type == RoundState.Type.TURN
     assert isinstance(state, loveletter.round.Turn)
 
 
-def test_nextTurn_onlyOnePlayerRemains_roundStateIsEnd(started_round):
-    winner = started_round.players[-1]
-    for player in started_round.players:
-        if player is not winner:
-            player.eliminate()
-    state = force_next_turn(started_round)
-    assert state.type == RoundState.Type.ROUND_END
-    assert started_round.ended
-    assert state.winner is winner
+@pytest_cases.parametrize_with_cases("card", CardCases.MultiStepCases)
+def test_advanceTurn_ongoingMove_raises(started_round: Round, card: Card):
+    player = started_round.current_player
+    move = play_card(player, card, autofill=False)
+    with pytest.raises(valid8.ValidationError):
+        started_round.advance_turn()
+    step = None
+    for _ in card.steps:
+        step = move.send(autofill_step(step))
+        with pytest.raises(valid8.ValidationError):
+            started_round.advance_turn()
+    send_gracious(move, autofill_step(step))  # send final step
+    started_round.advance_turn()
 
 
 def test_chooseCardToPlay_validatesCardInHand(current_player: RoundPlayer):
@@ -161,12 +172,16 @@ def test_chooseCardToPlay_checksMoveWithOtherCard(current_player: RoundPlayer):
     card_mock.check_move.assert_called_once_with(current_player, other_card)
 
 
-# noinspection PyTypeChecker
-def test_advanceTurn_turnNoIncreases(started_round: Round):
-    old_turn: Turn = started_round.state
-    play_mock_move(started_round.current_player)
-    new_turn: Turn = started_round.advance_turn()
-    assert new_turn.turn_no == old_turn.turn_no + 1
+def test_advanceTurn_onlyOnePlayerRemains_roundEnds(started_round):
+    winner = started_round.players[-1]
+    for player in started_round.players:
+        if player is not winner:
+            player.eliminate()
+    state: loveletter.round.RoundEnd = force_next_turn(started_round)
+    assert state.type == RoundState.Type.ROUND_END
+    assert state.reason == loveletter.round.RoundEnd.Reason.ONE_PLAYER_STANDING
+    assert started_round.ended
+    assert state.winner is winner
 
 
 @pytest_cases.parametrize_with_cases("set_aside", cases=CardMockCases)
@@ -180,8 +195,9 @@ def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(
     # noinspection PyUnboundLocalVariable
     winner = player
 
-    state = force_next_turn(started_round)
+    state: loveletter.round.RoundEnd = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
+    assert state.reason == loveletter.round.RoundEnd.Reason.EMPTY_DECK
     assert state.winner is winner
 
 
@@ -255,21 +271,6 @@ def test_dealCard_playerInRound_addsToHand(started_round: Round):
     after = set(player.hand)
     assert after == before | {card}
     assert (player.hand.card is card) == (len(before) == 0)
-
-
-@pytest_cases.parametrize_with_cases("card", CardCases.MultiStepCases)
-def test_nextTurn_ongoingMove_raises(started_round: Round, card: Card):
-    player = started_round.current_player
-    move = play_card(player, card, autofill=False)
-    with pytest.raises(valid8.ValidationError):
-        started_round.advance_turn()
-    step = None
-    for _ in card.steps:
-        step = move.send(autofill_step(step))
-        with pytest.raises(valid8.ValidationError):
-            started_round.advance_turn()
-    send_gracious(move, autofill_step(step))  # send final step
-    started_round.advance_turn()
 
 
 def test_nextPrevPlayer_matchesTurnDirection(started_round: Round):

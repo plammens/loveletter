@@ -152,8 +152,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     )
                     print(f"{contenders_str} have the highest card: a {card}.")
                     print(
-                        f"But {e.winner} has a higher sum of discarded values,"
-                        f" so they win."
+                        f"But {get_username(e.winner)} has a higher sum of discarded"
+                        f" values, so they win."
                         if len(e.winners) == 1
                         else f"And they each have the same sum of discarded values,"
                         f" so they {'both' if len(contenders) == 2 else 'all'} win"

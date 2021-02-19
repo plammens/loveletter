@@ -94,7 +94,7 @@ def draw_game(
     len_stack = len(game.current_round.deck.stack)
     num_set_aside = int(game.current_round.deck.set_aside is not None)
     deck_msg = (
-        f"[deck: {len_stack} (+ {num_set_aside})"
+        f"[deck: {len_stack}{f' (+ {num_set_aside})' if num_set_aside else ''}"
         f" {pluralize('card', len_stack + num_set_aside)}]"
     )
     if game_round.num_players >= 3:
@@ -421,9 +421,11 @@ def deck_sprite(deck: Deck) -> np.ndarray:
     for i in range(num_card_sprites):
         embed(stack_canvas, sprite, row=i, col=i)
 
-    set_aside_sprite = card_back_sprite(size=card_size, char="@")
-
-    return horizontal_join([stack_canvas, set_aside_sprite])
+    if deck.set_aside is not None:
+        set_aside_sprite = card_back_sprite(size=card_size, char="@")
+        return horizontal_join([stack_canvas, set_aside_sprite])
+    else:
+        return stack_canvas
 
 
 # --------------------------------- string utilities ----------------------------------

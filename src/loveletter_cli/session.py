@@ -287,7 +287,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 )
             elif opponent is game.client_player:
                 print(
-                    f"{opponent.username} played a Guard against you and guessed a "
+                    f"{player.username} played a Guard against you and guessed a "
                     f"{e.guess.name.title()}, but you don't have that card."
                 )
             else:

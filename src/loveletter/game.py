@@ -47,6 +47,11 @@ class Game(GameNode):
         def __str__(self):
             return f"{self.username} (player-{self.id})"
 
+        @property
+        def round_player(self):
+            current_round = self.game.current_round
+            return current_round.players[self.id] if current_round is not None else None
+
         def __getattr__(self, item):
             if (round_ := self.game.current_round) is not None:
                 return getattr(round_.players[self.id], item)

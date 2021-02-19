@@ -55,12 +55,31 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         asyncio.current_task().set_name("cli_session_manage")
 
     async def play_game(self, game: RemoteGameShadowCopy):
+        handle = self._define_game_handlers(game)
+        generator = game.track_remote()
+
+        event = None
+        while True:
+            try:
+                old_event = event
+                while event is old_event:
+                    try:
+                        game_input = await handle(event)
+                        event = await generator.asend(game_input)
+                    except valid8.ValidationError as exc:
+                        print(exc)
+            except StopAsyncIteration:
+                break
+
+        await self._show_game_end(game)
+
+    @staticmethod
+    def _define_game_handlers(game: RemoteGameShadowCopy):
         @multimethod
         async def handle(e: gev.GameEvent) -> Optional[gev.GameInputRequest]:
             raise NotImplementedError(e)
 
         # ----------------------------- Game node stages -----------------------------
-
         @handle.register
         async def handle(e: loveletter.game.PlayingRound) -> None:
             if e.points_update:
@@ -111,7 +130,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: rnd.RoundEnd) -> None:
             print_header("Round end", filler="—")
             draw_game(game, reveal=True)
-            print("\n>>>>> The round has ended! <<<<<\n")
+
+            print(">>>>> The round has ended! <<<<<")
+            print(
+                {
+                    rnd.RoundEnd.Reason.EMPTY_DECK: "There are no cards in the deck.",
+                    rnd.RoundEnd.Reason.ONE_PLAYER_STANDING: f"Only one player ({e.winner}) remains alive.",
+                }[e.reason]
+            )
             winners = [game.get_player(p).username for p in e.winners]
             print(
                 f"{pluralize('Winner', len(winners))} of the round: "
@@ -120,7 +146,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             # points update gets printed in PlayingRound handler
 
         # ------------------------------ Remote events -------------------------------
-
         @handle.register
         async def handle(e: RemoteEvent) -> None:
             msg = f"{e.description}..."
@@ -130,7 +155,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             print(msg)
 
         # ----------------------------- Pre-move choices -----------------------------
-
         @handle.register
         async def handle(e: rnd.FirstPlayerChoice) -> rnd.FirstPlayerChoice:
             e.choice = await _player_choice(prompt="Who goes first?")
@@ -145,7 +169,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             return e
 
         # -------------------------------- Move steps --------------------------------
-
         @handle.register
         async def handle(e: mv.CardGuess):
             choices = enum.Enum(
@@ -215,7 +238,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             return e
 
         # ------------------------------- Move results -------------------------------
-
         @handle.register
         async def handle(e: mv.CorrectCardGuess) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
@@ -350,7 +372,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             )
 
         # --------------------------------- Helpers ----------------------------------
-
         async def _player_choice(
             prompt: str, include_self=True
         ) -> loveletter.game.Game.Player:
@@ -378,23 +399,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: None):  # special case for first "event" in loop below
             return e
 
-        # --------------------------- main play_game body ----------------------------
-
-        generator = game.track_remote()
-        event = None
-        while True:
-            try:
-                old_event = event
-                while event is old_event:
-                    try:
-                        game_input = await handle(event)
-                        event = await generator.asend(game_input)
-                    except valid8.ValidationError as exc:
-                        print(exc)
-            except StopAsyncIteration:
-                break
-
-        await self._show_game_end(game)
+        # return the multimethod object; contains all branches
+        return handle
 
     @staticmethod
     async def _show_game_end(game: RemoteGameShadowCopy):

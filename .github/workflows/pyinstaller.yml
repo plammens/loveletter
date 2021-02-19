@@ -28,6 +28,10 @@ jobs:
           release_name: Version ${{ steps.extract_version.outputs.version }}
           draft: false
           prerelease: false
+      - name: Debug
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo ${{ steps.extract_version.outputs.version }}
 
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}

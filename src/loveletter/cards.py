@@ -40,7 +40,7 @@ class Card(metaclass=abc.ABCMeta):
         return self.__class__.__name__
 
     def __str__(self) -> str:
-        return f"{self.name}()"
+        return f"{self.name} ({self.value})"
 
     def __repr__(self) -> str:
         return f"<{self} at {id(self):#X}>"

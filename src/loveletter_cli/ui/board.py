@@ -8,7 +8,8 @@ import more_itertools
 import numpy as np
 
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
-from loveletter.cards import Card, CardType
+from loveletter.cards import Card, CardType, Guard
+from loveletter.round import RoundState
 from loveletter.roundplayer import RoundPlayer
 from loveletter_multiplayer import RemoteGameShadowCopy
 from .misc import pluralize, printable_width
@@ -16,10 +17,26 @@ from .misc import pluralize, printable_width
 
 COLS_PER_ROW_RATIO = 2.8  #: approximate terminal character aspect ratio
 CARD_ASPECT = 3 / 5  #: card aspect ratio
-DEFAULT_CARD_BACK_SIZE = 8
+DEFAULT_CARD_HEIGHT = DEFAULT_CARD_SIZE = 8  #: card size in row units
+DEFAULT_CARD_WIDTH = DEFAULT_CARD_HEIGHT * CARD_ASPECT
 
 
-def draw_game(game: RemoteGameShadowCopy) -> None:
+def draw_game(
+    game: RemoteGameShadowCopy,
+    reveal: bool = False,
+    player_card_size: int = 15,
+    other_card_size: int = 13,
+) -> None:
+    """
+    Print the game board (a graphical representation of the game state) to stdout.
+
+    :param game: The game object to represent; must be a RemoteGameShadowCopy (a client
+        of a multiplayer game).
+    :param reveal: Whether to reveal the cards of all players.
+    :param player_card_size: Size of the client player's card sprites.
+    :param other_card_size: Size of other players' card sprites, if revealing them.
+        Only applies if `reveal` is ``True``; ignored otherwise.
+    """
     assert game.started
     game_round = game.current_round
     you = game.client_player
@@ -40,7 +57,13 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
     def username(p) -> str:
         p = game.get_player(p)
         name = f"{p.username} (you)" if p is you else p.username
-        if game_round.current_player.id == p.id:
+        current = game_round.current_player
+        state = game_round.state
+        is_round_end = state.type == RoundState.Type.ROUND_END
+
+        if is_round_end and p.round_player in state.winners:  # noqa
+            return f"🏆 {name} 🏆"
+        elif current is not None and p.id == current.id:
             return f">>> {name} <<<"
         elif not p.alive:
             return f"💀 {name} 💀"
@@ -57,7 +80,11 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
 
     # opposite opponent (at least one)
     opposite = get_player(offset=min(2, game_round.num_players - 1))
-    sprites = [card_back_sprite(char="#")] * len(opposite.hand)
+    sprites = (
+        [card_sprite(c, size=other_card_size) for c in opposite.hand]
+        if reveal
+        else [card_back_sprite(char="#")] * len(opposite.hand)
+    )
     print_canvas(horizontal_join(sprites), align="^", width=board_cols)
     print_blank_line()
     print(format(username(opposite), center_fmt))
@@ -71,21 +98,33 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
         f" {pluralize('card', len_stack + num_set_aside)}]"
     )
     if game_round.num_players >= 3:
+        # print left and maybe right opponent(s)
         left_right_players = [get_player(1)]
         if game_round.num_players == 4:
             left_right_players.append(get_player(3))
 
-        # print left and maybe right opponent(s):
-        center_main = empty_canvas(
-            rows=math.ceil(2 * DEFAULT_CARD_BACK_SIZE * CARD_ASPECT),
-            cols=board_cols,
+        # canvases for center strip: main -> the card sprites, footer -> the labels
+        # make dummy sprite to make sure we get the dimensions right
+        sprite_sample = (
+            card_sprite(Guard(), size=other_card_size)
+            if reveal
+            else card_back_sprite(orientation="sideways")
         )
+        # if reveal is True, the cards will be upright and joined horizontally,
+        # otherwise they will be sideways and joined vertically
+        rows = (1 if reveal else 2) * sprite_sample.shape[0]
+        center_main = empty_canvas(rows=rows, cols=board_cols)
         center_footer = empty_canvas(rows=2, cols=board_cols)
 
         for player, char, col, align in zip(left_right_players, r"\/", [2, -2], "<>"):
-            sprite = card_back_sprite(orientation="sideways", char=char)
-            sprites = [sprite] * len(player.hand)
-            cards = vertical_join(sprites)
+            if reveal:
+                sprites = [card_sprite(c, size=other_card_size) for c in player.hand]
+                cards = horizontal_join(sprites)
+            else:
+                sideways_sprite = card_back_sprite(orientation="sideways", char=char)
+                sprites = [sideways_sprite] * len(player.hand)
+                cards = vertical_join(sprites)
+
             embed(center_main, cards, col=col, vcenter=True)
             write_string(center_footer, username(player), row=0, align=align)
             write_string(
@@ -110,7 +149,7 @@ def draw_game(game: RemoteGameShadowCopy) -> None:
     print_blank_line()
 
     # this client's hand
-    sprites = [card_sprite(c) for c in you.hand]
+    sprites = [card_sprite(c, size=player_card_size) for c in you.hand]
     print_canvas(horizontal_join(sprites), align="^", width=board_cols)
     print_blank_line()
     print(format(username(you), center_fmt))
@@ -130,6 +169,8 @@ def empty_canvas(rows: Union[int, float], cols: Union[int, float]) -> np.ndarray
     The canvas will be a 2D numpy array of dtype U1 (unicode strings of length 1, i.e.
     characters). The space character is considered as the "identity"/transparency/empty
     symbol.
+
+    Each dimension is rounded to the nearest integer number of rows/cols respectively.
     """
     rows, cols = map(round, (rows, cols))
     return np.full((rows, cols), fill_value=" ", dtype="U1")
@@ -142,9 +183,10 @@ def empty_canvas_adjusted(
     Create an empty canvas of the specified dimensions, adjusting for a 1:1 base ratio.
 
     Adjusts the dimensions so the vertical length of 1 (virtual) row unit and the
-    horizontal length of 1 (virtual) column unit are approximately equal, by increasing
-    the number of physical columns per virtual row to adjust for the aspect ratio of
-    physical rows/columns.
+    horizontal length of 1 (virtual) column unit are approximately equal,
+    by increasing the number of physical columns per virtual row unit to adjust for
+    the aspect ratio of physical rows/columns. The converted dimensions are passed to
+    :func:`empty_canvas` and the result of that is returned.
 
     :param rows: Height in virtual row units (will correspond 1:1 to physical rows).
     :param cols: Height in virtual column units (will *not* correspond 1:1 to
@@ -330,7 +372,7 @@ def _empty_card(
     return arr
 
 
-def card_sprite(card: Card, size=15) -> np.array:
+def card_sprite(card: Card, size=DEFAULT_CARD_SIZE) -> np.array:
     """Make a face-up card sprite for a given card object."""
     arr = _empty_card(size)
     width = arr.shape[1]
@@ -355,7 +397,7 @@ def card_sprite(card: Card, size=15) -> np.array:
 
 
 def card_back_sprite(
-    size=DEFAULT_CARD_BACK_SIZE,
+    size=DEFAULT_CARD_SIZE,
     orientation: Literal["upright", "sideways"] = "upright",
     char="#",
 ) -> np.ndarray:
@@ -371,7 +413,7 @@ def deck_sprite(deck: Deck) -> np.ndarray:
     max_stack_size = sum(STANDARD_DECK_COUNTS.values()) - 1
     num_card_sprites = math.ceil((len(deck.stack) / max_stack_size) * 3)
 
-    card_size = DEFAULT_CARD_BACK_SIZE - 1
+    card_size = DEFAULT_CARD_SIZE - 1
     sprite = card_back_sprite(size=card_size)
 
     canvas_size = np.array(sprite.shape) + (num_card_sprites - 1)

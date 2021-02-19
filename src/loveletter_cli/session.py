@@ -109,6 +109,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: rnd.RoundEnd) -> None:
+            print_header("Round end", filler="—")
+            draw_game(game, reveal=True)
             print("\n>>>>> The round has ended! <<<<<\n")
             winners = [game.get_player(p).username for p in e.winners]
             print(
@@ -375,6 +377,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: None):  # special case for first "event" in loop below
             return e
+
+        # --------------------------- main play_game body ----------------------------
 
         generator = game.track_remote()
         event = None

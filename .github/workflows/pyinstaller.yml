@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Extract Version
+        id: extract_version
+        run: |
+          echo "::set-output name=version::$(echo ${{ github.ref }} | sed 's/v//1')"
+        shell: bash
       - name: Create Release
         id: create_release
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -20,9 +25,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Version ${{ github.ref }}
+          release_name: Version ${{ steps.extract_version.outputs.version }}
           draft: false
           prerelease: false
+      - name: Debug
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo ${{ steps.extract_version.outputs.version }}
 
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}

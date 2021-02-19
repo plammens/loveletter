@@ -75,7 +75,7 @@ def test_start_withFirstPlayer_dealsCardsInOrder(new_round: Round, first):
 
     new_round.start(first_player=first)
     for player, card in zip(
-        cycle_from(new_round.players, item=first), reversed(top_cards)
+        cycle_from(new_round.players, from_item=first), reversed(top_cards)
     ):
         assert card in player.hand
 
@@ -198,6 +198,7 @@ def test_advanceTurn_emptyDeck_roundEndsWithLargestCardWinner(
     state: loveletter.round.RoundEnd = force_next_turn(started_round)
     assert state.type == RoundState.Type.ROUND_END
     assert state.reason == loveletter.round.RoundEnd.Reason.EMPTY_DECK
+    assert state.winners == frozenset({winner})
     assert state.winner is winner
 
 
@@ -210,35 +211,37 @@ def test_roundEnd_cardTie_maxDiscardedValueWins(started_round: Round, from_playe
         [cards.Spy()],  # total value: 0
     )
     winner = started_round.get_player(from_player, offset=1)
-    card = cards.Guard()
+    card_in_common = CardType.GUARD  # everyone will have this card in hand
 
     started_round.deck.stack.clear()
     for player, discard_pile in zip(
-        cycle_from(started_round.players, from_player, times=1),
+        cycle_from(started_round.players, from_item=from_player, times=1),
         discard_piles,
     ):
-        give_card(player, card, replace=True)
+        give_card(player, card_from_card_type(card_in_common), replace=True)
         player.discarded_cards = discard_pile
 
-    end = force_next_turn(started_round)
+    end: loveletter.round.RoundEnd = force_next_turn(started_round)
     assert end.type == RoundState.Type.ROUND_END
     assert end.winner is winner
+    assert end.tie_contenders == frozenset(started_round.players)  # everyone
 
 
 @pytest_cases.parametrize_with_cases("loser", cases=MaybePlayerCases)
-def test_roundEnd_totalTie_everyoneWins(started_round: Round, loser):
+def test_roundEnd_totalTie_allContendersWin(started_round: Round, loser):
     losers = {loser} if loser is not None else set()
     winners = set(started_round.players) - losers
 
     started_round.deck.stack.clear()
     for player in winners:
         give_card(player, cards.Princess(), replace=True)
-        player.discarded_cards.clear()
+        player.discarded_cards = [cards.Guard()]
     for loser in losers:
         give_card(loser, cards.Guard(), replace=True)
 
-    end = force_next_turn(started_round)
+    end: loveletter.round.RoundEnd = force_next_turn(started_round)
     assert end.type == RoundState.Type.ROUND_END
+    assert end.tie_contenders == winners
     assert end.winners == winners
     if len(winners) > 1:
         with pytest.raises(valid8.ValidationError):

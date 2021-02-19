@@ -216,6 +216,10 @@ class Round(GameNode):
 
     def _finalize(self, reason: "RoundEnd.Reason" = None) -> "RoundEnd":
         """End the round and declare the winner(s)."""
+        # clean up some states
+        for player in self.players:
+            player.immune = False
+
         tie_contenders = argmax(self.living_players, key=lambda p: p.hand.card.value)
         winners = argmax(
             tie_contenders,

@@ -94,8 +94,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     game.points.most_common(), start=1
                 ):
                     print(
-                        " " * 4 + f"{i}. {player.username:{width}} {points} "
-                        f"{pluralize('token', points)} of affection"
+                        f"\t{i}. {player.username:{width}}"
+                        f"\t{points} {pluralize('token', points)} of affection"
                     )
                 print()
                 await pause()
@@ -128,21 +128,42 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: rnd.RoundEnd) -> None:
+            get_username = lambda p: game.get_player(p).username  # noqa
+
+            await pause()
             print_header("Round end", filler="—")
             draw_game(game, reveal=True)
 
             print(">>>>> The round has ended! <<<<<")
-            print(
-                {
-                    rnd.RoundEnd.Reason.EMPTY_DECK: "There are no cards in the deck.",
-                    rnd.RoundEnd.Reason.ONE_PLAYER_STANDING: f"Only one player ({e.winner}) remains alive.",
-                }[e.reason]
-            )
-            winners = [game.get_player(p).username for p in e.winners]
-            print(
-                f"{pluralize('Winner', len(winners))} of the round: "
-                f"{', '.join(winners)}"
-            )
+            if e.reason == rnd.RoundEnd.Reason.EMPTY_DECK:
+                print("There are no cards remaining in the deck.")
+                if len(e.tie_contenders) == 1:
+                    print(
+                        f"{get_username(e.winner)} wins with a {e.winner.hand.card}, "
+                        f"which is the highest card among those remaining."
+                    )
+                else:
+                    card = mitt.first(p.hand.card for p in e.tie_contenders)
+                    contenders = list(map(get_username, e.tie_contenders))
+                    contenders_str = (
+                        f"Both {contenders[0]} and {contenders[1]}"
+                        if len(contenders) == 2
+                        else f"Each of {', '.join(contenders[:-1])} and {contenders[-1]}"
+                    )
+                    print(f"{contenders_str} have the highest card: a {card}.")
+                    print(
+                        f"But {e.winner} has a higher sum of discarded values,"
+                        f" so they win."
+                        if len(e.winners) == 1
+                        else f"And they each have the same sum of discarded values,"
+                        f" so they {'both' if len(contenders) == 2 else 'all'} win"
+                        f" in a tie."
+                    )
+            elif e.reason == rnd.RoundEnd.Reason.ONE_PLAYER_STANDING:
+                print(
+                    f"{get_username(e.winner)} is the only player still alive, "
+                    f"so they win the round."
+                )
             # points update gets printed in PlayingRound handler
 
         # ------------------------------ Remote events -------------------------------
@@ -197,9 +218,15 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: mv.ChooseOneCard):
-            choices = enum.Enum(
-                "CardOption", names={CardType(c).name: c for c in e.options}
+            num_drawn = len(e.options) - 1
+            names = [CardType(c).name.title() for c in e.options]
+            options_members = {CardType(c).name: c for c in e.options}
+
+            print(
+                f"You draw {num_drawn} {pluralize('card', num_drawn)}; "
+                f"you now have these cards in your hand: {', '.join(names)}"
             )
+            choices = enum.Enum("CardOption", names=options_members)
             choice = await async_ask_valid_input("Choose one card:", choices=choices)
             e.choice = choice.value
             return e

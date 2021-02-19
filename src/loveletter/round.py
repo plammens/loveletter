@@ -3,7 +3,7 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, FrozenSet, Optional, Sequence
 
 import valid8
 from valid8.validation_lib import instance_of
@@ -216,11 +216,16 @@ class Round(GameNode):
 
     def _finalize(self, reason: "RoundEnd.Reason" = None) -> "RoundEnd":
         """End the round and declare the winner(s)."""
+        tie_contenders = argmax(self.living_players, key=lambda p: p.hand.card.value)
         winners = argmax(
-            self.living_players,
-            key=lambda p: (p.hand.card.value, sum(c.value for c in p.discarded_cards)),
+            tie_contenders,
+            key=lambda p: sum(c.value for c in p.discarded_cards),
         )
-        self.state = end = RoundEnd(winners=frozenset(winners), reason=reason)
+        self.state = end = RoundEnd(
+            winners=frozenset(winners),
+            reason=reason,
+            tie_contenders=frozenset(tie_contenders),
+        )
         return end
 
     def _repr_hook(self) -> Dict[str, Any]:
@@ -316,7 +321,9 @@ class RoundEnd(RoundState, EndState):
         EMPTY_DECK = enum.auto()
         ONE_PLAYER_STANDING = enum.auto()
 
-    reason: Reason
+    reason: Reason  #: why has the round ended
+    tie_contenders: FrozenSet[RoundPlayer]  #: set of players with the highest card
+    # (a superset of `winners`)
 
 
 # ------------------- Other round events ----------------------

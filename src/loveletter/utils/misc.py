@@ -24,21 +24,21 @@ T = TypeVar("T")
 
 
 def cycle_from(
-    iterable: Iterable[T], item: T, times: Optional[int] = None
+    iterable: Iterable[T], from_item: T, times: Optional[int] = None
 ) -> Iterator[T]:
     """
     Return a cyclic iterator starting from the first occurrence of an item.
 
     :param iterable: A finite iterable.
-    :param item: Object to find in the iterable from which to start cycling.
+    :param from_item: Object to find in the iterable from which to start cycling.
     :param times: Times to cycle through the whole sequence of elements. None means
                   cycle infinitely.
     :return: A possibly infinite iterator that cycles ``times`` times through the
              elements of ``iterable`` starting from the first occurrence of ``item``.
     """
     it = iter(iterable)
-    skipped = list(itertools.takewhile(lambda x: x != item, it))
-    it = itertools.chain((item,), it, skipped)
+    skipped = list(itertools.takewhile(lambda x: x != from_item, it))
+    it = itertools.chain((from_item,), it, skipped)
     if times is not None:
         return itertools.chain.from_iterable(itertools.repeat(it, times))
     else:

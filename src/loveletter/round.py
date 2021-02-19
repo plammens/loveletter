@@ -172,8 +172,8 @@ class Round(GameNode):
     def advance(self) -> GameNodeState:
         """Advance to the next turn (supposing it is possible to do so already)."""
         super().advance()
-        if self._reached_end():
-            return self._finalize()
+        if reason := self._reached_end():
+            return self._finalize(reason=reason)
 
         # noinspection PyTypeChecker
         old_turn: Turn = self.state
@@ -205,17 +205,22 @@ class Round(GameNode):
     def _make_init_state(cls):
         return InitRoundState()
 
-    def _reached_end(self) -> bool:
-        """Whether this round has reached to an end."""
-        return len(self.living_players) == 1 or len(self.deck.stack) == 0
+    def _reached_end(self) -> Optional["RoundEnd.Reason"]:
+        """Whether this round ended; if so, return the reason, otherwise None."""
+        if len(self.living_players) == 1:
+            return RoundEnd.Reason.ONE_PLAYER_STANDING
+        elif len(self.deck.stack) == 0:
+            return RoundEnd.Reason.EMPTY_DECK
+        else:
+            return None
 
-    def _finalize(self) -> "RoundEnd":
+    def _finalize(self, reason: "RoundEnd.Reason" = None) -> "RoundEnd":
         """End the round and declare the winner(s)."""
         winners = argmax(
             self.living_players,
             key=lambda p: (p.hand.card.value, sum(c.value for c in p.discarded_cards)),
         )
-        self.state = end = RoundEnd(winners=frozenset(winners))
+        self.state = end = RoundEnd(winners=frozenset(winners), reason=reason)
         return end
 
     def _repr_hook(self) -> Dict[str, Any]:
@@ -307,7 +312,11 @@ class Turn(RoundState, IntermediateState):
 
 @dataclass(frozen=True)
 class RoundEnd(RoundState, EndState):
-    pass
+    class Reason(enum.Enum):
+        EMPTY_DECK = enum.auto()
+        ONE_PLAYER_STANDING = enum.auto()
+
+    reason: Reason
 
 
 # ------------------- Other round events ----------------------

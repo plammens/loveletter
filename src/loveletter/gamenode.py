@@ -3,7 +3,7 @@
 import abc
 import enum
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Sequence, TypeVar
+from typing import Any, ClassVar, Dict, FrozenSet, List, Sequence, TypeVar
 
 import more_itertools
 import valid8
@@ -72,7 +72,6 @@ class GameNode(metaclass=abc.ABCMeta):
         formatted_attrs = ", ".join(f"{key}={value}" for key, value in attrs.items())
         return f"<{self.__class__.__name__} 0x{id(self):X} with {formatted_attrs}>"
 
-    @abc.abstractmethod
     def play(self, **start_kwargs) -> GameEventGenerator:
         """
         The game event generator for this game node that runs for its duration.
@@ -95,9 +94,30 @@ class GameNode(metaclass=abc.ABCMeta):
                 f"has already started"
             ),
         )
-        return ()
-        # noinspection PyUnreachableCode
-        yield
+
+        # noinspection PyArgumentList
+        state = self.start(**start_kwargs)
+        while state.type != GameNodeState.Type.END:
+            yield state
+
+            # the `yield from (yield from ...)` is because the return value of the
+            # iteration generator is a tuple of game results, which we also want to
+            # yield from
+            yield from (yield from self._play_iteration())
+
+            state = self.advance()
+        return (state,)
+
+    @abc.abstractmethod
+    def _play_iteration(self):
+        """
+        Hook to implement the :meth:`GameNode.play` generator.
+
+        Generator function for a single "iteration" of the game node, i.e. everything
+        that happens in between calls to :meth:`GameNode.advance` (this corresponds
+        to a round for Game, and to a turn for Round).
+        """
+        pass
 
     # noinspection PyTypeChecker
     @abc.abstractmethod
@@ -141,6 +161,7 @@ class GameNode(metaclass=abc.ABCMeta):
             custom=lambda s: s.can_advance,
             help_msg=f"Can't advance {intermediate_name} before previous one has ended",
         )
+        return self.state
 
     @classmethod
     @abc.abstractmethod
@@ -161,32 +182,6 @@ class GameNode(metaclass=abc.ABCMeta):
         """Validate the state of the game node before exiting .start()"""
         if self._reached_end():
             raise ValueError("End condition true immediately upon starting")
-
-    def _play_helper(
-        self,
-        iteration_generator: Callable[[GameNodeT], GameEventGenerator],
-        **start_kwargs,
-    ) -> GameEventGenerator:
-        """
-        Implementation help for the :meth:`GameNode.play` generator.
-
-        :param iteration_generator: Generator function for a single "iteration" of the
-                                    game node, i.e. everything that happens in between
-                                    calls to :meth:`GameNode.advance`.
-        :param start_kwargs: Keyword arguments to pass to :meth:`GameNode.start`.
-        :return: The implementation of the :meth:`GameNode.play` game event generator.
-        """
-        # the `yield from (yield from ...)` is because the return value of the
-        # iteration generator is a tuple of game results, which we also want to
-        # yield from
-
-        # noinspection PyArgumentList
-        state = self.start(**start_kwargs)
-        while state.type != GameNodeState.Type.END:
-            yield state
-            yield from (yield from iteration_generator(self))
-            state = self.advance()
-        return (state,)
 
     def _repr_hook(self) -> Dict[str, Any]:
         """Return an ordered mapping of name to value pairs to use in __repr__."""

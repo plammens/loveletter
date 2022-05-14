@@ -123,16 +123,14 @@ class Round(GameNode):
         """Get the previous living player in turn order"""
         return self.get_player(player, -1)
 
-    def play(self, **start_kwargs) -> GameEventGenerator:
-        def iteration(self: Round) -> GameEventGenerator:
-            player = self.current_player
-            card = (yield from ChooseCardToPlay(player)).choice
-            yield PlayingCard(player, card)
-            results = yield from player.play_card(card)
-            return results
+    def _play_turn(self) -> GameEventGenerator:
+        player = self.current_player
+        card = (yield from ChooseCardToPlay(player)).choice
+        yield PlayingCard(player, card)
+        results = yield from player.play_card(card)
+        return results
 
-        yield from super().play()
-        return (yield from self._play_helper(iteration, **start_kwargs))
+    _play_iteration = _play_turn
 
     def start(self, first_player: RoundPlayer = None) -> "Turn":
         """

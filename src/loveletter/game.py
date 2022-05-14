@@ -100,24 +100,22 @@ class Game(GameNode):
         )
         return self.players[player.id]
 
-    def play(self, **start_kwargs) -> GameEventGenerator:
-        def iteration(self: Game) -> GameEventGenerator:
-            # noinspection PyTypeChecker
-            state: PlayingRound = self.state
-            game_round = state.round
+    def _play_round(self) -> GameEventGenerator:
+        # noinspection PyTypeChecker
+        state: PlayingRound = self.state
+        game_round = state.round
 
-            # first, determine who will start the round: if available, use the winner
-            # from last round, otherwise let the players choose
-            first_player = (
-                game_round.players[state.first_player.id]
-                if state.first_player is not None
-                else (yield from FirstPlayerChoice(game_round)).choice  # noqa
-            )
+        # first, determine who will start the round: if available, use the winner
+        # from last round, otherwise let the players choose
+        first_player = (
+            game_round.players[state.first_player.id]
+            if state.first_player is not None
+            else (yield from FirstPlayerChoice(game_round)).choice  # noqa
+        )
 
-            return (yield from game_round.play(first_player=first_player))
+        return (yield from game_round.play(first_player=first_player))
 
-        yield from super().play()
-        return (yield from self._play_helper(iteration, **start_kwargs))
+    _play_iteration = _play_round
 
     def start(self):
         super().start()

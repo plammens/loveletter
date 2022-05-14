@@ -136,6 +136,8 @@ class OpponentChoice(PlayerChoice):
 
 
 class ChooseOneCard(ChoiceStep):
+    """Choose one card to keep out of a predefined set of options (chancellor)."""
+
     def __init__(
         self, player: "RoundPlayer", card_played: "Card", options: Tuple["Card", ...]
     ):

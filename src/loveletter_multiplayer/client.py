@@ -47,7 +47,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
       3. If this client is the party host, send the ready message when all players have
          joined (with :meth:`HostClient.ready()`).
       4. Wait for the game to be created (with :meth:`LoveletterClient.wait_for_game()`)
-      5. Play the game by starting :meth:RemoteGameShadowCopy.track_remote` on
+      5. Play the game by starting :meth:`RemoteGameShadowCopy.track_remote` on
          :attr:`LoveletterClient.game` and handling the game events from then on.
       6. After the game has ended, if the client is the party host, send the shutdown
          message to the server (with :meth:`HostClient.send_shutdown()`).

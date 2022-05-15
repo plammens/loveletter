@@ -113,7 +113,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             print_header(f"{possessive} turn", filler="—")
             draw_game(game)
             if is_client:
-                print(">>>>> It's your turn! <<<<<\a")
+                print(">>>>> It's your turn! <<<<<")
             else:
                 print(f"It's {player.username}'s turn.")
 

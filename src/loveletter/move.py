@@ -122,6 +122,10 @@ class OpponentChoice(PlayerChoice):
         super().__init__(player, card_played)
         self._valid_choices = self._valid_choices - {self.player}
 
+    @property
+    def options(self) -> AbstractSet:
+        return self._valid_choices or {self.NO_TARGET}
+
     def to_serializable(self) -> int:
         return (
             "NO_TARGET" if self.choice is self.NO_TARGET else super().to_serializable()

@@ -107,6 +107,23 @@ def test_spy_onePlayed_getsPoint(started_round: Round):
     assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
+def test_spy_oneDiscarded_getsPoint(started_round: Round):
+    first = started_round.current_player
+    second = started_round.next_player(first)
+
+    give_card(second, cards.Spy(), replace=True)
+    move = play_card(first, cards.Prince())
+    target_step = next(move)
+    target_step.choice = second
+    send_gracious(move, target_step)
+
+    for player in started_round.players:
+        if player is not second:
+            player.eliminate()
+    started_round.advance_turn()
+    assert cards.Spy.collect_extra_points(started_round) == {second: 1}
+
+
 def test_spy_onePlayedTwice_getsOnePoint(started_round: Round):
     first = started_round.current_player
     play_card(first, cards.Spy())

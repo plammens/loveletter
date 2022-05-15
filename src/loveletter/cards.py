@@ -80,7 +80,11 @@ class Card(metaclass=abc.ABCMeta):
         :param owner: Owner of the card; who is playing it.
         :returns: A generator as described above.
         """
-        pass
+        # the do-nothing implementation
+        self._validate_move(owner)
+        return ()
+        # noinspection PyUnreachableCode
+        yield
 
     def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         """Apply the effects of discarding this card from the player's hand"""
@@ -111,13 +115,13 @@ class Spy(Card):
     steps = ()
 
     def play(self, owner: "RoundPlayer") -> MoveStepGenerator:
-        self._validate_move(owner)
+        return super().play(owner)
+
+    def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         game_round = owner.round
         spy_winner = getattr(game_round, "spy_winner", None)
         game_round.spy_winner = owner if spy_winner in {None, owner} else None
         return ()
-        # noinspection PyUnreachableCode
-        yield
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["RoundPlayer", int]:

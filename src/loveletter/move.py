@@ -252,6 +252,8 @@ class CardComparison(MoveResult):
 
 @dataclass(frozen=True)
 class CardDiscarded(MoveResult):
+    """Card discarded as a result of the Prince's effect."""
+
     target: "RoundPlayer"
     discarded: "Card"
 

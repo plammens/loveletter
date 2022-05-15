@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, Generator, Optional, Tuple, Union
+from typing import Any, Collection, Generator, Optional, Tuple, Union
 
 import valid8
 
@@ -112,6 +112,12 @@ class ChoiceEvent(GameInputRequest, metaclass=abc.ABCMeta):
         self._choice = None
 
     @property
+    @abc.abstractmethod
+    def options(self) -> Collection:
+        """The possible options for this choice."""
+        pass
+
+    @property
     def choice(self) -> Optional[Any]:
         return self._choice
 
@@ -154,7 +160,11 @@ class ChoiceEvent(GameInputRequest, metaclass=abc.ABCMeta):
         """Set the choice from the value returned by :meth:`to_serializable`."""
         self.choice = self.from_serializable(value)
 
-    @abc.abstractmethod
     def _validate_choice(self, value):
-        """Subclasses should override this to provide validation for the choice"""
-        pass
+        """Validate the current choice"""
+        valid8.validate(
+            "choice",
+            value,
+            is_in=self.options,
+            help_msg="Not a valid option",
+        )

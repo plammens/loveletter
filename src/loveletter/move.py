@@ -1,7 +1,8 @@
 import abc
+import itertools
 from collections import Counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Tuple
+from typing import AbstractSet, Sequence, TYPE_CHECKING, Tuple
 
 import valid8
 
@@ -43,6 +44,16 @@ class ChoiceStep(MoveStep, ChoiceEvent, metaclass=abc.ABCMeta):
 class CardGuess(ChoiceStep):
     """Make the player guess a card type"""
 
+    @property
+    def options(self):
+        if not hasattr(CardGuess, "_OPTIONS"):
+            from loveletter.cards import CardType
+
+            CardGuess._OPTIONS = set(CardType) - {CardType.GUARD}
+
+        # noinspection PyUnresolvedReferences
+        return self._OPTIONS
+
     @ChoiceStep.choice.setter
     def choice(self, value):
         from loveletter.cards import CardType
@@ -53,7 +64,7 @@ class CardGuess(ChoiceStep):
         super().to_serializable()
         return self.choice.value
 
-    def from_serializable(self, value: Serializable) -> None:
+    def from_serializable(self, value: Serializable) -> "CardType":
         from loveletter.cards import CardType
 
         return CardType(value)
@@ -79,6 +90,10 @@ class PlayerChoice(ChoiceStep):
         self._valid_choices = {
             p for p in game_round.players if p.alive and not p.immune
         }
+
+    @property
+    def options(self) -> AbstractSet:
+        return self._valid_choices
 
     def to_serializable(self) -> int:
         super().to_serializable()
@@ -142,23 +157,19 @@ class ChooseOneCard(ChoiceStep):
         self, player: "RoundPlayer", card_played: "Card", options: Tuple["Card", ...]
     ):
         super().__init__(player, card_played)
-        self.options = options
+        self._options = options
+
+    @property
+    def options(self) -> Sequence["Card"]:
+        return self._options
 
     def to_serializable(self) -> int:
         super().to_serializable()
         choice: Card = self.choice
-        return self.options.index(choice)
+        return self._options.index(choice)
 
     def from_serializable(self, value: Serializable) -> "Card":
-        return self.options[value]
-
-    def _validate_choice(self, value):
-        valid8.validate(
-            "choice",
-            value,
-            is_in=self.options,
-            help_msg="This card is not an option",
-        )
+        return self._options[value]
 
 
 class ChooseOrderForDeckBottom(ChoiceStep):
@@ -176,6 +187,10 @@ class ChooseOrderForDeckBottom(ChoiceStep):
         super().__init__(player, card_played)
         self.cards = tuple(sorted(cards, key=CardType))
 
+    @property
+    def options(self) -> AbstractSet:
+        return set(itertools.permutations(self.cards))
+
     def to_serializable(self) -> Tuple[int, ...]:
         super().to_serializable()
         choice: Tuple["Card", ...] = self.choice
@@ -187,7 +202,6 @@ class ChooseOrderForDeckBottom(ChoiceStep):
         return tuple(cards[i] for i in value)
 
     def _validate_choice(self, value):
-        valid8.validate("choice", value, instance_of=tuple)
         valid8.validate(
             "choice",
             Counter(value),

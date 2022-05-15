@@ -3,7 +3,7 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Optional, Sequence
+from typing import Any, Collection, Dict, FrozenSet, Optional, Sequence
 
 import valid8
 from valid8.validation_lib import instance_of
@@ -338,6 +338,10 @@ class FirstPlayerChoice(ChoiceEvent):
         super().__init__()
         self.round = game_round
 
+    @property
+    def options(self) -> Collection[RoundPlayer]:
+        return self.round.players
+
     def to_serializable(self) -> int:
         super().to_serializable()
         choice: RoundPlayer = self.choice
@@ -346,14 +350,6 @@ class FirstPlayerChoice(ChoiceEvent):
     def from_serializable(self, value: Serializable) -> RoundPlayer:
         return self.round.players[value]
 
-    def _validate_choice(self, value):
-        valid8.validate(
-            "choice",
-            value,
-            is_in=self.round.players,
-            help_msg="Not a player of the round",
-        )
-
 
 class ChooseCardToPlay(ChoiceEvent):
     """Make the player chose a card to play."""
@@ -361,6 +357,10 @@ class ChooseCardToPlay(ChoiceEvent):
     def __init__(self, player: RoundPlayer):
         super().__init__()
         self.player = player
+
+    @property
+    def options(self) -> Collection[Card]:
+        return self.player.hand
 
     def to_serializable(self) -> int:
         super().to_serializable()

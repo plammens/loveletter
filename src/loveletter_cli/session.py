@@ -192,6 +192,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         # -------------------------------- Move steps --------------------------------
         @handle.register
         async def handle(e: mv.CardGuess):
+            # noinspection PyArgumentList
             choices = enum.Enum(
                 "CardGuess",
                 names={
@@ -226,6 +227,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 f"You draw {num_drawn} {pluralize('card', num_drawn)}; "
                 f"you now have these cards in your hand: {', '.join(names)}"
             )
+            # noinspection PyArgumentList
             choices = enum.Enum("CardOption", names=options_members)
             choice = await async_ask_valid_input("Choose one card:", choices=choices)
             e.choice = choice.value
@@ -406,6 +408,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             if not include_self:
                 options -= {game.client_player}
             if options:
+                # noinspection PyArgumentList
                 choices = enum.Enum(
                     "Player",
                     names={

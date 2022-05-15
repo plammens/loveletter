@@ -94,8 +94,11 @@ def draw_game(
     len_stack = len(game.current_round.deck.stack)
     num_set_aside = int(game.current_round.deck.set_aside is not None)
     deck_msg = (
-        f"[deck: {len_stack}{f' (+ {num_set_aside})' if num_set_aside else ''}"
-        f" {pluralize('card', len_stack + num_set_aside)}]"
+        f"["
+        f"deck: {len_stack}"
+        f" {pluralize('card', len_stack + num_set_aside)}"
+        f"{f' (+ {num_set_aside} out of play)' if num_set_aside else ''}"
+        f"]"
     )
     if game_round.num_players >= 3:
         # print left and maybe right opponent(s)

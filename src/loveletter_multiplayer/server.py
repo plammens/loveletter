@@ -4,7 +4,7 @@ import itertools
 import logging
 import socket
 from dataclasses import dataclass
-from typing import ClassVar, Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 from multimethod import multimethod
 
@@ -50,15 +50,19 @@ class LoveletterPartyServer:
     sent an error message and will be subsequently closed.
     """
 
-    MAX_CLIENTS: ClassVar[int] = loveletter.game.Game.MAX_PLAYERS
-
     host: Union[str, Tuple[str, ...]]
     port: int
     game: Optional[loveletter.game.Game]
 
     # -------------------------------- Initialization ---------------------------------
 
-    def __init__(self, host, port, party_host_username: str):
+    def __init__(
+        self,
+        host,
+        port,
+        party_host_username: str,
+        max_clients: int = loveletter.game.Game.MAX_PLAYERS,
+    ):
         """
         Initialize a new server instance.
 
@@ -66,9 +70,11 @@ class LoveletterPartyServer:
         :param port: Port number to bind the server to.
         :param party_host_username: The username of the player that will host this party
                                     (has additional privileges to configure the party).
+        :param max_clients: Maximum number of clients allowed to log onto the server.
         """
         self.host = host[0] if not isinstance(host, str) and len(host) == 1 else host
         self.port = port
+        self.max_clients = max_clients
         self._reset_game_vars()
 
         self._client_sessions: List[LoveletterPartyServer._ClientSessionManager] = []
@@ -101,7 +107,7 @@ class LoveletterPartyServer:
             self._connection_handler,
             host=self.host,
             port=self.port,
-            backlog=self.MAX_CLIENTS + 5,  # allow some space to handle excess connects
+            backlog=self.max_clients + 5,  # allow some space to handle excess connects
             start_serving=False,
         )
         LOGGER.debug(f"Created socket server bound to {self.host}:{self.port}")
@@ -218,10 +224,10 @@ class LoveletterPartyServer:
             async with self._sessions_lock:
                 # Note: if we refuse the connection now, there is no need to wait for
                 # the logon message since we would have rejected in any case.
-                if self.num_connected_clients >= self.MAX_CLIENTS:
+                if self.num_connected_clients >= self.max_clients:
                     return await self._refuse_connection(
                         writer,
-                        reason=f"Maximum capacity ({self.MAX_CLIENTS} players) reached",
+                        reason=f"Maximum capacity ({self.max_clients} players) reached",
                     )
                 if self._ready_to_play.is_set():
                     return await self._refuse_connection(

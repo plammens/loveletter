@@ -10,7 +10,7 @@ from loveletter_multiplayer.logging import setup_logging
 def main(logging_level: int, **kwargs):
     threading.current_thread().name = "ServerThread"
     setup_logging(logging_level)
-    server = LoveletterPartyServer(**kwargs)
+    server = LoveletterPartyServer(**kwargs, max_clients=4)
     asyncio.run(server.run_server())
 
 

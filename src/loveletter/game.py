@@ -65,7 +65,7 @@ class Game(GameNode):
         Initialise a new game.
 
         :param players: The usernames of each player in the round. Must be of length
-                        between 2 and 4.
+                        between 2 and ``GameNode.MAX_PLAYERS``.
         """
         players = [Game.Player(self, i, uname) for i, uname in enumerate(players)]
         super().__init__(players)
@@ -74,7 +74,7 @@ class Game(GameNode):
     @property
     def points_threshold(self) -> int:
         """The number of points that must be reached by a player to win."""
-        return {2: 7, 3: 5, 4: 4}[self.num_players]
+        return {2: 6, 3: 5, 4: 4, 5: 3, 6: 3}[self.num_players]
 
     @property
     def current_round(self) -> Optional[Round]:

@@ -401,7 +401,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             is_client = player is game.client_player
             print(
                 f"{'You' if is_client else player.username} and {opponent.username}"
-                f"swap {'your' if is_client else 'their'} cards."
+                f" swap {'your' if is_client else 'their'} cards."
             )
 
         # --------------------------------- Helpers ----------------------------------

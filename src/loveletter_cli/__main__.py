@@ -1,18 +1,17 @@
 import argparse
 import asyncio
 import enum
+import functools
 import logging
 import multiprocessing
 import socket
 import time
 import traceback
 
+from loveletter_cli.data import HostVisibility, PlayMode, UserInfo
 from loveletter_cli.session import (
     GuestCLISession,
     HostCLISession,
-    HostVisibility,
-    PlayMode,
-    UserInfo,
 )
 from loveletter_cli.ui import ask_valid_input, print_exception, print_header
 from loveletter_cli.utils import (
@@ -29,8 +28,12 @@ class ErrorOptions(enum.Enum):
     QUIT = enum.auto()
 
 
-def main(logging_level: int = logging.INFO):
+def main(
+    show_client_logs: bool, show_server_logs: bool, logging_level: int = logging.INFO
+):
     setup_logging(logging_level)
+    if not show_client_logs:
+        logging.disable()
 
     print_header("Welcome to Love Letter (CLI)!", filler="~")
 
@@ -39,7 +42,10 @@ def main(logging_level: int = logging.INFO):
 
     mode = ask_play_mode()
 
-    runners = {PlayMode.JOIN: join_game, PlayMode.HOST: host_game}
+    runners = {
+        PlayMode.JOIN: join_game,
+        PlayMode.HOST: functools.partial(host_game, show_server_logs=show_server_logs),
+    }
     while True:
         try:
             print()
@@ -80,7 +86,7 @@ def ask_play_mode() -> PlayMode:
     )
 
 
-def host_game(user: UserInfo):
+def host_game(user: UserInfo, show_server_logs: bool):
     print_header("Hosting a game")
     mode = ask_valid_input(
         "Choose the server_addresses's visibility:",
@@ -98,7 +104,8 @@ def host_game(user: UserInfo):
         )  # allow either localhost or local net.
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()
-    session = HostCLISession(user, hosts, port)
+
+    session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
     asyncio.run(session.manage())
 
 
@@ -161,6 +168,18 @@ def logging_level(level: str) -> int:
 
 def define_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m loveletter_cli")
+    parser.add_argument(
+        "--client-logs",
+        action="store_true",
+        dest="show_client_logs",
+        help="Show client logs.",
+    )
+    parser.add_argument(
+        "--server-logs",
+        action="store_true",
+        dest="show_server_logs",
+        help="Show server logs.",
+    )
     parser.add_argument(
         "--logging",
         "-l",

@@ -2,7 +2,6 @@ import abc
 import asyncio
 import enum
 import logging
-import multiprocessing
 import random
 import sys
 from dataclasses import dataclass, field
@@ -17,6 +16,8 @@ import loveletter.gameevent as gev
 import loveletter.move as mv
 import loveletter.round as rnd
 from loveletter.cards import CardType
+from loveletter_cli.data import MoveChoice, UserInfo
+from loveletter_cli.server_process import ServerProcess
 from loveletter_cli.ui import (
     async_ask_valid_input,
     draw_game,
@@ -46,7 +47,7 @@ LOGGER = logging.getLogger(__name__)
 class CommandLineSession(metaclass=abc.ABCMeta):
     """CLI session manager."""
 
-    user: "UserInfo"
+    user: UserInfo
     client: LoveletterClient = field(init=False)
 
     @abc.abstractmethod
@@ -461,31 +462,33 @@ class HostCLISession(CommandLineSession):
     port: int
     client: HostClient
 
-    def __init__(self, user: "UserInfo", hosts: Tuple[str], port: int):
+    def __init__(
+        self,
+        user: UserInfo,
+        hosts: Tuple[str],
+        port: int,
+        show_server_logs: bool = False,
+    ):
         super().__init__(user)
         self.hosts = hosts
         self.port = port
         self.client = HostClient(user.username)
+        self.show_server_logs = show_server_logs
 
     @property
     def server_addresses(self) -> Tuple[Address, ...]:
         return tuple(Address(h, self.port) for h in self.hosts)
 
     async def manage(self):
-        import loveletter_cli.server_script
-
         await super().manage()
         print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
-        server_process = multiprocessing.Process(
-            target=loveletter_cli.server_script.main,
-            kwargs=dict(
-                logging_level=LOGGER.getEffectiveLevel(),
-                host=self.hosts,
-                port=self.port,
-                party_host_username=self.user.username,
-            ),
+        server_process = ServerProcess.new(
+            hosts=self.hosts,
+            port=self.port,
+            host_user=self.user,
+            show_logs=self.show_server_logs,
         )
         LOGGER.debug(f"Starting server process: %s", server_process)
         server_process.start()
@@ -530,7 +533,7 @@ class GuestCLISession(CommandLineSession):
     client: GuestClient
     server_address: Address
 
-    def __init__(self, user: "UserInfo", server_address: Address):
+    def __init__(self, user: UserInfo, server_address: Address):
         super().__init__(user)
         self.client = GuestClient(user.username)
         self.server_address = server_address
@@ -577,23 +580,3 @@ class GuestCLISession(CommandLineSession):
     async def _wait_for_game(self) -> RemoteGameShadowCopy:
         print("Waiting for the host to start the game...")
         return await self.client.wait_for_game()
-
-
-@dataclass(frozen=True)
-class UserInfo:
-    username: str
-
-
-class PlayMode(enum.Enum):
-    HOST = enum.auto()  #: host a game
-    JOIN = enum.auto()  #: join an existing game
-
-
-class HostVisibility(enum.Enum):
-    LOCAL = enum.auto()  #: local network only
-    PUBLIC = enum.auto()  #: visible from the internet
-
-
-class MoveChoice(enum.Enum):
-    LEFT = 0
-    RIGHT = 1

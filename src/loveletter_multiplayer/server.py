@@ -16,6 +16,7 @@ import loveletter.round as rnd
 import loveletter_multiplayer.networkcomms.message as msg
 from loveletter_multiplayer.exceptions import (
     ConnectionClosedError,
+    LogonError,
     ProtocolError,
     RestartSession,
     UnexpectedMessageError,
@@ -62,6 +63,7 @@ class LoveletterPartyServer:
         port,
         party_host_username: str,
         max_clients: int = loveletter.game.Game.MAX_PLAYERS,
+        allow_duplicate_usernames: bool = False,
     ):
         """
         Initialize a new server instance.
@@ -71,17 +73,22 @@ class LoveletterPartyServer:
         :param party_host_username: The username of the player that will host this party
                                     (has additional privileges to configure the party).
         :param max_clients: Maximum number of clients allowed to log onto the server.
+        :param allow_duplicate_usernames: Whether clients are allowed to connect if
+            their username is already taken by another client connected to the server.
         """
         self.host = host[0] if not isinstance(host, str) and len(host) == 1 else host
         self.port = port
+
         self.max_clients = max_clients
-        self._reset_game_vars()
+        self.allow_duplicate_usernames = allow_duplicate_usernames
 
         self._client_sessions: List[LoveletterPartyServer._ClientSessionManager] = []
         self._party_host_username = party_host_username
 
         self._serializer = MessageSerializer()
         self._deserializer = MessageDeserializer()
+
+        self._reset_game_vars()
 
         # to be initialized in self._init_async:
         self._server: asyncio.AbstractServer
@@ -104,7 +111,7 @@ class LoveletterPartyServer:
         """Initialize asyncio-related attributes that need an active event loop."""
         LOGGER.debug("Initializing async variables")
         self._server = await asyncio.start_server(
-            self._connection_handler,
+            client_connected_cb=self._connection_handler,
             host=self.host,
             port=self.port,
             backlog=self.max_clients + 5,  # allow some space to handle excess connects
@@ -238,7 +245,8 @@ class LoveletterPartyServer:
                 LOGGER.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
-                except (ProtocolError, asyncio.TimeoutError):
+                except (LogonError, ProtocolError, asyncio.TimeoutError):
+                    # already handled by _receive_logon
                     return
                 # noinspection PyArgumentList
                 session = self._ClientSessionManager(client_info, reader, writer)
@@ -276,12 +284,14 @@ class LoveletterPartyServer:
         except asyncio.TimeoutError:
             LOGGER.warning("Client at %s: logon timed out", address)
             raise
+
         if message is None:
             LOGGER.warning(
                 "Client at %s closed the connection before logging on",
                 address,
             )
             raise ConnectionClosedError
+
         if not isinstance(message, msg.Logon):
             LOGGER.warning(
                 "Expected a logon message from %s, received: %s",
@@ -292,6 +302,15 @@ class LoveletterPartyServer:
                 writer, reason="Didn't receive the expected logon message"
             )
             raise UnexpectedMessageError(message)
+
+        # check for duplicate username
+        if not self.allow_duplicate_usernames and message.username in (
+            c.client_info.username for c in self._client_sessions
+        ):
+            await self._refuse_connection(
+                writer, reason=f"The username {message.username!r} is already in use"
+            )
+            raise LogonError(f"Username already in use: {message.username!r}")
 
         client_info = ClientInfo(
             address=address,

@@ -145,7 +145,7 @@ def ask_address_for_joining() -> Address:
         return Address(host, port)
 
     return ask_valid_input(
-        prompt='Enter the server_addresses\'s address: (format: "<host>:<port>")',
+        prompt='Enter the server\'s address: (format: "<host>:<port>")',
         parser=parser,
     )
 

@@ -1,2 +1,2 @@
 VALID_NUM_PLAYERS = [2, 3, 4]
-INVALID_NUM_PLAYERS = ["foo", -1, 0, 1, 5]
+INVALID_NUM_PLAYERS = ["foo", -1, 0, 1, 7]

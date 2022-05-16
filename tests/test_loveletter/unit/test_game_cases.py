@@ -7,6 +7,6 @@ PLAYER_LIST_CASES = [
 INVALID_PLAYER_LIST_CASES = [
     (),
     ("a"),
-    ("a", "b", "c", "d", "e"),
+    ("a", "b", "c", "d", "e", "f", "g"),
     ("a", 1, "b"),
 ]

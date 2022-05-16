@@ -29,7 +29,7 @@ def test_1_repeated_win():
     game = Game(["Alice", "Bob"])
     alice, bob = game.players
     game.start()
-    for i in range(1, 8):
+    for i in range(1, game.points_threshold + 1):
         assert game.state.round_no == i
         round_runner(game)
         game.advance()

@@ -34,7 +34,7 @@ class GameNode(metaclass=abc.ABCMeta):
      - ``state``: the current game state of the game node.
     """
 
-    MAX_PLAYERS: ClassVar[int] = 4  # maximum number of players
+    MAX_PLAYERS: ClassVar[int] = 6  # maximum number of players
 
     PlayerT = TypeVar("PlayerT")
     GameNodeT = TypeVar("GameNodeT", bound="GameNode")

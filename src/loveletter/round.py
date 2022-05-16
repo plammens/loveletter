@@ -3,7 +3,7 @@ import enum
 import itertools
 import random
 from dataclasses import dataclass, field
-from typing import Any, Collection, Dict, FrozenSet, Optional, Sequence
+from typing import Any, Collection, Dict, FrozenSet, Optional, Sequence, Set
 
 import valid8
 from valid8.validation_lib import instance_of
@@ -63,6 +63,9 @@ class Round(GameNode):
 
         self.deck = deck if deck is not None else Deck.from_counts()
         self.discard_pile = DiscardPile([])
+
+        # players that have played or discarded a Spy
+        self.spy_players: Set[RoundPlayer] = set()
 
     @property
     def current_player(self) -> Optional[RoundPlayer]:

@@ -19,6 +19,7 @@ from test_loveletter.utils import (
     autofill_move,
     autofill_step,
     card_from_card_type,
+    force_end_round,
     force_next_turn,
     give_card,
     mock_player,
@@ -129,10 +130,7 @@ def test_spy_onePlayedTwice_getsOnePoint(started_round: Round):
     play_card(first, cards.Spy())
     restart_turn(started_round)
     play_card(first, cards.Spy())
-    for player in started_round.players:
-        if player is not first:
-            player.eliminate()
-    started_round.advance_turn()
+    force_end_round(started_round)
     assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
@@ -153,10 +151,22 @@ def test_spy_twoPlayed_noOneGetsPoint(started_round: Round):
     play_card(first, cards.Spy())
     started_round.advance_turn()
     play_card(second, cards.Spy())
-    for player in started_round.players[1:]:
-        player.eliminate()
-    started_round.advance_turn()
+    force_end_round(started_round)
     assert cards.Spy.collect_extra_points(started_round) == {}
+
+
+def test_spy_twoPlayedOneDead_aliveGetsPoint(started_round: Round):
+    first = started_round.current_player
+    second = started_round.next_player(first)
+    play_card(first, cards.Spy())
+    started_round.advance_turn()
+    play_card(second, cards.Spy())
+    started_round.advance_turn()
+
+    second.eliminate()
+    force_end_round(started_round)
+
+    assert cards.Spy.collect_extra_points(started_round) == {first: 1}
 
 
 def test_guard_guessGuard_raises(started_round: Round):

@@ -119,15 +119,17 @@ class Spy(Card):
 
     def discard_effects(self, owner: "RoundPlayer") -> Tuple[move.MoveResult, ...]:
         game_round = owner.round
-        spy_winner = getattr(game_round, "spy_winner", None)
-        game_round.spy_winner = owner if spy_winner in {None, owner} else None
+        game_round.spy_players.add(owner)
         return ()
 
     @classmethod
     def collect_extra_points(cls, game_round: "Round") -> Dict["RoundPlayer", int]:
         points = super().collect_extra_points(game_round)
-        if (spy_winner := getattr(game_round, "spy_winner", None)) and spy_winner.alive:
-            points.update({spy_winner: 1})
+        alive_spy_players = [
+            player for player in game_round.spy_players if player.alive
+        ]
+        if len(alive_spy_players) == 1:
+            points.update({alive_spy_players[0]: 1})
         return points
 
 

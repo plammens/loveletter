@@ -397,12 +397,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: mv.CardsSwapped) -> None:
-            player, opponent = map(game.get_player, (e.player, e.opponent))
-            is_client = player is game.client_player
-            print(
-                f"{'You' if is_client else player.username} and {opponent.username}"
-                f" swap {'your' if is_client else 'their'} cards."
-            )
+            king_player, target = map(game.get_player, (e.player, e.opponent))
+            if game.client_player in (king_player, target):
+                opponent = target if game.client_player is king_player else king_player
+                print(f"You and {opponent.username} swap your cards.")
+                print(f"You give a {opponent.round_player.hand.card.name}.")
+                print(f"You get a {game.client_player.round_player.hand.card.name}.")
+            else:
+                print(f"{king_player.username} and {target.username} swap their cards.")
 
         # --------------------------------- Helpers ----------------------------------
         async def _player_choice(

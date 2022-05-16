@@ -138,7 +138,7 @@ class Game(GameNode):
         new_round = Round(self.num_players)
         new_round_no = self.state.round_no + 1
         # the game should always be finished by this number of rounds
-        assert new_round_no <= self.num_players * (self.points_threshold - 1)
+        assert new_round_no <= self.num_players * (self.points_threshold - 1) + 1
         try:
             # noinspection PyUnresolvedReferences
             first_player = old_round.state.winner

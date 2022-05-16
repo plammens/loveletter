@@ -176,12 +176,20 @@ def test_guard_correctGuess_eliminatesOpponent(started_round: Round):
         target_step = move.send(None)
         target_step.choice = other
         guess_step = move.send(target_step)
-        guess_step.choice = guess = type(other.hand.card)
+
+        card_type = type(other.hand.card)
+        guess = card_type if card_type != cards.Guard else cards.Spy
+        guess_step.choice = guess
         results = send_gracious(move, guess_step)
-        assert tuple(map(type, results)) == (mv.CorrectCardGuess, mv.PlayerEliminated)
-        assert results[0].guess == CardType(guess)
-        assert results[1].eliminated == other
-        assert not other.alive
+        if card_type != cards.Guard:
+            assert tuple(map(type, results)) == (
+                mv.CorrectCardGuess,
+                mv.PlayerEliminated,
+            )
+            assert results[0].guess == CardType(guess)
+            assert results[1].eliminated == other
+            assert not other.alive
+
         # artificially start new turn with same player
         restart_turn(started_round)
 

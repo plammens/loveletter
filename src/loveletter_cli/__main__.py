@@ -9,6 +9,7 @@ import time
 import traceback
 
 from loveletter_cli.data import HostVisibility, PlayMode, UserInfo
+from loveletter_cli.exceptions import Restart
 from loveletter_cli.session import (
     GuestCLISession,
     HostCLISession,
@@ -23,8 +24,8 @@ from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.utils import Address
 
 
-class ErrorOptions(enum.Enum):
-    RETRY = enum.auto()
+class UnhandledExceptionOptions(enum.Enum):
+    RESTART = enum.auto()
     QUIT = enum.auto()
 
 
@@ -35,35 +36,36 @@ def main(
     if not show_client_logs:
         logging.disable()
 
-    print_header("Welcome to Love Letter (CLI)!", filler="~")
-
-    user = ask_user()
-    print(f"Welcome, {user.username}!")
-
-    mode = ask_play_mode()
-
     runners = {
         PlayMode.JOIN: join_game,
         PlayMode.HOST: functools.partial(host_game, show_server_logs=show_server_logs),
     }
     while True:
         try:
+            print_header("Welcome to Love Letter (CLI)!", filler="~")
+
+            user = ask_user()
+            print(f"Welcome, {user.username}!")
+
+            mode = ask_play_mode()
             print()
             return runners[mode](user)
+        except Restart:
+            continue
         except Exception as e:
             traceback.print_exc()
             time.sleep(0.2)
-            print("Unhandled exception while running the session:")
+            print("Unhandled exception:")
             print_exception(e)
             time.sleep(0.2)
             choice = ask_valid_input(
                 "What would you like to do?",
-                choices=ErrorOptions,
-                default=ErrorOptions.RETRY,
+                choices=UnhandledExceptionOptions,
+                default=UnhandledExceptionOptions.RESTART,
             )
-            if choice == ErrorOptions.RETRY:
+            if choice == UnhandledExceptionOptions.RESTART:
                 continue
-            elif choice == ErrorOptions.QUIT:
+            elif choice == UnhandledExceptionOptions.QUIT:
                 return
             else:
                 assert False, f"Unhandled error option: {choice}"

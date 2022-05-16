@@ -17,6 +17,7 @@ import loveletter.move as mv
 import loveletter.round as rnd
 from loveletter.cards import CardType
 from loveletter_cli.data import MoveChoice, UserInfo
+from loveletter_cli.exceptions import Restart
 from loveletter_cli.server_process import ServerProcess
 from loveletter_cli.ui import (
     async_ask_valid_input,
@@ -549,7 +550,7 @@ class GuestCLISession(CommandLineSession):
     async def _connect_to_server(self) -> asyncio.Task:
         class ConnectionErrorOptions(enum.Enum):
             RETRY = enum.auto()
-            ABORT = enum.auto()
+            RESTART = enum.auto()
             QUIT = enum.auto()
 
         connection = None
@@ -560,14 +561,18 @@ class GuestCLISession(CommandLineSession):
                 print("Error while trying to connect to the server:")
                 print_exception(e)
                 choice = await async_ask_valid_input(
-                    "What would you like to do?",
+                    "What would you like to do? ("
+                    "RETRY: retry connecting to this server; "
+                    "RESTART: restart Love Letter CLI (go back to username selection); "
+                    "QUIT: quit Love Letter CLI"
+                    ")",
                     choices=ConnectionErrorOptions,
                     default=ConnectionErrorOptions.RETRY,
                 )
                 if choice == ConnectionErrorOptions.RETRY:
                     continue
-                elif choice == ConnectionErrorOptions.ABORT:
-                    raise
+                elif choice == ConnectionErrorOptions.RESTART:
+                    raise Restart from None
                 elif choice == ConnectionErrorOptions.QUIT:
                     sys.exit(1)
                 else:

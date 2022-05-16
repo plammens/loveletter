@@ -172,13 +172,14 @@ def define_cli() -> argparse.ArgumentParser:
         "--client-logs",
         action="store_true",
         dest="show_client_logs",
-        help="Show client logs.",
+        help="Show client logs. These are outputted to stderr.",
     )
     parser.add_argument(
         "--server-logs",
         action="store_true",
         dest="show_server_logs",
-        help="Show server logs.",
+        help="Show server logs. Tries to open a new console window for them,"
+        " otherwise outputs them to the stderr of the main process (the client).",
     )
     parser.add_argument(
         "--logging",

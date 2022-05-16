@@ -263,7 +263,11 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             message = msg.Logon(self.client.username)
             response = await self.request(message)
             if not isinstance(response, msg.OkMessage):
-                raise LogonError(f"Logon failed, received response: {response}")
+                if isinstance(response, msg.ErrorMessage):
+                    raise LogonError(response.message)
+                else:
+                    # not an OK but not an error message either
+                    raise UnexpectedMessageError(response)
             self._logged_on = True
 
         @requires_logon

@@ -1,7 +1,7 @@
 pytest~=6.2.0
 valid8~=5.1.1
 more_itertools~=8.6.0
--e git+https://github.com/plammens/python-pytest-cases.git@fork-master#egg=pytest_cases
+git+https://github.com/plammens/python-pytest-cases.git@fork-master#egg=pytest_cases
 multimethod~=1.4
 aioconsole~=0.3.1
 numpy~=1.19.0,<=1.19.3

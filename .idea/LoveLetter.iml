@@ -12,6 +12,9 @@
       <excludeFolder url="file://$MODULE_DIR$/build" />
       <excludeFolder url="file://$MODULE_DIR$/dist" />
       <excludeFolder url="file://$MODULE_DIR$/vendored" />
+      <excludeFolder url="file://$MODULE_DIR$/src/pytest-cases" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/test_loveletter/integration/.pytest_cache" />
+      <excludeFolder url="file://$MODULE_DIR$/tests/test_loveletter/unit/.pytest_cache" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (LoveLetter)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

@@ -14,7 +14,7 @@ from loveletter.cards import (
 STANDARD_DECK_COUNTS: Counter[CardType] = collections.Counter(
     {
         CardType.SPY: 2,
-        CardType.GUARD: 5,
+        CardType.GUARD: 6,
         CardType.PRIEST: 2,
         CardType.BARON: 2,
         CardType.HANDMAID: 2,

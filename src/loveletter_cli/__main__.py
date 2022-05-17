@@ -72,7 +72,12 @@ def main(
 
 
 def ask_user():
-    username = input("Enter your username: ").strip()
+    def parser(x: str) -> str:
+        x = x.strip()
+        valid8.validate("username", x, empty=False)
+        return x
+
+    username = ask_valid_input("Enter your username: ", parser=parser)
     user = UserInfo(username)
     return user
 

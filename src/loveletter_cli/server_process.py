@@ -6,6 +6,7 @@ import sys
 import typing as tp
 
 from loveletter_cli.data import UserInfo
+from loveletter_cli.utils import running_as_pyinstaller_executable
 
 
 LOGGER = logging.getLogger(__name__)
@@ -19,8 +20,11 @@ class ServerProcess(metaclass=abc.ABCMeta):
         """
         Create a ServerProcess of the appropriate subclass given show_logs.
         """
-        if show_logs and hasattr(subprocess, "CREATE_NEW_CONSOLE"):
-            # we're on Windows, can create a separate console for the server
+        if (
+            show_logs
+            and hasattr(subprocess, "CREATE_NEW_CONSOLE")  # only supported on Windows
+            and not running_as_pyinstaller_executable()
+        ):
             return NewConsoleServerProcess(*args, **kwargs)
         else:
             return MultiprocessingServerProcess(*args, **kwargs, show_logs=show_logs)

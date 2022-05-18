@@ -1,5 +1,6 @@
 import ipaddress
 import socket
+import sys
 from functools import lru_cache
 
 import more_itertools as mitt
@@ -33,3 +34,8 @@ def is_valid_ipv4(ip: str) -> bool:
 def camel_to_phrase(name: str) -> str:
     """Convert camel/Pascal-case into a phrase with space-separated lowercase words."""
     return " ".join("".join(w).lower() for w in mitt.split_before(name, str.isupper))
+
+
+def running_as_pyinstaller_executable() -> bool:
+    """Determine whether the interpreter is running within a PyInstaller executable."""
+    return getattr(sys, "frozen", False)

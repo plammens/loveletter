@@ -74,7 +74,15 @@ def main(
 def ask_user():
     def parser(x: str) -> str:
         x = x.strip()
-        valid8.validate("username", x, empty=False)
+        x = " ".join(x.split())  # normalize spaces to 1 space
+        valid8.validate(
+            "username",
+            x,
+            empty=False,
+            custom=lambda s: all(map(str.isalnum, s.split())),
+            help_msg="Username should be non-empty"
+            " and consist of letters, numbers and spaces only",
+        )
         return x
 
     username = ask_valid_input("Enter your username: ", parser=parser)

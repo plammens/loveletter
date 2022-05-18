@@ -458,6 +458,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         # ------------------------------ Utility methods ------------------------------
 
         async def _receive_message(self) -> Message:
+            """Receive a message from the server."""
             return await receive_message(self.reader, deserializer=self._deserializer)
 
         @staticmethod

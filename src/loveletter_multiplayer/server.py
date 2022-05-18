@@ -416,16 +416,21 @@ class LoveletterPartyServer:
 
         async def close(self):
             """Gracefully close this session."""
-            self.writer.write_eof()
+            LOGGER.debug("Closing session for: %s", self.client_info)
             current_task = asyncio.current_task()
+
+            self.writer.write_eof()
+            await self.writer.drain()
+            self.writer.close()
+
+            tasks = [self.writer.wait_closed()]
             for task in self._receive_loop_task, self.session_task:
                 if task is current_task:
                     raise RuntimeError(f"Can't cancel from within {task}")
                 task.cancel()
-                try:
-                    await task  # wait for the task to die
-                except asyncio.CancelledError:
-                    pass
+                tasks.append(task)
+
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         async def abort(self):
             """Abort this session."""

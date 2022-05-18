@@ -39,13 +39,14 @@ async def receive_message(
     """
     try:
         serialized = await reader.readuntil(MESSAGE_SEPARATOR)
-        LOGGER.log(LOGGING_LEVEL, "Received bytes: %s", serialized)
-        message = deserializer.deserialize(serialized)
-        LOGGER.log(LOGGING_LEVEL, "Parsed message: %s", message)
-        return message
     except asyncio.IncompleteReadError as exc:
         if exc.partial == b"":
             return None  # end of stream
         else:
             LOGGER.error("Received incomplete message: %s", exc.partial)
             raise
+    else:
+        LOGGER.log(LOGGING_LEVEL, "Received bytes: %s", serialized)
+        message = deserializer.deserialize(serialized)
+        LOGGER.log(LOGGING_LEVEL, "Parsed message: %s", message)
+        return message

@@ -44,6 +44,8 @@ def ask_valid_input(*args, **kwargs) -> T:
         choice = input(prompt).strip()
         try:
             return parser(choice)
+        except valid8.ValidationError as exc:
+            print(error_message.format(choice=choice, error=exc.get_help_msg()))
         except validation_errors as exc:
             print(error_message.format(choice=choice, error=exc))
 

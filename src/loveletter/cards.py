@@ -275,7 +275,7 @@ class Chancellor(Card):
             for card in reversed(options[1:]):
                 _ = deck.take()
                 assert _ is card
-            for card in reversed(order):
+            for card in order:
                 deck.place(card)
 
             return (

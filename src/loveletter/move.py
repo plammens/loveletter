@@ -180,7 +180,7 @@ class ChooseOrderForDeckBottom(ChoiceStep):
     """
     Choose the order in which to put some cards at the bottom of the deck.
 
-    The choice should be a tuple of the given cards, ordered from bottommost to topmost.
+    The choice should be a tuple of the given cards, ordered from topmost to bottommost.
     """
 
     def __init__(

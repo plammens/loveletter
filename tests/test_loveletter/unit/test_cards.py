@@ -441,7 +441,7 @@ def test_chancellor_correctlyHandlesCards(started_round):
     random.shuffle(order)
     order_choice.choice = tuple(order)
     results = send_gracious(move, order_choice)
-    assert started_round.deck.stack[:2] == order
+    assert started_round.deck.stack[:2] == order[::-1]
 
     assert tuple(map(type, results)) == (
         mv.CardChosen,

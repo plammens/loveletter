@@ -265,8 +265,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             random.shuffle(example)
             prompt = (
                 f"Choose an order to place these cards at the bottom of the deck "
-                f"as a comma-separated list of integers, from bottommost to "
-                f"topmost (e.g. {', '.join(map(str, example))}):"
+                f"as a comma-separated list of integers, from TOPMOST to "
+                f"BOTTOMMOST (in the order that they will be drawn)"
+                f" — e.g. {', '.join(map(str, example))}):"
             )
             choice = await async_ask_valid_input(prompt, parser=parser)
             e.set_from_serializable(choice)

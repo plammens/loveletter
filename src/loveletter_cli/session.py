@@ -369,6 +369,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 f"{'You' if is_client else player.username} "
                 f"{'are' if is_client else 'is'} dealt another card from the deck."
             )
+            if is_client:
+                print(f"You get a {e.card_dealt.name}.")
 
         @handle.register
         async def handle(e: mv.CardChosen) -> None:

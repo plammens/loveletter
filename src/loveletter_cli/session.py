@@ -428,9 +428,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             else:
                 print(
                     "There are no valid targets (all living opponents are immune); "
-                    "playing this card will have no effect."
+                    "playing this card has have no effect."
                 )
-                await pause()  # TODO: allow cancel
+                # TODO: allow cancel
                 return mv.OpponentChoice.NO_TARGET
 
         @handle.register

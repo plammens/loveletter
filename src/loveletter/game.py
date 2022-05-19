@@ -19,7 +19,7 @@ from loveletter.gamenode import (
 )
 from loveletter.round import FirstPlayerChoice, Round
 from loveletter.roundplayer import RoundPlayer
-from loveletter.utils import extend_enum
+from loveletter.utils import argmax, extend_enum
 
 
 class Game(GameNode):
@@ -165,11 +165,7 @@ class Game(GameNode):
 
     def _finalize(self) -> "GameEnd":
         """End the game and declare the winner(s)."""
-        winners = frozenset(
-            player
-            for player, points in self.points.items()
-            if points >= self.points_threshold
-        )
+        winners = frozenset(argmax(self.players, key=self.points.__getitem__))
         self.state = end = GameEnd(winners=winners)
         return end
 

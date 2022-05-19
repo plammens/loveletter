@@ -313,7 +313,7 @@ def restart_turn(game_round: Round):
 
 
 def force_end_round(game_round: Round):
-    game_round.state = EndState(frozenset(game_round.players))
+    game_round.state = EndState(winners=frozenset(game_round.players))
 
 
 def send_gracious(gen: Generator, value: Any):

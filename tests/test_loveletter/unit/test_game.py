@@ -5,7 +5,7 @@ import pytest_cases
 import valid8
 
 import loveletter.game
-from loveletter.game import Game, GameState
+from loveletter.game import Game, GameEnd, GameState
 from loveletter.gameevent import GameEvent, GameInputRequest
 from loveletter.gamenode import GameNodeState
 from loveletter.round import Round, RoundState
@@ -136,3 +136,20 @@ def test_eventGenerator_yieldsCorrectTypes(new_game: Game):
             break
 
     assert tuple(r.type for r in results) == (GameNodeState.Type.END,)
+
+
+def test_advance_moreThanOnePlayerOverPointsThreshold_winnersHaveMaxPoints(
+    started_game: Game,
+):
+    force_end_round(started_game.current_round)
+    threshold = started_game.points_threshold
+
+    winners = frozenset(started_game.players[:2])
+    for player in winners:
+        started_game.points[player] = threshold + 1
+
+    for player in started_game.players[2:]:
+        started_game.points[player] = threshold
+
+    end: GameEnd = started_game.advance()  # noqa
+    assert end.winners == winners

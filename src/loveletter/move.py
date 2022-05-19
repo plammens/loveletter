@@ -265,7 +265,7 @@ class CardDiscarded(MoveResult):
 @dataclass(frozen=True)
 class CardDealt(MoveResult):
     target: "RoundPlayer"
-    dealt: "Card"
+    card_dealt: "Card"
 
 
 @dataclass(frozen=True)

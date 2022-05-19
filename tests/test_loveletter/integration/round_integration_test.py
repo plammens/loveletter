@@ -33,7 +33,7 @@ def test_1_prince_victory():
 
     discarded, dealt = play_with_choices(player0, CardType.PRINCE, player0)
     assert CardType(discarded.discarded) == CardType.GUARD
-    assert CardType(dealt.dealt) == CardType.PRINCESS
+    assert CardType(dealt.card_dealt) == CardType.PRINCESS
 
     end = game_round.state
     assert end.type == RoundState.Type.ROUND_END

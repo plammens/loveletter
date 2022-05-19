@@ -100,14 +100,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                         f"\t{points} {pluralize('token', points)} of affection"
                     )
                 print()
-                await pause()
+                await pause()  # before going on to next round
 
             print_header(f"ROUND {e.round_no}", filler="#")
 
         @handle.register
         async def handle(e: rnd.Turn) -> None:
             if e.turn_no > 1:
-                await pause()
+                await pause()  # give a chance to read what's happened before next turn
             player = game.get_player(e.current_player)
             is_client = player is game.client_player
 
@@ -132,7 +132,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: rnd.RoundEnd) -> None:
             get_username = lambda p: game.get_player(p).username  # noqa
 
-            await pause()
+            await pause()  # give a chance to see what's happened before the round end
             print_header("Round end", filler="—")
             draw_game(game, reveal=True)
 

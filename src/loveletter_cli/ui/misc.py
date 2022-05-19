@@ -186,7 +186,7 @@ def _gcd_print_exception(text: str):
 
 
 async def pause() -> None:
-    input("\aEnter something to continue... ")
+    input("Enter something to continue... ")
 
 
 def pluralize(word: str, count: int) -> str:

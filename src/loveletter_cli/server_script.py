@@ -1,15 +1,19 @@
 import argparse
 import asyncio
 import logging
+import pathlib
 import threading
 
 from loveletter_multiplayer import LoveletterPartyServer
 from loveletter_multiplayer.logging import setup_logging
 
 
-def main(logging_level: int, **kwargs):
+def main(show_logs: bool, logging_level: int, **kwargs):
     threading.current_thread().name = "ServerThread"
-    setup_logging(logging_level)
+    setup_logging(
+        logging_level,
+        file_path=(None if show_logs else pathlib.Path("./loveletter_cli-server.log")),
+    )
     server = LoveletterPartyServer(**kwargs, max_clients=4)
     asyncio.run(server.run_server())
 

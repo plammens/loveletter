@@ -106,12 +106,11 @@ class MultiprocessingServerProcess(ServerProcess):
 
         super().__init__(hosts, port, host_user, show_logs)
 
-        logging_level = (
-            LOGGER.getEffectiveLevel() if show_logs else logging.CRITICAL + 1
-        )
+        logging_level = LOGGER.getEffectiveLevel()
         self._process = multiprocessing.Process(
             target=loveletter_cli.server_script.main,
             kwargs=dict(
+                show_logs=show_logs,
                 logging_level=logging_level,
                 host=self.hosts,
                 port=self.port,

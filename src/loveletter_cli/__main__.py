@@ -4,6 +4,7 @@ import enum
 import functools
 import logging
 import multiprocessing
+import pathlib
 import socket
 import time
 import traceback
@@ -32,9 +33,10 @@ class UnhandledExceptionOptions(enum.Enum):
 def main(
     show_client_logs: bool, show_server_logs: bool, logging_level: int = logging.INFO
 ):
-    setup_logging(logging_level)
-    if not show_client_logs:
-        logging.disable()
+    setup_logging(
+        logging_level,
+        file_path=(None if show_client_logs else pathlib.Path("./loveletter_cli.log")),
+    )
 
     runners = {
         PlayMode.JOIN: join_game,
@@ -187,20 +189,22 @@ def define_cli() -> argparse.ArgumentParser:
         "--client-logs",
         action="store_true",
         dest="show_client_logs",
-        help="Show client logs. These are outputted to stderr.",
+        help="Show client logs while running: output them to stderr"
+        " instead of the default file.",
     )
     parser.add_argument(
         "--server-logs",
         action="store_true",
         dest="show_server_logs",
-        help="Show server logs. Tries to open a new console window for them,"
+        help="Show server logs while running."
+        " Tries to open a new console window for them,"
         " otherwise outputs them to the stderr of the main process (the client).",
     )
     parser.add_argument(
         "--logging",
         "-l",
         type=logging_level,
-        default=logging.WARNING,
+        default=logging.INFO,
         dest="logging_level",
         help="Logging level (either a name or a numeric value). Default: WARNING",
     )

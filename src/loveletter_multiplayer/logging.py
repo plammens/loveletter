@@ -1,18 +1,33 @@
 import asyncio
 import itertools as itt
 import logging
+import logging.handlers
+import pathlib
+import typing
 
 
-def setup_logging(level):
+def setup_logging(
+    level,
+    file_path: typing.Optional[pathlib.Path] = None,
+) -> None:
+    """
+    Setup logging for the loveletter_cli application.
+
+    :param level: Logging level.
+    :param file_path: Path of file to which to output logs. None means output to stderr.
+    """
     logging.setLogRecordFactory(CustomLogRecord)
     root = logging.getLogger()
     root.setLevel(level)
     # noinspection SpellCheckingInspection
     formatter = CustomFormatter(
-        fmt="{asctime} - {levelname:^8} - {origin:50.50} - {message}",
+        fmt="{asctime} | {levelname:^8} | {origin:75.75} | {message}",
         style="{",
     )
-    handler = logging.StreamHandler()
+    if file_path is not None:
+        handler = logging.handlers.TimedRotatingFileHandler(file_path, when="midnight")
+    else:
+        handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     root.handlers.clear()
     root.addHandler(handler)

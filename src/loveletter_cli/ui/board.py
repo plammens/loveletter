@@ -56,7 +56,7 @@ def draw_game(
 
     def username(p) -> str:
         p = game.get_player(p)
-        name = f"{p.username} (you)" if p is you else p.username
+        name = f"{p.username} [{game.points[p]} tokens]" if p is you else p.username
         current = game_round.current_player
         state = game_round.state
         is_round_end = state.type == RoundState.Type.ROUND_END

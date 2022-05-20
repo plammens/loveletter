@@ -89,7 +89,7 @@ class GameInputRequest(GameEvent, metaclass=abc.ABCMeta):
 @dataclass(frozen=True)
 class GameResultEvent(GameEvent, metaclass=abc.ABCMeta):
     """
-    An atomic result of a player'o action or any other game process.
+    An atomic result of a player's action or any other game process.
 
     These objects are (intended to be) immutable, since they're just encapsulating a
     unit of information about something that happened in the game.

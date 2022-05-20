@@ -9,7 +9,7 @@ from multimethod import multimethod
 from valid8.validation_lib import instance_of, on_all_
 
 from loveletter.cards import CardType
-from loveletter.gameevent import GameEventGenerator
+from loveletter.gameevent import GameEventGenerator, GameResultEvent
 from loveletter.gamenode import (
     EndState,
     GameNode,
@@ -71,6 +71,9 @@ class Game(GameNode):
         super().__init__(players)
         self.points = Counter({p: 0 for p in self.players})
 
+        # whether the current round's points have been collected
+        self._points_updated: bool = False
+
     @property
     def points_threshold(self) -> int:
         """The number of points that must be reached by a player to win."""
@@ -113,7 +116,9 @@ class Game(GameNode):
             else (yield from FirstPlayerChoice(game_round)).choice  # noqa
         )
 
-        return (yield from game_round.play(first_player=first_player))
+        (round_end,) = yield from game_round.play(first_player=first_player)
+        points_update = PointsUpdate(self.update_points())
+        return (round_end, points_update)
 
     _play_iteration = _play_round
 
@@ -121,7 +126,7 @@ class Game(GameNode):
         super().start()
         first_round = Round(self.num_players)
         self.state = state = PlayingRound(
-            round=first_round, round_no=1, first_player=None, points_update=None
+            round=first_round, round_no=1, first_player=None
         )
         return state
 
@@ -130,8 +135,8 @@ class Game(GameNode):
 
         self.state: PlayingRound
         old_round = self.state.round
-        points_update = self._collect_points(old_round)
-        self.points.update(points_update)
+        if not self._points_updated:
+            self.update_points()
         if self._reached_end():
             return self._finalize()
 
@@ -145,15 +150,40 @@ class Game(GameNode):
         except ValueError:
             # more than one winner
             first_player = None
+
         self.state = state = PlayingRound(
             round=new_round,
             round_no=new_round_no,
             first_player=first_player,
-            points_update=points_update,
         )
+        self._points_updated = False
+
         return state
 
     advance_round = advance
+
+    @valid8.validate_arg(
+        "self",
+        lambda g: not g._points_updated,  # noqa
+        help_msg="Points have already been updated for this round",
+    )
+    @valid8.validate_arg(
+        "self",
+        lambda g: getattr(g.current_round, "ended", False),
+        help_msg="Round hasn't ended yet",
+    )
+    def update_points(self) -> Counter["Player"]:
+        """
+        After a round has ended, update each player's tokens of affection.
+
+        Can only be called once per round, after the round has ended.
+
+        :return: A counter indicating the delta in points for each player.
+        """
+        points_update = self._collect_points(self.current_round)
+        self.points.update(points_update)
+        self._points_updated = True
+        return points_update
 
     @classmethod
     def _make_init_state(cls):
@@ -177,7 +207,6 @@ class Game(GameNode):
         for card_type in CardType:
             points.update(card_type.card_class.collect_extra_points(game_round))
         points_update = Counter({self.players[p.id]: pts for p, pts in points.items()})
-        # TODO: figure out something better for communicating points update
         return points_update
 
     def _repr_hook(self) -> Dict[str, Any]:
@@ -216,11 +245,17 @@ class PlayingRound(GameState, IntermediateState):
     round: Round
     round_no: int
     first_player: Optional[Game.Player]  #: who will start the round, if known
-    points_update: Optional[Counter[Game.Player]]  #: the points delta from last round
 
     @IntermediateState.can_advance.getter
     def can_advance(self) -> bool:
         return self.round.ended
+
+
+@dataclass(frozen=True)
+class PointsUpdate(GameResultEvent):
+    """Informs about a points update after a round has ended."""
+
+    points_update: Counter[Game.Player]  # points delta per player
 
 
 @dataclass(frozen=True)

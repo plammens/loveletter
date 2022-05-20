@@ -84,24 +84,6 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         # ----------------------------- Game node stages -----------------------------
         @handle.register
         async def handle(e: loveletter.game.PlayingRound) -> None:
-            if e.points_update:
-                # print updates from last round
-                print("Points gained:")
-                for player, delta in (+e.points_update).items():
-                    print(f"    {player.username}: {delta:+}")
-                print()
-                print("Leaderboard:")
-                width = max(map(len, (p.username for p in game.players))) + 2
-                for i, (player, points) in enumerate(
-                    game.points.most_common(), start=1
-                ):
-                    print(
-                        f"\t{i}. {player.username:{width}}"
-                        f"\t{points} {pluralize('token', points)} of affection"
-                    )
-                print()
-                await pause()  # before going on to next round
-
             print_header(f"ROUND {e.round_no}", filler="#")
 
         @handle.register
@@ -166,7 +148,23 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     f"{get_username(e.winner)} is the only player still alive, "
                     f"so they win the round."
                 )
-            # points update gets printed in PlayingRound handler
+
+        @handle.register
+        async def handle(e: loveletter.game.PointsUpdate) -> None:
+            # print updates from last round
+            print("Points gained:")
+            for player, delta in (+e.points_update).items():
+                print(f"    {player.username}: {delta:+}")
+            print()
+            print("Leaderboard:")
+            width = max(map(len, (p.username for p in game.players))) + 2
+            for i, (player, points) in enumerate(game.points.most_common(), start=1):
+                print(
+                    f"\t{i}. {player.username:{width}}"
+                    f"\t{points} {pluralize('token', points)} of affection"
+                )
+            print()
+            await pause()  # before going on to next round
 
         # ------------------------------ Remote events -------------------------------
         @handle.register

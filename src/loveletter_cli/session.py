@@ -214,8 +214,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: mv.OpponentChoice):
             # auto-choose opponent if there are only 2 players and no immune players
-            if game.num_players == 2 and e._valid_choices:
-                e.choice = mitt.one(e._valid_choices)
+            if game.num_players == 2 and e.options != {e.NO_TARGET}:
+                e.choice = mitt.one(e.options)
             else:
                 e.choice = await _player_choice(
                     prompt="Choose an opponent to target:", include_self=False
@@ -428,10 +428,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 choice = await async_ask_valid_input(prompt, choices=choices)
                 return choice.value
             else:
-                print(
-                    "There are no valid targets (all living opponents are immune); "
-                    "playing this card has have no effect."
-                )
+                print("There are no valid targets, playing this card has no effect.")
                 # TODO: allow cancel
                 return mv.OpponentChoice.NO_TARGET
 

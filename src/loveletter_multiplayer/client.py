@@ -123,6 +123,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             # or KeyboardInterrupt was raised); under normal circumstances,
             # the stream will be closed by the _handle_connection task
             writer.close()
+            await writer.wait_closed()
             raise
 
     @_needs_active_connection

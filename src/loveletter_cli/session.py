@@ -494,11 +494,10 @@ class HostCLISession(CommandLineSession):
         server_process.start()
         try:
             self.client = HostClient(self.user.username)
-            connection = await self._connect_localhost()
-            game = await self._ready_to_play()
-            await self.play_game(game)
-            await self.client.send_shutdown()
-            await connection
+            connection_task = await self._connect_localhost()
+            await watch_connection(
+                connection_task, main_task=self._manage_after_connection_established()
+            )
         finally:
             if (exc_info := sys.exc_info()) == (None, None, None):
                 LOGGER.info("Waiting on server process to end")
@@ -509,10 +508,13 @@ class HostCLISession(CommandLineSession):
             server_process.join(5)
             LOGGER.debug("Server process ended")
 
+    async def _manage_after_connection_established(self):
+        game = await self._ready_to_play()
+        await self.play_game(game)
+        await self.client.send_shutdown()
+
     async def _connect_localhost(self) -> asyncio.Task:
-        connection = await self.client.connect("127.0.0.1", self.port)
-        watch_connection(connection)
-        return connection
+        return await self.client.connect("127.0.0.1", self.port)
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None
@@ -544,7 +546,12 @@ class GuestCLISession(CommandLineSession):
         await super().manage()
         address = self.server_address
         print_header(f"Joining game @ {address.host}:{address.port}")
-        await self._connect_to_server()
+        connection_task = await self._connect_to_server()
+        await watch_connection(
+            connection_task, main_task=self._manage_after_connection_established()
+        )
+
+    async def _manage_after_connection_established(self):
         game = await self._wait_for_game()
         await self.play_game(game)
 
@@ -580,7 +587,6 @@ class GuestCLISession(CommandLineSession):
                     assert False
 
         print("Successfully connected to the server.")
-        watch_connection(connection)
         return connection
 
     async def _wait_for_game(self) -> RemoteGameShadowCopy:

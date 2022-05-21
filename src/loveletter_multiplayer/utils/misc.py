@@ -231,3 +231,11 @@ def compute_stacklevel(public_call_site: callable) -> int:
         frame = frame.f_back
         stacklevel += 1
     return stacklevel - 1
+
+
+async def cancel_and_await(*tasks: asyncio.Task):
+    """Cancel the given asyncio tasks and wait until they terminate."""
+    for task in tasks:
+        task.cancel()
+    # use return_exceptions=True to suppress CancelledError
+    await asyncio.gather(*tasks, return_exceptions=True)

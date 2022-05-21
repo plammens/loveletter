@@ -25,6 +25,9 @@ from loveletter_multiplayer.logging import setup_logging
 from loveletter_multiplayer.utils import Address
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class UnhandledExceptionOptions(enum.Enum):
     RESTART = enum.auto()
     QUIT = enum.auto()
@@ -53,13 +56,17 @@ def main(
             print()
             return runners[mode](user)
         except Restart:
+            LOGGER.info("Restarting CLI")
             continue
         except Exception as e:
+            LOGGER.error("Unhandled exception in CLI", exc_info=e)
+
             traceback.print_exc()
             time.sleep(0.2)
             print("Unhandled exception:")
             print_exception(e)
             time.sleep(0.2)
+
             choice = ask_valid_input(
                 "What would you like to do?",
                 choices=UnhandledExceptionOptions,

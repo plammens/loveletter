@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Dict, Optional, Type, TypeVar
+from typing import Awaitable, Coroutine, Dict, Optional, Type, TypeVar, Union
 
 import valid8
 from multimethod import multimethod
@@ -29,7 +29,7 @@ from loveletter_multiplayer.utils import (
     Address,
     InnerClassMeta,
     attrgetter,
-    close_stream_at_exit,
+    cancel_and_await,
 )
 
 
@@ -94,29 +94,38 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         Try connecting to a server and logging on.
 
         If this connection process fails at any point, the socket connection is closed
-        and the exception is passed on to the caller. Otherwise, if it succeeds, a
-        task is created (but not awaited) that handles the connection to the server
-        while it lives, and it is returned to the caller.
+        and the exception is propagated to the caller.
+        Otherwise, if it succeeds, a connection task is created.
+        This task handles the connection to the server: in particular,
+        it listens for incoming messages and other signals from the server,
+        for example when the server closes the connection
+        (see :meth:`LoveletterClient._ServerConnectionManager.manage`).
+
+        :raises ConnectionError: if the connection fails at the socket level.
+        :raises LogonError: if logon fails.
+
+        :return: The connection task described above.
         """
         reader, writer = await asyncio.open_connection(host=host, port=port)
         try:
             address = writer.get_extra_info("peername")
-            LOGGER.info(f"Successfully connected to {address}")
+            LOGGER.debug(f"Successfully connected to server address %s", address)
             server_info = ServerInfo(address)
             # noinspection PyArgumentList
             manager = self._ServerConnectionManager(server_info, reader, writer)
             await manager.logon()
-            task = asyncio.create_task(self._handle_connection(manager))
+            connection_task = asyncio.create_task(
+                self._handle_connection(manager), name=f"server_connection"
+            )
             # let the task initialize before returning
-            # This idiom with asyncio.as_completed ensures that we never hang here
-            # indefinitely: if the task completes first, it means that the manager
-            # context was never entered and thus an exception was raised, so this will
-            # re-raise; otherwise, the event was first meaning that the connection
-            # attached successfully, so we can return.
-            for aw in asyncio.as_completed([task, manager.attached_event.wait()]):
-                await aw
-                break
-            return task
+            # this usage of asyncio.wait() lets us wait until either the connection
+            # task terminates prematurely (due to an error) or the connection
+            # is activated successfully
+            await asyncio.wait(
+                [connection_task, manager.attached_event.wait()],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            return connection_task
         except:  # noqa
             # we only close the stream if we weren't able to create the
             # _handle_connection task (e.g. something went wrong during logon,
@@ -149,26 +158,30 @@ class LoveletterClient(metaclass=abc.ABCMeta):
     async def _handle_connection(
         self, manager: "LoveletterClient._ServerConnectionManager"
     ):
-        async with close_stream_at_exit(manager.writer):
-            if self._connection_task is not None:
-                raise RuntimeError("_handle_connection already called")
-            self._connection_task = asyncio.current_task()
+        """
+        A small wrapper around ``manager.manage()``.
 
-            with manager as conn:
-                try:
-                    await conn.manage()
-                except Exception as exc:
-                    LOGGER.error("Unhandled exception in %s", conn, exc_info=exc)
-                    # the client does raise; indeed the caller can retry connecting
-                    raise
+        It "attaches" the connection to the client and then delegates to the manager.
+        This method checks that it's only been called once per connection.
+
+        :param manager: Server connection manager whose connection is to be handled.
+        """
+        if self._connection_task is not None:
+            raise RuntimeError("_handle_connection already called")
+        self._connection_task = asyncio.current_task()
+
+        async with manager:
+            await manager.manage()
 
     class _ServerConnectionManager(metaclass=InnerClassMeta):
         """
         Manages the connection with the server.
 
         When used as a context manager, entering the context represents attaching this
-        connection to the client, and exiting it represents detaching it. A session
-        can only start being managed if it has been successfully been set as the
+        connection to the client, and exiting it represents detaching it and closing the
+        underlying socket.
+
+        A session can only start being managed if it has been successfully been set as the
         client's active connection.
 
         If, upon entering the context, there is already another active connection,
@@ -226,7 +239,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         def __repr__(self):
             return f"<connection from {self.client} to {self.server_info}>"
 
-        def __enter__(self):
+        async def __aenter__(self):
             LOGGER.info("Activating %s", self)
             if self.client._server_conn is not None:
                 raise RuntimeError("There is already an active connection")
@@ -234,9 +247,18 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self.attached_event.set()
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            if exc_type is not None:
+                LOGGER.error(
+                    "Unhandled exception in %s",
+                    self,
+                    exc_info=(exc_type, exc_val, exc_tb),
+                )
+
+            self.writer.close()
             self.client._server_conn = None
             self.attached_event.clear()
+            await self.writer.wait_closed()
             LOGGER.info("Deactivated %s", self)
 
         # ---------- "Public" methods (for Client and RemoteGameShadowCopy) -----------
@@ -260,7 +282,9 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             Identify oneself to the server.
 
             Must be called after connecting to the server and before entering
-            :meth:`manage`. Raises :class:`LogonError` if the logon fails.
+            :meth:`manage`.
+
+            :raises LogonError: if the logon fails.
             """
             message = msg.Logon(self.client.username)
             response = await self.request(message)
@@ -271,12 +295,16 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                     # not an OK but not an error message either
                     raise UnexpectedMessageError(response)
             self._logged_on = True
+            LOGGER.info(f"Logged on successfully to server: %s", self.server_info)
 
         @requires_logon
         @requires_attached
         async def manage(self):
             """
             Manage the communication between client and server in this connection.
+
+            Should only be called after the client has successfully logged on and
+            the connection has been activated.
 
             Blocks until the server closes the connection, the task is cancelled or
             the task is otherwise killed by an exception.
@@ -527,25 +555,34 @@ class ServerInfo:
     address: Address
 
 
-def watch_connection(connection: asyncio.Task) -> asyncio.Task:
+async def watch_connection(
+    connection_task: asyncio.Task, main_task: Union[asyncio.Task, Coroutine]
+):
     """
-    Utility to watch a client connection and propagate exceptions that occur.
+    Utility to watch a client connection while running some other main task.
 
     Called from a coroutine that manages a :class:`LoveletterClient` on the result of
-    :meth:`LoveletterClient.connect()` to set up a watcher task that, when the
-    connection terminates due to an exception, throws said exception back into the
-    caller coroutine using :meth:`coroutine.throw()`.
+    :meth:`LoveletterClient.connect` to set up a task that does something while
+    "keeping an eye" on the connection: i.e. if the connection terminates with an
+    exception, it stops the main task and propagates said exception to the caller.
+    If no exception occurs, waits for both tasks to terminate normally.
 
-    :param connection: Connection task (as returned by ``.connect()``) to watch.
-    :returns: The newly created watcher task.
+    :param connection_task: Connection task to watch, as returned by
+        :meth:`LoveletterClient.connect`.
+    :param main_task: Main task to run while watching the connection task.
+        Can be given as a coroutine object, in which case it will be wrapped
+        in a task with the same name as the current task.
     """
-    caller = asyncio.current_task().get_coro()
+    if asyncio.iscoroutine(main_task):
+        main_task = asyncio.create_task(
+            main_task, name=asyncio.current_task().get_name()
+        )
 
-    async def watcher():
-        try:
-            await connection
-        except Exception as e:
-            LOGGER.debug("Watcher is throwing %s into %s", e, caller)
-            caller.throw(e)
-
-    return asyncio.create_task(watcher())
+    done, pending = await asyncio.wait(
+        [connection_task, main_task], return_when=asyncio.FIRST_EXCEPTION
+    )
+    # if stopped early due to an exception, cancel the main task
+    await cancel_and_await(*pending)
+    # propagate the exception (if any)
+    for task in done:
+        task.result()  # this raises if the task terminated with an exception

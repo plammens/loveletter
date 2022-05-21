@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import more_itertools as mitt
+import valid8
 from aioconsole import ainput
 from multimethod import multimethod
 
@@ -36,7 +37,6 @@ from loveletter_multiplayer import (
     RemoteException,
     RemoteGameShadowCopy,
     RemoteValidationError,
-    valid8,
 )
 from loveletter_multiplayer.client import LoveletterClient, watch_connection
 from loveletter_multiplayer.utils import Address

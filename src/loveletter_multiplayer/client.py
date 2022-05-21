@@ -13,6 +13,7 @@ from loveletter_multiplayer.exceptions import (
     InternalValidationError,
     LogonError,
     RemoteException,
+    RemoteValidationError,
     RestartSession,
     UnexpectedMessageError,
 )
@@ -469,6 +470,10 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                         "Received signal to restart session: %s", message.message
                     )
                     raise RestartSession(message.message)
+                elif isinstance(message, msg.ValidationErrorMessage):
+                    raise RemoteValidationError(
+                        message.exc_type, message.exc_message, message.help_message
+                    )
                 elif isinstance(message, msg.ExceptionMessage):
                     raise RemoteException(message.exc_type, message.exc_message)
 

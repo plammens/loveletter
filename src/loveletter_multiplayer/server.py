@@ -6,6 +6,7 @@ import socket
 from dataclasses import dataclass
 from typing import Iterator, List, Optional, Tuple, Union
 
+import valid8
 from multimethod import multimethod
 
 import loveletter.game
@@ -463,7 +464,15 @@ class LoveletterPartyServer:
             await self.server._reply_error(self.writer, code, reason)
 
         async def reply_exception(self, message: str, exception: Exception):
-            message = msg.ExceptionMessage(message, type(exception), str(exception))
+            if isinstance(exception, valid8.ValidationError):
+                message = msg.ValidationErrorMessage(
+                    message,
+                    exc_type=type(exception),
+                    exc_message=str(exception),
+                    help_message=exception.get_help_msg(),
+                )
+            else:
+                message = msg.ExceptionMessage(message, type(exception), str(exception))
             await self.send_message(message)
 
         # --------------------------- Receive loop methods ----------------------------
@@ -642,7 +651,7 @@ class LoveletterPartyServer:
                 self.game = self._deserializer.game = loveletter.game.Game(usernames)
                 break
             except Exception as e:
-                LOGGER.error("Exception while trying to create game", exc_info=e)
+                LOGGER.warning("Exception while trying to create game", exc_info=e)
                 self._ready_to_play.clear()
                 await self.party_host_session.reply_exception(
                     f"Exception while trying to create game", exception=e

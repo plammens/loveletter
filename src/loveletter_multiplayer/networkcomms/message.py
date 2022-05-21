@@ -77,6 +77,12 @@ class ExceptionMessage(ErrorMessage):
 
 @Message.register
 @dataclass(frozen=True)
+class ValidationErrorMessage(ExceptionMessage):
+    help_message: str
+
+
+@Message.register
+@dataclass(frozen=True)
 class ReadyToPlay(Message):
     """Sent by the party host to indicate that the party is ready to play."""
 

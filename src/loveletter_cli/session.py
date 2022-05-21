@@ -35,6 +35,7 @@ from loveletter_multiplayer import (
     RemoteEvent,
     RemoteException,
     RemoteGameShadowCopy,
+    RemoteValidationError,
     valid8,
 )
 from loveletter_multiplayer.client import LoveletterClient, watch_connection
@@ -523,10 +524,12 @@ class HostCLISession(CommandLineSession):
             await self.client.ready()
             try:
                 game = await self.client.wait_for_game()
+            except RemoteValidationError as e:
+                print(e.help_message, end="\n\n")
             except RemoteException as e:
-                print("Exception in server while creating game:")
+                print("Error in server while creating game:")
                 print_exception(e)
-                continue
+
         return game
 
 

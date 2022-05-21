@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Type
+from typing import Optional, Type
 
 import valid8
 
@@ -27,6 +27,11 @@ class RemoteException(LoveletterMultiplayerError):
 
     def __post_init__(self):
         super().__init__(self.exc_type, self.exc_message)
+
+
+@dataclass(frozen=True)
+class RemoteValidationError(RemoteException):
+    help_message: str
 
 
 class ProtocolError(LoveletterMultiplayerError):

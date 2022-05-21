@@ -128,6 +128,10 @@ def test_eventGenerator_yieldsCorrectTypes(new_game: Game):
         while not is_round_end(event):
             event = game_generator.send(autofill_step(event))
 
+        # points update
+        event = next(game_generator)
+        assert isinstance(event, loveletter.game.PointsUpdate)
+
         # advance (perhaps finish the game)
         try:
             event = next(game_generator)

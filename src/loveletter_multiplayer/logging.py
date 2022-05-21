@@ -25,7 +25,9 @@ def setup_logging(
         style="{",
     )
     if file_path is not None:
-        handler = logging.handlers.TimedRotatingFileHandler(file_path, when="midnight")
+        handler = logging.handlers.TimedRotatingFileHandler(
+            file_path, when="midnight", backupCount=2
+        )
     else:
         handler = logging.StreamHandler()
     handler.setFormatter(formatter)

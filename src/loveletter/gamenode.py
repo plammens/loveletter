@@ -43,7 +43,10 @@ class GameNode(metaclass=abc.ABCMeta):
     state: "GameNodeState"
 
     @valid8.validate_arg(
-        "players", length_between(2, MAX_PLAYERS), help_msg="Invalid number of players"
+        "players",
+        length_between(2, MAX_PLAYERS),
+        help_msg=f"Invalid number of players"
+        f" (should be at least 2 and at most {MAX_PLAYERS})",
     )
     def __init__(self, players: Sequence[PlayerT]):
         """

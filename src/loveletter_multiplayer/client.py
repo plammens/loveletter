@@ -548,6 +548,12 @@ class HostClient(LoveletterClient):
         """
         super().__init__(username)
 
+        if [player_joined_callback, player_left_callback].count(None) == 1:
+            raise ValueError(
+                "Should either specify none or both of"
+                " player_joined_callback and player_left_callback"
+            )
+
         async def noop_callback(message):
             pass
 

@@ -45,20 +45,23 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
-    env:
-      ARTIFACT_PATH: dist/loveletter.zip
-      # ARTIFACT_NAME: loveletter-${{ runner.os }}.zip
-
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - name: Set up environment
+      - name: Set up environment (Windows)
+        if: runner.os == 'Windows'
         run: |
-          # can't use runner context in env clause above
-          echo "ARTIFACT_NAME=loveletter-${{ runner.os }}.zip" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=dist/loveletter_cli.exe" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=loveletter-${{ runner.os }}.exe" >> $GITHUB_ENV
+        shell: bash
+      - name: Set up environment (non-Windows)
+        if: runner.os != 'Windows'
+        run: |
+          echo "ARTIFACT_PATH=dist/loveletter_cli" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=loveletter-${{ runner.os }}" >> $GITHUB_ENV
         shell: bash
       - name: Install dependencies
         run: |
@@ -67,15 +70,13 @@ jobs:
           pip install -r requirements.txt --source-dir=vendored
       - name: Run PyInstaller
         run: |
-          pyinstaller -p src -n loveletter_cli src/loveletter_cli/__main__.py
-      - name: ZIP archive
-        run: |
-          tar -acf ${{ env.ARTIFACT_PATH }} -C dist loveletter_cli
+          pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_PATH }}
+          if-no-files-found: error
       - name: Upload release asset
         if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: actions/upload-release-asset@v1
@@ -85,4 +86,4 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ${{ env.ARTIFACT_PATH }}
           asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: application/zip
+          asset_content_type: application/octet-stream

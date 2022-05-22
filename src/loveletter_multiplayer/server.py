@@ -395,6 +395,8 @@ class LoveletterPartyServer:
             async with self.server._sessions_lock:
                 self.server._detach(self)
 
+            await self.server._announce_player_disconnected(self)
+
         # --------------------- "Public" methods (for the server) ---------------------
 
         async def manage(self):
@@ -648,6 +650,12 @@ class LoveletterPartyServer:
         await self.party_host_session.send_message(
             msg.PlayerJoined(new_player.client_info.username)
         )
+
+    async def _announce_player_disconnected(self, player: _ClientSessionManager):
+        if not self._ready_to_play.is_set():
+            await self.party_host_session.send_message(
+                msg.PlayerDisconnected(player.client_info.username)
+            )
 
     async def _start_game_when_ready(self):
         while True:

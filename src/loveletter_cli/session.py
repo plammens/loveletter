@@ -474,7 +474,9 @@ class HostCLISession(CommandLineSession):
         self.hosts = hosts
         self.port = port
         self.client = HostClient(
-            user.username, player_joined_callback=self._player_joined
+            user.username,
+            player_joined_callback=self._player_joined,
+            player_left_callback=self._player_left,
         )
         self.show_server_logs = show_server_logs
 
@@ -547,6 +549,10 @@ class HostCLISession(CommandLineSession):
         else:
             await self._host_has_joined_server.wait()  # synchronize prints
             print(f"{message.username} joined the server")
+
+    @staticmethod
+    async def _player_left(message: msg.PlayerDisconnected):
+        print(f"{message.username} left the server")
 
 
 class GuestCLISession(CommandLineSession):

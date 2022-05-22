@@ -97,6 +97,18 @@ class PlayerJoined(Message):
 
 @Message.register
 @dataclass(frozen=True)
+class PlayerDisconnected(Message):
+    """
+    Sent by the server to the party host to indicate a player has disconnected.
+
+    Only sent if the player disconnects while waiting to start the game.
+    """
+
+    username: str
+
+
+@Message.register
+@dataclass(frozen=True)
 class ReadyToPlay(Message):
     """Sent by the party host to indicate that the party is ready to play."""
 

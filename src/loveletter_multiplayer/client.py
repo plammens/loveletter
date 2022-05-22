@@ -539,6 +539,7 @@ class HostClient(LoveletterClient):
         self,
         username: str,
         player_joined_callback: Callable[[msg.PlayerJoined], Awaitable] = None,
+        player_left_callback: Callable[[msg.PlayerDisconnected], Awaitable] = None,
     ):
         """
         :param username: Player username.
@@ -551,6 +552,7 @@ class HostClient(LoveletterClient):
             pass
 
         self.player_joined_callback = player_joined_callback or noop_callback
+        self.player_left_callback = player_left_callback or noop_callback
 
     @property
     def is_host(self) -> bool:
@@ -574,12 +576,14 @@ class HostClient(LoveletterClient):
 
     class _ServerConnectionManager(LoveletterClient._ServerConnectionManager):
         async def _wait_for_game_created_message(self) -> msg.GameCreated:
+            # noinspection PyTypeChecker
+            client: HostClient = self.client
             while True:
                 message = await self.expect_message()
                 if isinstance(message, msg.PlayerJoined):
-                    # noinspection PyTypeChecker
-                    client: HostClient = self.client
                     await client.player_joined_callback(message)
+                elif isinstance(message, msg.PlayerDisconnected):
+                    await client.player_left_callback(message)
                 elif isinstance(message, msg.GameCreated):
                     break
                 else:

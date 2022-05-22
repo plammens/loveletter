@@ -503,7 +503,18 @@ class HostCLISession(CommandLineSession):
         await self.client.send_shutdown()
 
     async def _connect_localhost(self) -> asyncio.Task:
-        return await self.client.connect("127.0.0.1", self.port)
+        # give the server process enough time to start up
+        backoff = 0.25  # time in seconds between attempts
+        for attempt in range(3):
+            try:
+                return await self.client.connect("127.0.0.1", self.port)
+            except ConnectionRefusedError as e:
+                error = e
+                await asyncio.sleep(backoff)
+                backoff *= 2
+        else:
+            # noinspection PyUnboundLocalVariable
+            raise error
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
         game = None

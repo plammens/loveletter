@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Coroutine, Dict, Optional, Type, TypeVar, Union
+from typing import Awaitable, Callable, Coroutine, Dict, Optional, Type, TypeVar, Union
 
 import valid8
 from multimethod import multimethod
@@ -126,7 +126,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 return_when=asyncio.FIRST_COMPLETED,
             )
             return connection_task
-        except:  # noqa
+        except:
             # we only close the stream if we weren't able to create the
             # _handle_connection task (e.g. something went wrong during logon,
             # or KeyboardInterrupt was raised); under normal circumstances,
@@ -211,7 +211,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self._receive_loop_active: bool = False
 
             self.attached_event = asyncio.Event()
-            self._wait_for_game_started = asyncio.Event()
+            self._started_waiting_for_game = asyncio.Event()
             self._manage_task: Optional[asyncio.Task] = None
             self._wait_for_game_task: Optional[asyncio.Task] = None
             self._queue_waiters: Dict[asyncio.Queue, asyncio.Task] = {}
@@ -222,7 +222,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             self.game = None
             self._deserializer = MessageDeserializer()
             try:
-                self._wait_for_game_started.clear()
+                self._started_waiting_for_game.clear()
             except AttributeError:
                 pass
 
@@ -293,7 +293,9 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                     raise LogonError(response.message)
                 else:
                     # not an OK but not an error message either
-                    raise UnexpectedMessageError(response)
+                    raise UnexpectedMessageError(
+                        expected=msg.OkMessage, actual=response
+                    )
             self._logged_on = True
             LOGGER.info(f"Logged on successfully to server: %s", self.server_info)
 
@@ -314,8 +316,11 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 raise RuntimeError("manage has already been called")
             self._manage_task = task = asyncio.current_task()
             task.set_name(f"client<{self.client.username}>")
+
             while True:
+                # one complete session
                 try:
+                    # wait for game
                     while True:
                         try:
                             await asyncio.create_task(self._wait_for_game())
@@ -325,8 +330,9 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                                 "Remote exception while waiting for game; retrying",
                                 exc_info=e,
                             )
-                            self._wait_for_game_started.clear()
+                            continue
 
+                    # after game has started, just handle incoming messages
                     await self._receive_loop()
                     return
                 except RestartSession:
@@ -337,8 +343,11 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         @requires_attached
         async def wait_for_game(self) -> RemoteGameShadowCopy:
             """Called from outside the manage task to wait for the remote game."""
-            # the first await is needed to ensure `self._wait_for_game_task` is not None
-            await self._wait_for_game_started.wait()
+            # The first await ensures ``self._wait_for_game_task`` is not None.
+            # The reason to use this event and then wait for the task instead of e.g.
+            # making a single event for when the game has been created is to be able to
+            # easily propagate exceptions that originate in the _wait_for_game_task.
+            await self._started_waiting_for_game.wait()
             await self._wait_for_game_task
             return self.game
 
@@ -376,7 +385,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         async def expect_message(
             self,
             timeout: Optional[float] = None,
-            message_type: Optional[M] = None,
+            message_type: Optional[Type[M]] = None,
             receiver: Optional[Awaitable[Message]] = None,
         ) -> M:
             """
@@ -399,9 +408,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 )
             self._maybe_raise(message)
             if message_type is not None and not isinstance(message, message_type):
-                raise UnexpectedMessageError(
-                    f"Expected {message_type.__name__}, got {message}"
-                )
+                raise UnexpectedMessageError(expected=message_type, actual=message)
             return message
 
         del M
@@ -419,9 +426,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             )
             message = fill_placeholders(message, self.game)
             if message_type is not None and not isinstance(message, message_type):
-                raise UnexpectedMessageError(
-                    f"Expected {message_type.__name__} as game message, got {message}"
-                )
+                raise UnexpectedMessageError(expected=message_type, actual=message)
             LOGGER.debug("Got game message: %s", message)
             return message
 
@@ -436,12 +441,22 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         async def _wait_for_game(self):
             """Wait for the server to create the game."""
             self._wait_for_game_task = asyncio.current_task()
-            self._wait_for_game_started.set()
-            LOGGER.info("Waiting for remote game")
-            self.game = await RemoteGameShadowCopy.from_connection(self)
-            self._deserializer = MessageDeserializer(
-                game=self.game, fill_placeholders=False
-            )
+            self._started_waiting_for_game.set()
+            try:
+                LOGGER.info("Waiting for remote game")
+                message = await self._wait_for_game_created_message()
+                LOGGER.info("Remote game created; creating local copy")
+                self.game = RemoteGameShadowCopy.from_message(self, message)
+                self._deserializer = MessageDeserializer(
+                    game=self.game, fill_placeholders=False
+                )
+            except:
+                self._started_waiting_for_game.clear()
+                raise
+
+        async def _wait_for_game_created_message(self) -> msg.GameCreated:
+            """Handle messages until the GameCreated message, and return that."""
+            return await self.expect_message(message_type=msg.GameCreated)
 
         # ------------------------------- Receive loop --------------------------------
 
@@ -456,9 +471,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                     LOGGER.debug("Received a message from the server: %s", message)
                     # noinspection PyTypeChecker
                     self._maybe_raise(message)
-                    asyncio.create_task(
-                        self._handle_message(message), name="handle_message"
-                    )
+                    await self._handle_message(message)
             except ConnectionResetError:
                 LOGGER.critical("Server forcefully closed the connection")
                 raise
@@ -478,7 +491,6 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         @_handle_message.register
         async def _handle_message(self, message: msg.ErrorMessage):
             LOGGER.error("Error message from server: %s", message)
-            self._maybe_raise(message)
 
         @_handle_message.register
         async def _handle_message(self, message: msg.GameMessage):
@@ -523,6 +535,31 @@ class LoveletterClient(metaclass=abc.ABCMeta):
 
 
 class HostClient(LoveletterClient):
+    def __init__(
+        self,
+        username: str,
+        player_joined_callback: Callable[[msg.PlayerJoined], Awaitable] = None,
+        player_left_callback: Callable[[msg.PlayerDisconnected], Awaitable] = None,
+    ):
+        """
+        :param username: Player username.
+        :param player_joined_callback: Called and awaited when a new player
+            joins the game (logs on to the server).
+        """
+        super().__init__(username)
+
+        if [player_joined_callback, player_left_callback].count(None) == 1:
+            raise ValueError(
+                "Should either specify none or both of"
+                " player_joined_callback and player_left_callback"
+            )
+
+        async def noop_callback(message):
+            pass
+
+        self.player_joined_callback = player_joined_callback or noop_callback
+        self.player_left_callback = player_left_callback or noop_callback
+
     @property
     def is_host(self) -> bool:
         return True
@@ -542,6 +579,25 @@ class HostClient(LoveletterClient):
         LOGGER.info("Sending shutdown message to server")
         await self._server_conn.send_message(msg.Shutdown())
         await self._connection_task  # wait for the connection to shut down
+
+    class _ServerConnectionManager(LoveletterClient._ServerConnectionManager):
+        async def _wait_for_game_created_message(self) -> msg.GameCreated:
+            # noinspection PyTypeChecker
+            client: HostClient = self.client
+            while True:
+                message = await self.expect_message()
+                if isinstance(message, msg.PlayerJoined):
+                    await client.player_joined_callback(message)
+                elif isinstance(message, msg.PlayerDisconnected):
+                    await client.player_left_callback(message)
+                elif isinstance(message, msg.GameCreated):
+                    break
+                else:
+                    raise UnexpectedMessageError(
+                        expected=msg.GameCreated, actual=message
+                    )
+
+            return message
 
 
 class GuestClient(LoveletterClient):

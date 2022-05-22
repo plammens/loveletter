@@ -254,7 +254,7 @@ class LoveletterPartyServer:
                 # attach before releasing the lock:
                 self._attach(session)
 
-            with session:
+            async with session:
                 try:
                     # where the actual session is managed; this suspends this
                     # coroutine until the session ends in some way
@@ -263,6 +263,7 @@ class LoveletterPartyServer:
                     LOGGER.critical(
                         "Unhandled exception in client handler", exc_info=exc
                     )
+                    # suppress exception so server keeps running
 
     async def _refuse_connection(
         self,
@@ -302,7 +303,7 @@ class LoveletterPartyServer:
             await self._refuse_connection(
                 writer, reason="Didn't receive the expected logon message"
             )
-            raise UnexpectedMessageError(message)
+            raise UnexpectedMessageError(expected=msg.Logon, actual=message)
 
         # check for duplicate username
         if not self.allow_duplicate_usernames and message.username in (
@@ -381,13 +382,20 @@ class LoveletterPartyServer:
         def __repr__(self):
             return f"<session manager for {self.client_info}>"
 
-        def __enter__(self):
-            if self not in self.server._client_sessions:
-                self.server._attach(self)
+        async def __aenter__(self):
+            async with self.server._sessions_lock:
+                if self not in self.server._client_sessions:
+                    self.server._attach(self)
+
+            await self.server._announce_new_player(self)
+
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.server._detach(self)
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            async with self.server._sessions_lock:
+                self.server._detach(self)
+
+            await self.server._announce_player_disconnected(self)
 
         # --------------------- "Public" methods (for the server) ---------------------
 
@@ -606,7 +614,9 @@ class LoveletterPartyServer:
                 self._game_message_queue
             )
             if not isinstance(message, msg.FulfilledChoiceMessage):
-                raise UnexpectedMessageError(f"Expected game input, got {message}")
+                raise UnexpectedMessageError(
+                    expected=msg.FulfilledChoiceMessage, actual=message
+                )
             return message
 
         async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:
@@ -635,6 +645,17 @@ class LoveletterPartyServer:
             )
 
     # ---------------------- Coroutines for managing each stage -----------------------
+
+    async def _announce_new_player(self, new_player: _ClientSessionManager):
+        await self.party_host_session.send_message(
+            msg.PlayerJoined(new_player.client_info.username)
+        )
+
+    async def _announce_player_disconnected(self, player: _ClientSessionManager):
+        if not self._ready_to_play.is_set():
+            await self.party_host_session.send_message(
+                msg.PlayerDisconnected(player.client_info.username)
+            )
 
     async def _start_game_when_ready(self):
         while True:

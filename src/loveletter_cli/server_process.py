@@ -21,9 +21,8 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
     Deals with the creation of the server process in the host session.
 
     When used as a context manager, entering the context starts the process
-    and exiting the context tries to join the process.
-    If joining times out, the subclass ensures that the process is killed in
-    some way before the main process exits (to avoid an orphaned server process).
+    and exiting the context tries to join the process, killing it if join
+    times out.
 
     - ``hosts``: Host IP/name to bind the server to, or a sequence of such items.
     - ``port``: Port number to bind the server to.
@@ -63,7 +62,17 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
                 "Waiting on server process to end after unhandled exception",
                 exc_info=(exc_type, exc_val, exc_tb),
             )
-        self.join(timeout=5)
+
+        try:
+            self.join(timeout=5)
+        except TimeoutError:
+            LOGGER.error(
+                "Timed out while waiting for server process to end;"
+                " killing the process"
+            )
+            self.kill()
+
+        LOGGER.info("Server process ended")
 
     @abc.abstractmethod
     def start(self):
@@ -72,7 +81,15 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def join(self, timeout: tp.Optional[float] = None):
-        """Wait for the process to finish, with the given timeout."""
+        """
+        Wait for the process to finish, with the given timeout.
+
+        :raises TimeoutError: if the process doesn't terminate within the given timeout.
+        """
+        pass
+
+    @abc.abstractmethod
+    def kill(self):
         pass
 
 
@@ -110,7 +127,15 @@ class NewConsoleServerProcess(ServerProcess):
         atexit.register(self._process.kill)
 
     def join(self, timeout: tp.Optional[float] = None):
-        self._process.wait(timeout)
+        try:
+            self._process.wait(timeout)
+        except subprocess.TimeoutExpired:
+            # convert to builtin TimeoutError
+            raise TimeoutError from None
+
+    def kill(self):
+        self._process.kill()
+        self._process.wait()
 
 
 class MultiprocessingServerProcess(ServerProcess):
@@ -144,3 +169,11 @@ class MultiprocessingServerProcess(ServerProcess):
 
     def join(self, timeout: tp.Optional[float] = None):
         self._process.join(timeout)
+        if self._process.exitcode is None:
+            raise TimeoutError
+        self._process.close()
+
+    def kill(self):
+        self._process.kill()
+        self._process.join()
+        self._process.close()

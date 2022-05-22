@@ -490,23 +490,12 @@ class HostCLISession(CommandLineSession):
             host_user=self.user,
             show_logs=self.show_server_logs,
         )
-        LOGGER.debug(f"Starting server process: %s", server_process)
-        server_process.start()
-        try:
+        with server_process:
             self.client = HostClient(self.user.username)
             connection_task = await self._connect_localhost()
             await watch_connection(
                 connection_task, main_task=self._manage_after_connection_established()
             )
-        finally:
-            if (exc_info := sys.exc_info()) == (None, None, None):
-                LOGGER.info("Waiting on server process to end")
-            else:
-                LOGGER.warning(
-                    "manage raised, waiting on server process to end", exc_info=exc_info
-                )
-            server_process.join(5)
-            LOGGER.debug("Server process ended")
 
     async def _manage_after_connection_established(self):
         game = await self._ready_to_play()

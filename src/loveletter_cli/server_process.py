@@ -1,4 +1,7 @@
 import abc
+import atexit
+import contextlib
+import dataclasses
 import logging
 import multiprocessing
 import subprocess
@@ -12,8 +15,23 @@ from loveletter_cli.utils import running_as_pyinstaller_executable
 LOGGER = logging.getLogger(__name__)
 
 
-class ServerProcess(metaclass=abc.ABCMeta):
-    """Deals with the creation of the server process in the host session."""
+@dataclasses.dataclass(eq=False)
+class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
+    """
+    Deals with the creation of the server process in the host session.
+
+    When used as a context manager, entering the context starts the process
+    and exiting the context tries to join the process.
+    If joining times out, the subclass ensures that the process is killed in
+    some way before the main process exits (to avoid an orphaned server process).
+
+    - ``hosts``: Host IP/name to bind the server to, or a sequence of such items.
+    - ``port``: Port number to bind the server to.
+    - ``host_user``: User info of the host player.
+    - ``show_logs``: Whether to show the server's logs. If True,
+        it will try to spawn a separate console window, and default to showing
+        the logs in the same console as the parent process otherwise.
+    """
 
     @staticmethod
     def new(*args, show_logs: bool = False, **kwargs) -> "ServerProcess":
@@ -29,36 +47,31 @@ class ServerProcess(metaclass=abc.ABCMeta):
         else:
             return MultiprocessingServerProcess(*args, **kwargs, show_logs=show_logs)
 
-    def __init__(
-        self,
-        hosts: tp.Tuple[str, ...],
-        port: int,
-        host_user: UserInfo,
-        show_logs: bool = False,
-    ):
+    hosts: tp.Tuple[str, ...]
+    port: int
+    host_user: UserInfo
+    show_logs: bool = False
 
-        """
-        Configure the server process.
+    def __enter__(self):
+        self.start()
 
-        :param hosts: Host IP/name to bind the server to, or a sequence of such items.
-        :param port: Port number to bind the server to.
-        :param host_user: Host user info.
-        :param show_logs: Whether to show the server's logs. If True,
-            it will try to spawn a separate console window, and default to showing
-            the logs in the same console as the parent process otherwise.
-        """
-        self.hosts = hosts
-        self.port = port
-        self.host_user = host_user
-        self.show_logs = show_logs
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            LOGGER.info("Waiting on server process to end")
+        else:
+            LOGGER.warning(
+                "Waiting on server process to end after unhandled exception",
+                exc_info=(exc_type, exc_val, exc_tb),
+            )
+        self.join(timeout=5)
 
     @abc.abstractmethod
     def start(self):
         """Start the process."""
-        pass
+        LOGGER.debug(f"Starting server process: %s", self)
 
     @abc.abstractmethod
-    def join(self, timeout: tp.Optional[int] = None):
+    def join(self, timeout: tp.Optional[float] = None):
         """Wait for the process to finish, with the given timeout."""
         pass
 
@@ -75,6 +88,8 @@ class NewConsoleServerProcess(ServerProcess):
         self._process: tp.Optional[subprocess.Popen] = None
 
     def start(self):
+        super().start()
+
         assert self.show_logs
 
         # fmt: off
@@ -90,7 +105,11 @@ class NewConsoleServerProcess(ServerProcess):
         )
         # fmt: on
 
-    def join(self, timeout: tp.Optional[int] = None):
+        # ensure process doesn't get orphaned (no daemon= option in Popen)
+        atexit.register(self._process.wait)  # reap zombie process
+        atexit.register(self._process.kill)
+
+    def join(self, timeout: tp.Optional[float] = None):
         self._process.wait(timeout)
 
 
@@ -120,7 +139,8 @@ class MultiprocessingServerProcess(ServerProcess):
         )
 
     def start(self):
+        super().start()
         self._process.start()
 
-    def join(self, timeout: tp.Optional[int] = None):
+    def join(self, timeout: tp.Optional[float] = None):
         self._process.join(timeout)

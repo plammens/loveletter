@@ -254,7 +254,7 @@ class LoveletterPartyServer:
                 # attach before releasing the lock:
                 self._attach(session)
 
-            with session:
+            async with session:
                 try:
                     # where the actual session is managed; this suspends this
                     # coroutine until the session ends in some way
@@ -263,6 +263,7 @@ class LoveletterPartyServer:
                     LOGGER.critical(
                         "Unhandled exception in client handler", exc_info=exc
                     )
+                    # suppress exception so server keeps running
 
     async def _refuse_connection(
         self,
@@ -381,13 +382,15 @@ class LoveletterPartyServer:
         def __repr__(self):
             return f"<session manager for {self.client_info}>"
 
-        def __enter__(self):
-            if self not in self.server._client_sessions:
-                self.server._attach(self)
+        async def __aenter__(self):
+            async with self.server._sessions_lock:
+                if self not in self.server._client_sessions:
+                    self.server._attach(self)
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.server._detach(self)
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            async with self.server._sessions_lock:
+                self.server._detach(self)
 
         # --------------------- "Public" methods (for the server) ---------------------
 

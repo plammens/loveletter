@@ -1,7 +1,11 @@
+import typing as tp
 from dataclasses import dataclass
-from typing import Optional, Type
 
 import valid8
+
+
+if tp.TYPE_CHECKING:
+    from loveletter_multiplayer.networkcomms import Message
 
 
 class LoveletterMultiplayerError(RuntimeError):
@@ -22,7 +26,7 @@ class InternalValidationError(LoveletterMultiplayerError, valid8.InputValidation
 
 @dataclass(frozen=True)
 class RemoteException(LoveletterMultiplayerError):
-    exc_type: Type[Exception]
+    exc_type: tp.Type[Exception]
     exc_message: str
 
     def __post_init__(self):
@@ -40,8 +44,13 @@ class ProtocolError(LoveletterMultiplayerError):
     pass
 
 
+@dataclass(frozen=True)
 class UnexpectedMessageError(ProtocolError):
-    pass
+    expected: tp.Type["Message"]
+    actual: "Message"
+
+    def __str__(self):
+        return f"Expected {self.expected.__name__}, got {self.actual}"
 
 
 class ConnectionClosedError(ProtocolError):

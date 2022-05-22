@@ -303,7 +303,7 @@ class LoveletterPartyServer:
             await self._refuse_connection(
                 writer, reason="Didn't receive the expected logon message"
             )
-            raise UnexpectedMessageError(message)
+            raise UnexpectedMessageError(expected=msg.Logon, actual=message)
 
         # check for duplicate username
         if not self.allow_duplicate_usernames and message.username in (
@@ -609,7 +609,9 @@ class LoveletterPartyServer:
                 self._game_message_queue
             )
             if not isinstance(message, msg.FulfilledChoiceMessage):
-                raise UnexpectedMessageError(f"Expected game input, got {message}")
+                raise UnexpectedMessageError(
+                    expected=msg.FulfilledChoiceMessage, actual=message
+                )
             return message
 
         async def _get_message_from_queue(self, queue: asyncio.Queue) -> Message:

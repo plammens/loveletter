@@ -293,7 +293,9 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                     raise LogonError(response.message)
                 else:
                     # not an OK but not an error message either
-                    raise UnexpectedMessageError(response)
+                    raise UnexpectedMessageError(
+                        expected=msg.OkMessage, actual=response
+                    )
             self._logged_on = True
             LOGGER.info(f"Logged on successfully to server: %s", self.server_info)
 
@@ -399,9 +401,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
                 )
             self._maybe_raise(message)
             if message_type is not None and not isinstance(message, message_type):
-                raise UnexpectedMessageError(
-                    f"Expected {message_type.__name__}, got {message}"
-                )
+                raise UnexpectedMessageError(expected=message_type, actual=message)
             return message
 
         del M
@@ -419,9 +419,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
             )
             message = fill_placeholders(message, self.game)
             if message_type is not None and not isinstance(message, message_type):
-                raise UnexpectedMessageError(
-                    f"Expected {message_type.__name__} as game message, got {message}"
-                )
+                raise UnexpectedMessageError(expected=message_type, actual=message)
             LOGGER.debug("Got game message: %s", message)
             return message
 

@@ -171,11 +171,11 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         # ------------------------------ Remote events -------------------------------
         @handle.register
         async def handle(e: RemoteEvent) -> None:
-            msg = f"{e.description}..."
+            message = f"{e.description}..."
             if isinstance(e.wrapped, mv.MoveStep):
                 name = e.wrapped.__class__.__name__
-                msg += f" ({camel_to_phrase(name)})"
-            print(msg)
+                message += f" ({camel_to_phrase(name)})"
+            print(message)
 
         # ----------------------------- Pre-move choices -----------------------------
         @handle.register
@@ -310,13 +310,13 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.PlayerEliminated) -> None:
             player = game.get_player(e.eliminated)
             is_client = player is game.client_player
-            msg = (
+            message = (
                 f"💀 {'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} been eliminated! 💀"
             )
             if not is_client:
-                msg += f" They had a {e.eliminated_card.name}."
-            print(msg)
+                message += f" They had a {e.eliminated_card.name}."
+            print(message)
 
         @handle.register
         async def handle(e: mv.ShowOpponentCard) -> None:

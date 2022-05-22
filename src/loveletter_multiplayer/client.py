@@ -376,7 +376,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         async def expect_message(
             self,
             timeout: Optional[float] = None,
-            message_type: Optional[M] = None,
+            message_type: Optional[Type[M]] = None,
             receiver: Optional[Awaitable[Message]] = None,
         ) -> M:
             """

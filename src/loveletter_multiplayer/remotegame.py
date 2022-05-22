@@ -54,12 +54,9 @@ class RemoteGameShadowCopy(loveletter.game.Game):
         return self.get_player(self.client_player_id)
 
     @classmethod
-    async def from_connection(cls, connection: Connection):
-        # noinspection PyTypeChecker
-        message: msg.GameCreated = await connection.expect_message(
-            message_type=msg.GameCreated
-        )
-        LOGGER.info("Remote game created; creating local copy")
+    def from_message(
+        cls, connection: Connection, message: msg.GameCreated
+    ) -> "RemoteGameShadowCopy":
         return RemoteGameShadowCopy(
             [p.username for p in message.players], connection, message.player_id
         )

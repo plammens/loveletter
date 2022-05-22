@@ -386,6 +386,9 @@ class LoveletterPartyServer:
             async with self.server._sessions_lock:
                 if self not in self.server._client_sessions:
                     self.server._attach(self)
+
+            await self.server._announce_new_player(self)
+
             return self
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -640,6 +643,11 @@ class LoveletterPartyServer:
             )
 
     # ---------------------- Coroutines for managing each stage -----------------------
+
+    async def _announce_new_player(self, new_player: _ClientSessionManager):
+        await self.party_host_session.send_message(
+            msg.PlayerJoined(new_player.client_info.username)
+        )
 
     async def _start_game_when_ready(self):
         while True:

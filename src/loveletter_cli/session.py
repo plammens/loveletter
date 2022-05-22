@@ -16,6 +16,7 @@ import loveletter.game
 import loveletter.gameevent as gev
 import loveletter.move as mv
 import loveletter.round as rnd
+import loveletter_multiplayer.networkcomms.message as msg
 from loveletter.cards import CardType
 from loveletter_cli.data import MoveChoice, UserInfo
 from loveletter_cli.exceptions import Restart
@@ -472,8 +473,12 @@ class HostCLISession(CommandLineSession):
         super().__init__(user)
         self.hosts = hosts
         self.port = port
-        self.client = HostClient(user.username)
+        self.client = HostClient(
+            user.username, player_joined_callback=self._player_joined
+        )
         self.show_server_logs = show_server_logs
+
+        self._host_has_joined_server: Optional[asyncio.Event] = None
 
     @property
     def server_addresses(self) -> Tuple[Address, ...]:
@@ -481,6 +486,8 @@ class HostCLISession(CommandLineSession):
 
     async def manage(self):
         await super().manage()
+        self._host_has_joined_server = asyncio.Event()
+
         print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
@@ -491,8 +498,9 @@ class HostCLISession(CommandLineSession):
             show_logs=self.show_server_logs,
         )
         with server_process:
-            self.client = HostClient(self.user.username)
+            print("Joining the server...", end=" ")  # see _player_joined()
             connection_task = await self._connect_localhost()
+            await self._host_has_joined_server.wait()
             await watch_connection(
                 connection_task, main_task=self._manage_after_connection_established()
             )
@@ -517,9 +525,10 @@ class HostCLISession(CommandLineSession):
             raise error
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
+        print("Waiting for other players to join the server.")
         game = None
         while game is None:
-            await ainput("Enter anything when ready to play... ")
+            await ainput("Enter anything when ready to play...\n")
             await self.client.ready()
             try:
                 game = await self.client.wait_for_game()
@@ -530,6 +539,14 @@ class HostCLISession(CommandLineSession):
                 print_exception(e)
 
         return game
+
+    async def _player_joined(self, message: msg.PlayerJoined):
+        if message.username == self.user.username:
+            print("Done.")  # see manage()
+            self._host_has_joined_server.set()
+        else:
+            await self._host_has_joined_server.wait()  # synchronize prints
+            print(f"{message.username} joined the server")
 
 
 class GuestCLISession(CommandLineSession):

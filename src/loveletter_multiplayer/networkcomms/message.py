@@ -16,7 +16,13 @@ class Message(EnumPostInitMixin, metaclass=abc.ABCMeta):
 
     @staticmethod
     def register(cls):
-        """Class decorator to register a concrete type of Message."""
+        """
+        Class decorator to register a concrete type of Message.
+
+        The order in which message classes are registered determines their ID.
+        Thus, if backwards compatibility is important, new message types
+        should be added after all the existing ones in this module.
+        """
         Message._types.append(cls)
         return cls
 
@@ -79,6 +85,14 @@ class ExceptionMessage(ErrorMessage):
 @dataclass(frozen=True)
 class ValidationErrorMessage(ExceptionMessage):
     help_message: str
+
+
+@Message.register
+@dataclass(frozen=True)
+class PlayerJoined(Message):
+    """Sent by the server to the party host to indicate a player has joined."""
+
+    username: str
 
 
 @Message.register

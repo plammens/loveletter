@@ -74,6 +74,12 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
 
         LOGGER.info("Server process ended")
 
+    @property
+    @abc.abstractmethod
+    def pid(self) -> tp.Optional[int]:
+        """The PID of the process if it's running, None otherwise."""
+        pass
+
     @abc.abstractmethod
     def start(self):
         """Start the process."""
@@ -90,7 +96,11 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def kill(self):
+        """Kill the running process, blocking until it dies."""
         pass
+
+    def _post_start(self):
+        LOGGER.debug(f"Started server process with PID %d", self.pid)
 
 
 class NewConsoleServerProcess(ServerProcess):
@@ -103,6 +113,10 @@ class NewConsoleServerProcess(ServerProcess):
         super().__init__(hosts, port, host_user, show_logs=True)
 
         self._process: tp.Optional[subprocess.Popen] = None
+
+    @property
+    def pid(self) -> tp.Optional[int]:
+        return self._process.pid if self._process is not None else None
 
     def start(self):
         super().start()
@@ -125,6 +139,8 @@ class NewConsoleServerProcess(ServerProcess):
         # ensure process doesn't get orphaned (no daemon= option in Popen)
         atexit.register(self._process.wait)  # reap zombie process
         atexit.register(self._process.kill)
+
+        self._post_start()
 
     def join(self, timeout: tp.Optional[float] = None):
         try:
@@ -163,9 +179,14 @@ class MultiprocessingServerProcess(ServerProcess):
             daemon=True,
         )
 
+    @property
+    def pid(self) -> tp.Optional[int]:
+        return self._process.pid
+
     def start(self):
         super().start()
         self._process.start()
+        self._post_start()
 
     def join(self, timeout: tp.Optional[float] = None):
         self._process.join(timeout)

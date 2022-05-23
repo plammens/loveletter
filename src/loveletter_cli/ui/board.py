@@ -56,21 +56,22 @@ def draw_game(
 
     def username(p) -> str:
         p = game.get_player(p)
-        name = f"{p.username} [{game.points[p]} tokens]" if p is you else p.username
+        points = game.points[p]
+        label = f" {p.username} [{points}t] "
         current = game_round.current_player
         state = game_round.state
         is_round_end = state.type == RoundState.Type.ROUND_END
 
         if is_round_end and p.round_player in state.winners:  # noqa
-            return f"🏆 {name} 🏆"
+            return f"🏆 {label} 🏆"
         elif current is not None and p.id == current.id:
-            return f">>> {name} <<<"
+            return f">>> {label} <<<"
         elif not p.alive:
-            return f"💀 {name} 💀"
+            return f"💀 {label} 💀"
         elif p.immune:
-            return f"🛡️ {name} 🛡️"
+            return f"🛡️ {label} 🛡️"
         else:
-            return name
+            return label
 
     def print_blank_line():
         print(" " * board_cols)

@@ -131,6 +131,7 @@ class NewConsoleServerProcess(ServerProcess):
                 str(self.port),
                 self.host_user.username,
                 "--logging", str(min(LOGGER.getEffectiveLevel(), logging.INFO)),
+                "--show-logs",
             ],
             creationflags=subprocess.CREATE_NEW_CONSOLE,
         )

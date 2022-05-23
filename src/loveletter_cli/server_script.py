@@ -8,7 +8,14 @@ from loveletter_multiplayer import LoveletterPartyServer
 from loveletter_multiplayer.logging import setup_logging
 
 
-def main(show_logs: bool, logging_level: int, **kwargs):
+def main(*, logging_level: int = logging.INFO, show_logs: bool = False, **kwargs):
+    """
+    Run the server script.
+
+    :param logging_level: Logging level.
+    :param show_logs: Whether to show logs to stderr instead of writing them to a file.
+    :param kwargs: Passed to :class:`LoveletterPartyServer` to configure the server.
+    """
     threading.current_thread().name = "ServerThread"
     setup_logging(
         logging_level,
@@ -24,8 +31,9 @@ def define_cli() -> argparse.ArgumentParser:
     parser.add_argument("port", type=int)
     parser.add_argument("party_host_username")
     parser.add_argument(
-        "--logging", type=int, default=logging.INFO, dest="logging_level"
+        "--logging", type=int, default=argparse.SUPPRESS, dest="logging_level"
     )
+    parser.add_argument("--show-logs", action="store_true")
     return parser
 
 

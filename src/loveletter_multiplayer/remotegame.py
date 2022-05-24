@@ -6,6 +6,7 @@ local copy of a remote object that is meant to be kept in sync with the remote
 object.
 """
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass
 from typing import Sequence, TYPE_CHECKING, Type
@@ -180,10 +181,8 @@ class RemoteGameShadowCopy(loveletter.game.Game):
                 break
 
             # commit the answer
-            try:
+            with contextlib.suppress(StopAsyncIteration):
                 await handle_gen.asend(None)
-            except StopAsyncIteration:
-                pass
 
         # Ideally: `return results`; but async generators don't support return values
         # yet, so we use a bare return and let the caller retrieve the results:

@@ -168,7 +168,6 @@ class RemoteGameShadowCopy(loveletter.game.Game):
             transformed = await handle_gen.asend(None)
             LOGGER.debug("Yielding to caller: %s", transformed)
             answer = yield transformed
-            asyncio.current_task().set_name(f"game<{self.connection.client.username}>")
             LOGGER.debug("Caller answered with %s", answer)
             answer = await handle_gen.asend(answer)
 

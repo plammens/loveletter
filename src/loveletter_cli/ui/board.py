@@ -97,7 +97,7 @@ def draw_game(
     deck_msg = (
         f"["
         f"deck: {len_stack}"
-        f" {pluralize('card', len_stack + num_set_aside)}"
+        f" {pluralize('card', len_stack)}"
         f"{f' (+ {num_set_aside} out of play)' if num_set_aside else ''}"
         f"]"
     )

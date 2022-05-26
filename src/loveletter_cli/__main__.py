@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import pathlib
 import socket
+import sys
 import time
 import traceback
 
@@ -19,6 +20,7 @@ from loveletter_cli.ui import ask_valid_input, print_exception, print_header
 from loveletter_cli.utils import (
     get_local_ip,
     get_public_ip,
+    running_as_pyinstaller_executable,
 )
 from loveletter_multiplayer import DEFAULT_PORT, MAX_PORT, valid8
 from loveletter_multiplayer.logging import setup_logging
@@ -33,6 +35,18 @@ class UnhandledExceptionOptions(enum.Enum):
     QUIT = enum.auto()
 
 
+def get_version() -> str:
+    if running_as_pyinstaller_executable():
+        # noinspection PyUnresolvedReferences
+        path = pathlib.Path(sys._MEIPASS).resolve() / "__version__.txt"
+        return path.read_text().strip()
+    else:
+        # should only run in development mode
+        import setuptools_scm
+
+        return setuptools_scm.get_version()
+
+
 def main(
     show_client_logs: bool, show_server_logs: bool, logging_level: int = logging.INFO
 ):
@@ -41,13 +55,15 @@ def main(
         file_path=(None if show_client_logs else pathlib.Path("./loveletter_cli.log")),
     )
 
+    version = get_version()
+
     runners = {
         PlayMode.JOIN: join_game,
         PlayMode.HOST: functools.partial(host_game, show_server_logs=show_server_logs),
     }
     while True:
         try:
-            print_header("Welcome to Love Letter (CLI)!", filler="~")
+            print_header(f"Welcome to Love Letter (CLI)! [v{version}]", filler="~")
 
             user = ask_user()
             print(f"Welcome, {user.username}!")

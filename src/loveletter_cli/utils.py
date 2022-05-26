@@ -38,4 +38,4 @@ def camel_to_phrase(name: str) -> str:
 
 def running_as_pyinstaller_executable() -> bool:
     """Determine whether the interpreter is running within a PyInstaller executable."""
-    return getattr(sys, "frozen", False)
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")

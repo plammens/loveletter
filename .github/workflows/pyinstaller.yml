@@ -62,9 +62,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt --source-dir=vendored
+      - name: Create version file
+        run: |
+          echo ${{ needs.create_release.outputs.version }} > __version__.txt
       - name: Run PyInstaller
         run: |
-          pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py
+          SEP=$(python -c "import os; print(os.pathsep)")
+          pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py --add-data __version__.txt$SEP.
           ARTIFACT_PATH=$(find dist -type f -name "loveletter_cli*")
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash

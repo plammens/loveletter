@@ -53,17 +53,9 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - name: Set up environment (Windows)
-        if: runner.os == 'Windows'
+      - name: Set up environment
         run: |
-          echo "ARTIFACT_PATH=dist/loveletter_cli.exe" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=loveletter-${{ runner.os }}.exe" >> $GITHUB_ENV
-        shell: bash
-      - name: Set up environment (non-Windows)
-        if: runner.os != 'Windows'
-        run: |
-          echo "ARTIFACT_PATH=dist/loveletter_cli" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=loveletter-v${{ needs.create_release.outputs.version }}-${{ runner.os }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=loveletter-v${{ needs.create_release.outputs.version }}-${{ runner.os }}.exe" >> $GITHUB_ENV
         shell: bash
       - name: Install dependencies
         run: |
@@ -73,6 +65,9 @@ jobs:
       - name: Run PyInstaller
         run: |
           pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py
+          ARTIFACT_PATH=$(find dist -type f -name "loveletter_cli*")
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
+        shell: bash
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v2
         with:

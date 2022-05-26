@@ -12,10 +12,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Extract Version
         id: extract_version
         run: |
-          echo "::set-output name=version::$(echo ${{ github.ref }} | sed 's/v//1')"
+          pip3 install setuptools_scm
+          VERSION=$(python3 -c "import setuptools_scm as scm; print(scm.get_version())")
+          echo "::set-output name=version::$VERSION"
         shell: bash
       - name: Create Release
         id: create_release
@@ -28,10 +33,6 @@ jobs:
           release_name: Version ${{ steps.extract_version.outputs.version }}
           draft: false
           prerelease: false
-      - name: Debug
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          echo ${{ steps.extract_version.outputs.version }}
 
     outputs:
       version: ${{ steps.extract_version.outputs.version }}

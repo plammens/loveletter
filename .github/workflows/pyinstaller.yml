@@ -34,6 +34,7 @@ jobs:
           echo ${{ steps.extract_version.outputs.version }}
 
     outputs:
+      version: ${{ steps.extract_version.outputs.version }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
 
   make_artifact:
@@ -61,7 +62,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "ARTIFACT_PATH=dist/loveletter_cli" >> $GITHUB_ENV
-          echo "ARTIFACT_NAME=loveletter-${{ runner.os }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=loveletter-v${{ needs.create_release.outputs.version }}-${{ runner.os }}" >> $GITHUB_ENV
         shell: bash
       - name: Install dependencies
         run: |

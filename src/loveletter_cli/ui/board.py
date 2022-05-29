@@ -2,7 +2,7 @@ import functools
 import itertools
 import math
 import textwrap
-from typing import Literal, Optional, Sequence, Union
+from typing import Literal, Optional, Sequence, Tuple, Union
 
 import more_itertools
 import numpy as np
@@ -50,8 +50,7 @@ def draw_game(
     def cards_discarded_string(p) -> str:
         p = game.get_player(p)
         return (
-            f"cards played/discarded: "
-            f"[{', '.join(f'({c.value})' for c in p.discarded_cards)}]"
+            f"discarded: " f"[{', '.join(f'({c.value})' for c in p.discarded_cards)}]"
         )
 
     def username(p) -> str:
@@ -79,8 +78,11 @@ def draw_game(
     print_blank_line()
     print_blank_line()
 
+    # number of extra rows of players (one to the left one to the right)
+    extra_player_rows = math.ceil((game_round.num_players - 2) / 2)
+
     # opposite opponent (at least one)
-    opposite = get_player(offset=min(2, game_round.num_players - 1))
+    opposite = get_player(offset=extra_player_rows + 1)
     sprites = (
         [card_sprite(c, size=other_card_size) for c in opposite.hand]
         if reveal
@@ -101,12 +103,13 @@ def draw_game(
         f"{f' (+ {num_set_aside} out of play)' if num_set_aside else ''}"
         f"]"
     )
-    if game_round.num_players >= 3:
-        # print left and maybe right opponent(s)
-        left_right_players = [get_player(1)]
-        if game_round.num_players == 4:
-            left_right_players.append(get_player(3))
-
+    if game_round.num_players <= 2:
+        assert extra_player_rows == 0
+        # print "economical" representation of deck to avoid increasing vertical length
+        print_blank_line()
+        print(format(deck_msg, center_fmt))
+        print_blank_line()
+    else:
         # canvases for center strip: main -> the card sprites, footer -> the labels
         # make dummy sprite to make sure we get the dimensions right
         sprite_sample = (
@@ -114,41 +117,67 @@ def draw_game(
             if reveal
             else card_back_sprite(orientation="sideways")
         )
-        # if reveal is True, the cards will be upright and joined horizontally,
-        # otherwise they will be sideways and joined vertically
-        rows = (1 if reveal else 2) * sprite_sample.shape[0]
-        center_main = empty_canvas(rows=rows, cols=board_cols)
-        center_footer = empty_canvas(rows=2, cols=board_cols)
 
-        for player, char, col, align in zip(left_right_players, r"\/", [2, -2], "<>"):
-            if reveal:
-                sprites = [card_sprite(c, size=other_card_size) for c in player.hand]
-                cards = horizontal_join(sprites)
-            else:
-                sideways_sprite = card_back_sprite(orientation="sideways", char=char)
-                sprites = [sideways_sprite] * len(player.hand)
-                cards = vertical_join(sprites)
+        # player in first row, on the left: the offset is ``player_rows``
+        # the player at the top is at offset ``player_rows + 1``
+        # the player next to that (first row, on the right) is at ``player_rows + 2``
+        # and so on
 
-            embed(center_main, cards, col=col, vcenter=True)
-            write_string(center_footer, username(player), row=0, align=align)
-            write_string(
-                center_footer, cards_discarded_string(player), row=1, align=align
-            )
+        row_blocks = []
+        for left_offset, right_offset in itertools.zip_longest(
+            range(extra_player_rows, 0, -1),
+            range(extra_player_rows + 2, game_round.num_players),
+        ):
+            left_right_players = [get_player(left_offset)]
+            if right_offset is not None:
+                left_right_players.append(get_player(right_offset))
 
-        # join the hands strip with their footers to form a single central strip
-        center_block = vertical_join([center_main, center_footer], sep_lines=1)
+            # if reveal is True, the cards will be upright and joined horizontally,
+            # otherwise they will be sideways and joined vertically
+            display_rows = (1 if reveal else 2) * sprite_sample.shape[0]
+            row_main = empty_canvas(rows=display_rows, cols=board_cols)
+            row_footer = empty_canvas(rows=2, cols=board_cols)
+
+            # draw the left and right players on this row
+            for player, char, col, align in zip(
+                left_right_players, r"\/", [2, -2], "<>"
+            ):
+                if reveal:
+                    sprites = [
+                        card_sprite(c, size=other_card_size) for c in player.hand
+                    ]
+                    cards = horizontal_join(sprites)
+                else:
+                    sideways_sprite = card_back_sprite(
+                        orientation="sideways", char=char
+                    )
+                    sprites = [sideways_sprite] * len(player.hand)
+                    cards = vertical_join(sprites)
+
+                embed(row_main, cards, col=col, vcenter=True)
+                write_string(row_footer, username(player), row=0, align=align)
+                write_string(
+                    row_footer, cards_discarded_string(player), row=1, align=align
+                )
+
+            # join the hands strip with their footers to form a single strip
+            row_block = vertical_join([row_main, row_footer], sep_lines=1)
+            row_blocks.append(row_block)
+
+        center_block = vertical_join(row_blocks, sep_lines=2)
 
         # make use of extra vertical space to make a deck sprite
-        embed(center_block, deck_sprite(game_round.deck), hcenter=True, vcenter=True)
-        write_string(center_block, deck_msg, row=-2, align="^")
+        row_slice, _ = embed(
+            center_block,
+            deck_sprite(game_round.deck),
+            hcenter=True,
+            row=-1,
+            vcenter=True,
+        )
+        write_string(center_block, deck_msg, row=row_slice.stop + 1, align="^")
 
         # print everything in this central strip:
         print_canvas(center_block)
-    else:
-        # print "economical" representation of deck to avoid increasing vertical length
-        print_blank_line()
-        print(format(deck_msg, center_fmt))
-        print_blank_line()
 
     print_blank_line()
 
@@ -210,7 +239,7 @@ def embed(
     col: int = 0,
     hcenter=False,
     vcenter=False,
-) -> None:
+) -> Tuple[slice, slice]:
     """
     Embed a sprite at the specified position within a larger canvas.
 
@@ -220,17 +249,21 @@ def embed(
     :param sprite: Rectangular character array to draw in the canvas.
     :param row: Row index of the top-left corner of the embedding.
     :param col: Column index of the top-left corner of the embedding.
-    :param hcenter: Whether to center horizontally; if so, `row` is ignored.
-    :param vcenter: Whether to center vertically; if so, `col` is ignored.
-    :return:
+    :param hcenter: Whether to center horizontally; if so, `row` is considered
+        as an offset from the center.
+    :param vcenter: Whether to center vertically; if so, `col` is considered
+        as an offset from the center.
+
+    :return: The bounding box of the drawn sprite as (high, low) row slice and
+        (left, right) column slice.
     """
     board_height, board_width = canvas.shape
     sprite_height, sprite_width = sprite.shape
 
     if hcenter:
-        col = round(board_width / 2 - sprite_width / 2)
+        col = round(board_width / 2 - sprite_width / 2) + col
     if vcenter:
-        row = round(board_height / 2 - sprite_height / 2)
+        row = round(board_height / 2 - sprite_height / 2) + row
 
     row_slice = (
         slice(row, row + sprite_height)
@@ -244,6 +277,8 @@ def embed(
     )
     idx = (row_slice, col_slice)
     canvas[idx] = sprite
+
+    return row_slice, col_slice
 
 
 def overlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:

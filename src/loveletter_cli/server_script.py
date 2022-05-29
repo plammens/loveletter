@@ -21,7 +21,7 @@ def main(*, logging_level: int = logging.INFO, show_logs: bool = False, **kwargs
         logging_level,
         file_path=(None if show_logs else pathlib.Path("./loveletter_cli-server.log")),
     )
-    server = LoveletterPartyServer(**kwargs, max_clients=4)
+    server = LoveletterPartyServer(**kwargs)
     asyncio.run(server.run_server())
 
 

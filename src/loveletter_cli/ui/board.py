@@ -168,14 +168,16 @@ def draw_game(
         center_block = vertical_join(row_blocks, sep_lines=2)
 
         # make use of extra vertical space to make a deck sprite
+        deck_layer = empty_canvas(*center_block.shape)
         row_slice, _ = embed(
-            center_block,
+            deck_layer,
             deck_sprite(game_round.deck),
             hcenter=True,
             row=-1,
             vcenter=True,
         )
-        write_string(center_block, deck_msg, row=row_slice.stop + 1, align="^")
+        write_string(deck_layer, deck_msg, row=row_slice.stop + 1, align="^")
+        center_block = underlay(base=center_block, layer=deck_layer)
 
         # print everything in this central strip:
         print_canvas(center_block)

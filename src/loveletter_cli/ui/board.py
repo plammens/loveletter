@@ -15,6 +15,7 @@ from loveletter_multiplayer import RemoteGameShadowCopy
 from .misc import pluralize, printable_width
 
 
+TRANSPARENT = "\0"  # character that indicates transparency
 COLS_PER_ROW_RATIO = 2.8  #: approximate terminal character aspect ratio
 CARD_ASPECT = 3 / 5  #: card aspect ratio
 DEFAULT_CARD_HEIGHT = DEFAULT_CARD_SIZE = 8  #: card size in row units
@@ -206,7 +207,8 @@ def empty_canvas(rows: Union[int, float], cols: Union[int, float]) -> np.ndarray
     Each dimension is rounded to the nearest integer number of rows/cols respectively.
     """
     rows, cols = map(round, (rows, cols))
-    return np.full((rows, cols), fill_value=" ", dtype="U1")
+    # the empty string represents transparency, while a space is solid background
+    return np.full((rows, cols), fill_value=TRANSPARENT, dtype="U1")
 
 
 def empty_canvas_adjusted(
@@ -285,13 +287,15 @@ def overlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
     """
     Overlay the contents of a layer on top of a base layer of the same dimensions.
 
-    Any blanks in the overlaid layer will allow to "see through" to the base layer;
-    i.e. blanks in the top layer will be replaced with whatever is below them in the
-    base layer. This is a pure function.
+    Any nulls (empty string, representing transparency) in the overlaid layer will allow
+    to "see through" to the base layer;
+    i.e. nulls in the top layer will be replaced with whatever is below them in the
+    base layer.
+    This is a pure function.
 
     :returns: The result of overlaying `layer` on top of `base`.
     """
-    return np.where(layer != " ", layer, base)
+    return np.where(layer != TRANSPARENT, layer, base)
 
 
 def underlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
@@ -304,7 +308,7 @@ def underlay(base: np.ndarray, layer: np.ndarray) -> np.ndarray:
 
     :returns: The result of underlaying `layer` below `base`.
     """
-    return np.where(base == " ", layer, base)
+    return np.where(base == TRANSPARENT, layer, base)
 
 
 def pad(sprite: np.ndarray, rows: Optional[int], cols: Optional[int]) -> np.ndarray:
@@ -477,7 +481,7 @@ def as_char_array(s: str) -> np.ndarray:
 
 def as_string(row: np.ndarray) -> str:
     """Convert a 1D character array into a string."""
-    return "".join(row)
+    return "".join(np.where(row == TRANSPARENT, " ", row))
 
 
 def write_string(
@@ -497,7 +501,7 @@ def write_string(
     :param margin: (Minimum) left and right margin to leave when embedding the string.
     """
     string_width = canvas.shape[1] - 2 * margin
-    chars = as_char_array(format(s, f"{align}{string_width}"))
+    chars = as_char_array(format(s, f"{TRANSPARENT}{align}{string_width}"))
     idx = (row, slice(margin, -margin))
     canvas[idx] = overlay(canvas[idx], chars)
 

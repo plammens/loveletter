@@ -35,6 +35,12 @@ class UnhandledExceptionOptions(enum.Enum):
     QUIT = enum.auto()
 
 
+class GameEndOptions(enum.Enum):
+    PLAY_AGAIN = enum.auto()
+    RESTART = enum.auto()
+    QUIT = enum.auto()
+
+
 def get_version() -> str:
     if running_as_pyinstaller_executable():
         # noinspection PyUnresolvedReferences
@@ -145,8 +151,12 @@ def host_game(user: UserInfo, show_server_logs: bool):
     print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
     port = ask_port_for_hosting()
 
-    session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
-    asyncio.run(session.manage())
+    play_again = True
+    while play_again:
+        session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
+        asyncio.run(session.manage())
+
+        play_again = ask_play_again()
 
 
 def ask_port_for_hosting() -> int:
@@ -169,8 +179,13 @@ def ask_port_for_hosting() -> int:
 def join_game(user: UserInfo):
     print_header("Joining game")
     address = ask_address_for_joining()
-    session = GuestCLISession(user, address)
-    asyncio.run(session.manage())
+
+    play_again = True
+    while play_again:
+        session = GuestCLISession(user, address)
+        asyncio.run(session.manage())
+
+        play_again = ask_play_again()
 
 
 def ask_address_for_joining() -> Address:
@@ -186,6 +201,27 @@ def ask_address_for_joining() -> Address:
         prompt='Enter the server\'s address: (format: "<host>:<port>")',
         parser=parser,
     )
+
+
+def ask_play_again() -> bool:
+    """
+    Ask whether to play again after a session has ended.
+
+    :return: Whether the user wants to play again.
+    :raises Restart: if the user wants to restart the CLI (main menu).
+    """
+    choice = ask_valid_input(
+        prompt="The game has ended, what would you like to do?",
+        choices=GameEndOptions,
+    )
+    if choice == GameEndOptions.PLAY_AGAIN:
+        return True
+    elif choice == GameEndOptions.RESTART:
+        raise Restart
+    elif choice == GameEndOptions.QUIT:
+        return False
+    else:
+        assert False, f"Unhandled choice: {choice!r}"
 
 
 def logging_level(level: str) -> int:

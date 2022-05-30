@@ -19,7 +19,7 @@ from loveletter_multiplayer import RemoteException
 
 
 def printable_width() -> int:
-    width, _ = shutil.get_terminal_size(fallback=(100, 0))
+    width, _ = shutil.get_terminal_size(fallback=(120, 0))
     width -= 2  # leave some margin for safety (avoid ugly wrapping)
     return width
 

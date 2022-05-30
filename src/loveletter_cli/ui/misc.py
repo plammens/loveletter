@@ -31,6 +31,11 @@ def print_header(text: str, filler: str = "-"):
     print(format(f" {text} ", f"{filler}^{width - 1}"), end="\n\n")
 
 
+@valid8.validate_arg("line", lambda s: "\n" not in s)
+def print_centered(line: str):
+    print(format(line, f"^{printable_width()}"))
+
+
 T = TypeVar("T")
 _DEFAULT = object()
 

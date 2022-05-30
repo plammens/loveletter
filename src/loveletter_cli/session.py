@@ -26,6 +26,7 @@ from loveletter_cli.ui import (
     draw_game,
     pause,
     pluralize,
+    print_centered,
     print_exception,
     print_header,
 )
@@ -448,14 +449,17 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         try:
             winner = end.winner
         except ValueError:
-            print("There were multiple winners!")
-            print(f"{', '.join(p.username for p in end.winners)} all won in a tie.")
+            print_centered("There were multiple winners!")
+            winner_message = (
+                f"{', '.join(p.username for p in end.winners)} all won in a tie."
+            )
         else:
             if winner is game.client_player:
-                print("You win!")
+                winner_message = "You win!"
             else:
-                print(f"{winner.username} wins!")
+                winner_message = f"{winner.username} wins!"
 
+        print_centered(f"🏆🏆🏆 {winner_message} 🏆🏆🏆")
         print()
 
 

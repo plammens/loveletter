@@ -456,6 +456,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             else:
                 print(f"{winner.username} wins!")
 
+        print()
+
 
 class HostCLISession(CommandLineSession):
 

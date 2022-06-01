@@ -16,34 +16,39 @@ on:
 jobs:
 
   test:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black pytest
-        pip install -r requirements.txt --source-dir=vendored  # avoid installation in src
-    - name: Setup environment
-      run: |
-        echo "PYTHONPATH=${PYTHONPATH}:src:tests" >> $GITHUB_ENV
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
-    - name: Check code formatting with Black
-      run: black --check src tests
-    - name: Test with pytest
-      run: |
-        pytest tests/
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black pytest
+          pip install -r requirements.txt --source-dir=vendored  # avoid installation in src
+
+      - name: Setup environment
+        run: |
+          echo "PYTHONPATH=${PYTHONPATH}:src:tests" >> $GITHUB_ENV
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 src --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+      - name: Check code formatting with Black
+        run: black --check src tests
+
+      - name: Test with pytest
+        run: |
+          pytest tests/
 
 
   get_version:
@@ -53,6 +58,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
       - name: Extract Version
         id: extract_version
         run: |
@@ -76,22 +82,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
+
       - name: Set up environment
         run: |
           echo "ARTIFACT_NAME=loveletter-v${{ needs.get_version.outputs.version }}-${{ runner.os }}" >> $GITHUB_ENV
         shell: bash
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt --source-dir=vendored
+
       - name: Create version file
         run: |
           echo ${{ needs.get_version.outputs.version }} > __version__.txt
+
       - name: Run PyInstaller
         run: |
           SEP=$(python -c "import os; print(os.pathsep)")
@@ -101,6 +112,7 @@ jobs:
           mv $ARTIFACT_PATH_ORIGINAL $ARTIFACT_PATH
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash
+
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v3
         with:

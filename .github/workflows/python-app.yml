@@ -113,6 +113,12 @@ jobs:
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash
 
+      - name: Test executable
+        # this is to check the executable starts without errors,
+        # mainly checking that all modules can be imported OK (to catch PyInstaller mistakes)
+        run: ./$ARTIFACT_PATH --version
+        shell: bash
+
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v3
         with:

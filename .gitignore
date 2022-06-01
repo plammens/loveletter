@@ -215,3 +215,4 @@ fabric.properties
 vendored/
 *.log
 *.log.*
+/__version__.txt

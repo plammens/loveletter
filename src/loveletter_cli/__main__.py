@@ -249,7 +249,15 @@ def logging_level(level: str) -> int:
 
 
 def define_cli() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="python -m loveletter_cli")
+    parser = argparse.ArgumentParser(
+        prog=(
+            sys.argv[0]
+            if running_as_pyinstaller_executable()
+            else f"python -m {__package__}"
+        ),
+        description="A command-line interface for playing Love Letter."
+        " Allows multi-player games over the internet.",
+    )
     parser.add_argument(
         "--client-logs",
         action="store_true",

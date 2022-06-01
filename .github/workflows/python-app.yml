@@ -6,36 +6,145 @@ name: Python application
 on:
   push:
     branches: [ master ]
+
   pull_request:
     branches: [ master ]
 
+  workflow_dispatch:
+
+
 jobs:
+
   test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black pytest
+          pip install -r requirements.txt --source-dir=vendored  # avoid installation in src
+
+      - name: Setup environment
+        run: |
+          echo "PYTHONPATH=${PYTHONPATH}:src:tests" >> $GITHUB_ENV
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 src --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+      - name: Check code formatting with Black
+        run: black --check src tests
+
+      - name: Test with pytest
+        run: |
+          pytest tests/
+
+
+  get_version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version
+        id: extract_version
+        run: |
+          pip3 install setuptools_scm
+          VERSION=$(python3 -c "import setuptools_scm as scm; print(scm.get_version())")
+          echo "::set-output name=version::$VERSION"
+        shell: bash
+
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
+
+
+  make_artifact:
+    needs: get_version
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Set up environment
+        run: |
+          echo "ARTIFACT_NAME=loveletter-v${{ needs.get_version.outputs.version }}-${{ runner.os }}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt --source-dir=vendored
+
+      - name: Create version file
+        run: |
+          echo ${{ needs.get_version.outputs.version }} > __version__.txt
+
+      - name: Run PyInstaller
+        run: |
+          SEP=$(python -c "import os; print(os.pathsep)")
+          pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py --add-data __version__.txt$SEP.
+          ARTIFACT_PATH_ORIGINAL=$(find dist -type f -name "loveletter_cli*")
+          ARTIFACT_PATH=${ARTIFACT_NAME}.exe
+          mv $ARTIFACT_PATH_ORIGINAL $ARTIFACT_PATH
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Test executable
+        # this is to check the executable starts without errors,
+        # mainly checking that all modules can be imported OK (to catch PyInstaller mistakes)
+        run: ./$ARTIFACT_PATH --version
+        shell: bash
+
+      - name: Upload artifact to workflow
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACT_PATH }}
+          if-no-files-found: error
+
+
+  create_release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}  # only create release for tags
+
+    needs:
+      - test
+      - get_version
+      - make_artifact
 
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black pytest
-        pip install -r requirements.txt --source-dir=vendored  # avoid installation in src
-    - name: Setup environment
-      run: |
-        echo "PYTHONPATH=${PYTHONPATH}:src:tests" >> $GITHUB_ENV
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 src --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
-    - name: Check code formatting with Black
-      run: black --check src tests
-    - name: Test with pytest
-      run: |
-        pytest tests/
+      - name: Donwload artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Version ${{ needs.get_version.outputs.version }}
+          files: artifacts/**

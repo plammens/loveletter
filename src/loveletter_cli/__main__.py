@@ -41,7 +41,13 @@ class GameEndOptions(enum.Enum):
     QUIT = enum.auto()
 
 
+def show_version():
+    """What runs when --version is passed."""
+    print(f"Loveletter CLI version {get_version()}")
+
+
 def get_version() -> str:
+    """Get the version of this project from the version file or from Git."""
     if running_as_pyinstaller_executable():
         # noinspection PyUnresolvedReferences
         path = pathlib.Path(sys._MEIPASS).resolve() / "__version__.txt"
@@ -267,9 +273,19 @@ def define_cli() -> argparse.ArgumentParser:
         dest="logging_level",
         help="Logging level (either a name or a numeric value). Default: WARNING",
     )
+    parser.add_argument(
+        "--version",
+        dest="show_version",
+        action="store_true",
+        help="Show the version and exit.",
+    )
     return parser
 
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-    main(**vars(define_cli().parse_args()))
+    args = vars(define_cli().parse_args())
+    if args.pop("show_version"):
+        show_version()
+    else:
+        main(**args)

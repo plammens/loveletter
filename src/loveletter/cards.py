@@ -109,7 +109,7 @@ class Card(metaclass=abc.ABCMeta):
 class Spy(Card):
     value = 0
     description = (
-        "At the end of the round, if you are the only player sill in the round who "
+        "At the end of the round, if you are the only player still in the round who "
         "played or discarded a Spy, gain 1 token of affection."
     )
     steps = ()
@@ -136,7 +136,7 @@ class Spy(Card):
 class Guard(Card):
     value = 1
     description = (
-        "Name a non-Guard card and choose another player. If that player has that that "
+        "Name a non-Guard card and choose another player. If that player has that "
         "card, he or she is out of the round."
     )
     steps = (move.OpponentChoice, move.CardGuess)

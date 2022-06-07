@@ -242,6 +242,10 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
         @handle.register
         async def handle(e: mv.ChooseOrderForDeckBottom):
+            if len(e.cards) == 0:
+                e.choice = ()
+                return e
+
             fmt = ", ".join(f"{i}: {CardType(c).name}" for i, c in enumerate(e.cards))
             print(f"Leftover cards: {fmt}")
             print(

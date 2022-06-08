@@ -109,7 +109,10 @@ jobs:
           SEP=$(python -c "import os; print(os.pathsep)")
           pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py --add-data __version__.txt$SEP.
           ARTIFACT_PATH_ORIGINAL=$(find dist -type f -name "loveletter_cli*")
-          ARTIFACT_PATH=${ARTIFACT_NAME}.exe
+          ARTIFACT_PATH=$(echo $ARTIFACT_NAME | sed 's/\./_/g')  # escape dots as underscores
+          if [[ ${{ runner.os }} == 'Windows' ]]; then
+            ARTIFACT_PATH=$ARTIFACT_PATH.exe
+          fi
           mv $ARTIFACT_PATH_ORIGINAL $ARTIFACT_PATH
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash

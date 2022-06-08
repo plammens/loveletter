@@ -120,6 +120,16 @@ jobs:
         run: ./$ARTIFACT_PATH --version
         shell: bash
 
+      - name: Put executable in a tarball
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          TAR_PATH=$ARTIFACT_PATH.tar
+          chmod +x $ARTIFACT_PATH
+          tar -cvf $TAR_PATH $ARTIFACT_PATH
+          ARTIFACT_PATH=$TAR_PATH
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
+        shell: bash
+
       - name: Upload artifact to workflow
         uses: actions/upload-artifact@v3
         with:
@@ -143,8 +153,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           path: artifacts
-
-      - run: chmod +x $(find artifacts -type f)
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

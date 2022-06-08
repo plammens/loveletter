@@ -20,13 +20,25 @@ def ask_valid_input(*args, **kwargs) -> _T:
     )
 
     while True:
-        choice = input(prompt).strip()
+        raw_input = input(prompt)
         try:
-            return parser(choice)
-        except valid8.ValidationError as exc:
-            print(error_message.format(choice=choice, error=exc.get_help_msg()))
-        except validation_errors as exc:
-            print(error_message.format(choice=choice, error=exc))
+            return _parse_input(raw_input, parser, error_message, validation_errors)
+        except (valid8.ValidationError, *validation_errors):
+            continue
+
+
+async def async_ask_valid_input(*args, **kwargs):
+    """Asynchronous version of :func:`ask_valid_input`."""
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        *args, **kwargs
+    )
+
+    while True:
+        raw_input = await ainput(prompt)
+        try:
+            return _parse_input(raw_input, parser, error_message, validation_errors)
+        except (valid8.ValidationError, *validation_errors):
+            continue
 
 
 def _ask_valid_input_parse_args(
@@ -116,6 +128,18 @@ def _ask_valid_input_parse_args(
     return error_message, parser, prompt, validation_errors
 
 
+def _parse_input(raw_input: str, parser, error_message, validation_errors) -> _T:
+    raw_input = raw_input.strip()
+    try:
+        return parser(raw_input)
+    except valid8.ValidationError as exc:
+        print(error_message.format(choice=raw_input, error=exc.get_help_msg()))
+        raise
+    except validation_errors as exc:
+        print(error_message.format(choice=raw_input, error=exc))
+        raise
+
+
 def _decorate_prompt(prompt: str) -> str:
     printable_width()
     text = f"? {prompt}"
@@ -131,20 +155,6 @@ Ask for user input until it satisfies a given validator.
 
 :returns: The user's choice, once it's valid.
 """
-
-
-async def async_ask_valid_input(*args, **kwargs):
-    """Asynchronous version of :func:`ask_valid_input`."""
-    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
-        *args, **kwargs
-    )
-
-    while True:
-        choice = (await ainput(prompt)).strip()
-        try:
-            return parser(choice)
-        except validation_errors as exc:
-            print(error_message.format(choice=choice, error=exc))
 
 
 async def pause() -> None:

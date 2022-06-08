@@ -9,7 +9,6 @@ from typing import Optional, Tuple
 
 import more_itertools as mitt
 import valid8
-from aioconsole import ainput, aprint
 from multimethod import multimethod
 
 import loveletter.game
@@ -22,6 +21,8 @@ from loveletter_cli.data import MoveChoice, UserInfo
 from loveletter_cli.exceptions import Restart
 from loveletter_cli.server_process import ServerProcess
 from loveletter_cli.ui import (
+    ainput,
+    aprint,
     async_ask_valid_input,
     draw_game,
     pause,

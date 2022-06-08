@@ -148,4 +148,8 @@ async def async_ask_valid_input(*args, **kwargs):
 
 
 async def pause() -> None:
+    # Using ainput() instead of regular input() sometimes causes trouble:
+    # the user has to enter twice before input is detected;
+    # but the asynchronous nature is needed to ensure other events are handled in time
+    # (e.g. when the connection is lost).
     await ainput("Enter something to continue... ")

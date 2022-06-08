@@ -144,6 +144,8 @@ jobs:
         with:
           path: artifacts
 
+      - run: chmod +x $(find artifacts -type f)
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

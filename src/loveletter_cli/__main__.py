@@ -10,13 +10,15 @@ import sys
 import time
 import traceback
 
+from aioconsole import aprint
+
 from loveletter_cli.data import HostVisibility, PlayMode, UserInfo
 from loveletter_cli.exceptions import Restart
 from loveletter_cli.session import (
     GuestCLISession,
     HostCLISession,
 )
-from loveletter_cli.ui import ask_valid_input, print_exception, print_header
+from loveletter_cli.ui import async_ask_valid_input, print_exception, print_header
 from loveletter_cli.utils import (
     get_local_ip,
     get_public_ip,
@@ -67,48 +69,55 @@ def main(
         file_path=(None if show_client_logs else pathlib.Path("./loveletter_cli.log")),
     )
 
-    version = get_version()
+    async def async_main():
+        version = get_version()
 
-    runners = {
-        PlayMode.JOIN: join_game,
-        PlayMode.HOST: functools.partial(host_game, show_server_logs=show_server_logs),
-    }
-    while True:
-        try:
-            print_header(f"Welcome to Love Letter (CLI)! [v{version}]", filler="~")
+        runners = {
+            PlayMode.JOIN: join_game,
+            PlayMode.HOST: functools.partial(
+                host_game, show_server_logs=show_server_logs
+            ),
+        }
+        while True:
+            try:
+                await print_header(
+                    f"Welcome to Love Letter (CLI)! [v{version}]", filler="~"
+                )
 
-            user = ask_user()
-            print(f"Welcome, {user.username}!")
+                user = await ask_user()
+                await aprint(f"Welcome, {user.username}!")
 
-            mode = ask_play_mode()
-            print()
-            return runners[mode](user)
-        except Restart:
-            LOGGER.info("Restarting CLI")
-            continue
-        except Exception as e:
-            LOGGER.error("Unhandled exception in CLI", exc_info=e)
-
-            traceback.print_exc()
-            time.sleep(0.2)
-            print("Unhandled exception:")
-            print_exception(e)
-            time.sleep(0.2)
-
-            choice = ask_valid_input(
-                "What would you like to do?",
-                choices=UnhandledExceptionOptions,
-                default=UnhandledExceptionOptions.RESTART,
-            )
-            if choice == UnhandledExceptionOptions.RESTART:
+                mode = await ask_play_mode()
+                await aprint()
+                return await runners[mode](user)
+            except Restart:
+                LOGGER.info("Restarting CLI")
                 continue
-            elif choice == UnhandledExceptionOptions.QUIT:
-                return
-            else:
-                assert False, f"Unhandled error option: {choice}"
+            except Exception as e:
+                LOGGER.error("Unhandled exception in CLI", exc_info=e)
+
+                traceback.print_exc()
+                time.sleep(0.2)
+                await aprint("Unhandled exception:")
+                await print_exception(e)
+                time.sleep(0.2)
+
+                choice = await async_ask_valid_input(
+                    "What would you like to do?",
+                    choices=UnhandledExceptionOptions,
+                    default=UnhandledExceptionOptions.RESTART,
+                )
+                if choice == UnhandledExceptionOptions.RESTART:
+                    continue
+                elif choice == UnhandledExceptionOptions.QUIT:
+                    return
+                else:
+                    assert False, f"Unhandled error option: {choice}"
+
+    asyncio.run(async_main())
 
 
-def ask_user():
+async def ask_user():
     def parser(x: str) -> str:
         x = x.strip()
         x = " ".join(x.split())  # normalize spaces to 1 space
@@ -122,15 +131,15 @@ def ask_user():
         )
         return x
 
-    username = ask_valid_input("Enter your username: ", parser=parser)
+    username = await async_ask_valid_input("Enter your username: ", parser=parser)
     user = UserInfo(username)
     return user
 
 
-def ask_play_mode() -> PlayMode:
+async def ask_play_mode() -> PlayMode:
     prompt = f"Would you like to host a game or join an existing one? "
     error_message = "Not a valid mode: {choice!r}"
-    return ask_valid_input(
+    return await async_ask_valid_input(
         prompt=prompt,
         choices=PlayMode,
         error_message=error_message,
@@ -138,9 +147,9 @@ def ask_play_mode() -> PlayMode:
     )
 
 
-def host_game(user: UserInfo, show_server_logs: bool):
-    print_header("Hosting a game")
-    mode = ask_valid_input(
+async def host_game(user: UserInfo, show_server_logs: bool):
+    await print_header("Hosting a game")
+    mode = await async_ask_valid_input(
         "Choose the server_addresses's visibility:",
         choices=HostVisibility,
         default=HostVisibility.PUBLIC,
@@ -154,25 +163,27 @@ def host_game(user: UserInfo, show_server_logs: bool):
             "127.0.0.1",
             str(addresses["local"]),
         )  # allow either localhost or local net.
-    print(f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}")
-    port = ask_port_for_hosting()
+    await aprint(
+        f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}"
+    )
+    port = await ask_port_for_hosting()
 
     play_again = True
     while play_again:
         session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
-        asyncio.run(session.manage())
+        await session.manage()
 
         play_again = ask_play_again()
 
 
-def ask_port_for_hosting() -> int:
+async def ask_port_for_hosting() -> int:
     def parser(s: str) -> int:
         port = int(s)
         if not (socket.IPPORT_USERRESERVED <= port <= MAX_PORT):
             raise ValueError(port)
         return port
 
-    return ask_valid_input(
+    return await async_ask_valid_input(
         prompt=(
             f"Choose a port number >= {socket.IPPORT_USERRESERVED}, <= {MAX_PORT}:"
         ),
@@ -182,19 +193,19 @@ def ask_port_for_hosting() -> int:
     )
 
 
-def join_game(user: UserInfo):
-    print_header("Joining game")
-    address = ask_address_for_joining()
+async def join_game(user: UserInfo):
+    await print_header("Joining game")
+    address = await ask_address_for_joining()
 
     play_again = True
     while play_again:
         session = GuestCLISession(user, address)
-        asyncio.run(session.manage())
+        await session.manage()
 
         play_again = ask_play_again()
 
 
-def ask_address_for_joining() -> Address:
+async def ask_address_for_joining() -> Address:
     def parser(s: str) -> Address:
         host, port = s.split(":")
         with valid8.validation("host", host, help_msg="Invalid host"):
@@ -203,20 +214,20 @@ def ask_address_for_joining() -> Address:
         valid8.validate("port", port, min_value=1, max_value=1 << 16, max_strict=True)
         return Address(host, port)
 
-    return ask_valid_input(
+    return await async_ask_valid_input(
         prompt='Enter the server\'s address: (format: "<host>:<port>")',
         parser=parser,
     )
 
 
-def ask_play_again() -> bool:
+async def ask_play_again() -> bool:
     """
     Ask whether to play again after a session has ended.
 
     :return: Whether the user wants to play again.
     :raises Restart: if the user wants to restart the CLI (main menu).
     """
-    choice = ask_valid_input(
+    choice = await async_ask_valid_input(
         prompt="The game has ended, what would you like to do?",
         choices=GameEndOptions,
     )

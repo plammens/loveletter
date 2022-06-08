@@ -124,7 +124,7 @@ jobs:
         shell: bash
 
       - name: Put executable in a tarball
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ runner.os == 'macOS' || runner.os == 'Linux' }}
         run: |
           TAR_PATH=$ARTIFACT_PATH.tar
           chmod +x $ARTIFACT_PATH

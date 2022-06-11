@@ -89,7 +89,7 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         help_msg="No active connection",
     )
 
-    async def connect(self, host, port) -> asyncio.Task:
+    async def connect(self, host, port, *, timeout: float = 5) -> asyncio.Task:
         """
         Try connecting to a server and logging on.
 
@@ -101,12 +101,19 @@ class LoveletterClient(metaclass=abc.ABCMeta):
         for example when the server closes the connection
         (see :meth:`LoveletterClient._ServerConnectionManager.manage`).
 
+        :param host: IP address of server.
+        :param port: Port on server to which to connect.
+        :param timeout: Timeout for the TCP connection attempt.
+
         :raises ConnectionError: if the connection fails at the socket level.
+        :raises asyncio.exceptions.TimeoutError: if the connection attempt times out.
         :raises LogonError: if logon fails.
 
         :return: The connection task described above.
         """
-        reader, writer = await asyncio.open_connection(host=host, port=port)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host=host, port=port), timeout=timeout
+        )
         try:
             address = writer.get_extra_info("peername")
             LOGGER.debug(f"Successfully connected to server address %s", address)

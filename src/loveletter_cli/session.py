@@ -602,32 +602,36 @@ class GuestCLISession(CommandLineSession):
             RESTART = enum.auto()
             QUIT = enum.auto()
 
-        connection = None
-        while connection is None:
+        while True:
             try:
                 connection = await self.client.connect(*self.server_address)
-            except (ConnectionError, LogonError) as e:
+                break
+            except asyncio.exceptions.TimeoutError:
+                await aprint("Connection attempt timed out.", end="\n\n")
+            except (OSError, LogonError) as e:
                 await aprint("Error while trying to connect to the server:")
                 await print_exception(e)
-                choice = await async_ask_valid_input(
-                    "What would you like to do? ("
-                    "RETRY: retry connecting to this server; "
-                    "RESTART: restart Love Letter CLI (go back to username selection); "
-                    "QUIT: quit Love Letter CLI"
-                    ")",
-                    choices=ConnectionErrorOptions,
-                    default=ConnectionErrorOptions.RETRY,
-                )
-                if choice == ConnectionErrorOptions.RETRY:
-                    continue
-                elif choice == ConnectionErrorOptions.RESTART:
-                    raise Restart from None
-                elif choice == ConnectionErrorOptions.QUIT:
-                    sys.exit(1)
-                else:
-                    assert False
+
+            choice = await async_ask_valid_input(
+                "What would you like to do? ("
+                "RETRY: retry connecting to this server; "
+                "RESTART: restart Love Letter CLI (go back to username selection); "
+                "QUIT: quit Love Letter CLI"
+                ")",
+                choices=ConnectionErrorOptions,
+                default=ConnectionErrorOptions.RETRY,
+            )
+            if choice == ConnectionErrorOptions.RETRY:
+                continue
+            elif choice == ConnectionErrorOptions.RESTART:
+                raise Restart from None
+            elif choice == ConnectionErrorOptions.QUIT:
+                sys.exit(1)
+            else:
+                assert False
 
         await aprint("Successfully connected to the server.")
+        # noinspection PyUnboundLocalVariable
         return connection
 
     async def _wait_for_game(self) -> RemoteGameShadowCopy:

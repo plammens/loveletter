@@ -598,7 +598,7 @@ class GuestCLISession(CommandLineSession):
         while connection is None:
             try:
                 connection = await self.client.connect(*self.server_address)
-            except (ConnectionError, LogonError) as e:
+            except (OSError, LogonError) as e:
                 print("Error while trying to connect to the server:")
                 print_exception(e)
                 choice = await async_ask_valid_input(

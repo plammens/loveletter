@@ -6,6 +6,7 @@ from typing import Literal, Optional, Sequence, Tuple, Union
 
 import more_itertools
 import numpy as np
+from aioconsole import aprint
 
 from loveletter.cardpile import Deck, STANDARD_DECK_COUNTS
 from loveletter.cards import Card, CardType, Guard
@@ -22,7 +23,7 @@ DEFAULT_CARD_HEIGHT = DEFAULT_CARD_SIZE = 8  #: card size in row units
 DEFAULT_CARD_WIDTH = DEFAULT_CARD_HEIGHT * CARD_ASPECT
 
 
-def draw_game(
+async def draw_game(
     game: RemoteGameShadowCopy,
     reveal: bool = False,
     player_card_size: int = 15,
@@ -73,11 +74,11 @@ def draw_game(
         else:
             return label
 
-    def print_blank_line():
-        print(" " * board_cols)
+    async def print_blank_line():
+        await aprint(" " * board_cols)
 
-    print_blank_line()
-    print_blank_line()
+    await print_blank_line()
+    await print_blank_line()
 
     # number of extra rows of players (one to the left one to the right)
     extra_player_rows = math.ceil((game_round.num_players - 2) / 2)
@@ -89,11 +90,11 @@ def draw_game(
         if reveal
         else [card_back_sprite(char="#")] * len(opposite.hand)
     )
-    print_canvas(horizontal_join(sprites), align="^", width=board_cols)
-    print_blank_line()
-    print(format(username(opposite), center_fmt))
-    print(format(cards_discarded_string(opposite), center_fmt))
-    print_blank_line()
+    await print_canvas(horizontal_join(sprites), align="^", width=board_cols)
+    await print_blank_line()
+    await aprint(format(username(opposite), center_fmt))
+    await aprint(format(cards_discarded_string(opposite), center_fmt))
+    await print_blank_line()
 
     len_stack = len(game.current_round.deck.stack)
     num_set_aside = int(game.current_round.deck.set_aside is not None)
@@ -107,9 +108,9 @@ def draw_game(
     if game_round.num_players <= 2:
         assert extra_player_rows == 0
         # print "economical" representation of deck to avoid increasing vertical length
-        print_blank_line()
-        print(format(deck_msg, center_fmt))
-        print_blank_line()
+        await print_blank_line()
+        await aprint(format(deck_msg, center_fmt))
+        await print_blank_line()
     else:
         # canvases for center strip: main -> the card sprites, footer -> the labels
         # make dummy sprite to make sure we get the dimensions right
@@ -180,19 +181,19 @@ def draw_game(
         center_block = underlay(base=center_block, layer=deck_layer)
 
         # print everything in this central strip:
-        print_canvas(center_block)
+        await print_canvas(center_block)
 
-    print_blank_line()
+    await print_blank_line()
 
     # this client's hand
     sprites = [card_sprite(c, size=player_card_size) for c in you.hand]
-    print_canvas(horizontal_join(sprites), align="^", width=board_cols)
-    print_blank_line()
-    print(format(username(you), center_fmt))
-    print(format(cards_discarded_string(you), center_fmt))
+    await print_canvas(horizontal_join(sprites), align="^", width=board_cols)
+    await print_blank_line()
+    await aprint(format(username(you), center_fmt))
+    await aprint(format(cards_discarded_string(you), center_fmt))
 
-    print_blank_line()
-    print_blank_line()
+    await print_blank_line()
+    await print_blank_line()
 
 
 # ---------------------------------- canvas creation ----------------------------------
@@ -511,7 +512,9 @@ def write_string(
 # ------------------------------------- utilities -------------------------------------
 
 
-def print_canvas(canvas: np.ndarray, align="", width: Optional[int] = None) -> None:
+async def print_canvas(
+    canvas: np.ndarray, align="", width: Optional[int] = None
+) -> None:
     """
     Print the given canvas to stdout.
 
@@ -525,4 +528,4 @@ def print_canvas(canvas: np.ndarray, align="", width: Optional[int] = None) -> N
         width = canvas.shape[1]
     fmt = f"{align}{width}"
     for row in canvas:
-        print(format(as_string(row), fmt))
+        await aprint(format(as_string(row), fmt))

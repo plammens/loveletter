@@ -1,9 +1,14 @@
+# main requirements
+multimethod~=1.4
+aioconsole~=0.3.1
+numpy~=1.19.0,<=1.19.3
+
+# development requirements
 pytest~=6.2.0
 valid8~=5.1.1
 more_itertools~=8.6.0
 git+https://github.com/plammens/python-pytest-cases.git@fork-master#egg=pytest_cases
-multimethod~=1.4
-aioconsole~=0.3.1
-numpy~=1.19.0,<=1.19.3
-pyinstaller
-setuptools_scm
+pyinstaller~=5.1
+setuptools_scm~=6.4.2
+black~=22.3.0
+flake8~=4.0.1

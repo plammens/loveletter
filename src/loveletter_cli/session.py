@@ -261,8 +261,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     "nums",
                     set(nums),
                     equals=set(idx_range),
-                    help_msg=f"Each number in {list(idx_range)} should appear exactly "
-                    f"once, and nothing else.",
+                    help_msg="Each number in {numbers} should appear exactly"
+                    " once, and nothing else.",
+                    numbers=set(idx_range),
                 )
                 return nums
 

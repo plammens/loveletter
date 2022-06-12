@@ -73,9 +73,11 @@ class GameInputRequest(GameEvent, metaclass=abc.ABCMeta):
             completed,
             custom=lambda o: o is self,
             help_msg=(
-                f"Did not receive the same GameInputRequest that was yielded: "
-                f"expected {self}, got {completed}"
+                "Did not receive the same GameInputRequest that was yielded: "
+                "expected {expected}, got {actual}"
             ),
+            expected=self,
+            actual=completed,
         )
         valid8.validate(
             "completed_step",

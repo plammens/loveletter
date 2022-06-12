@@ -45,8 +45,9 @@ class GameNode(metaclass=abc.ABCMeta):
     @valid8.validate_arg(
         "players",
         length_between(2, MAX_PLAYERS),
-        help_msg=f"Invalid number of players"
-        f" (should be at least 2 and at most {MAX_PLAYERS})",
+        help_msg="Invalid number of players"
+        " (should be at least 2 and at most {max_players})",
+        max_players=MAX_PLAYERS,
     )
     def __init__(self, players: Sequence[PlayerT]):
         """
@@ -95,9 +96,9 @@ class GameNode(metaclass=abc.ABCMeta):
             self.started,
             equals=False,
             help_msg=(
-                f"Can't start .play() once the {self.__class__.__name__} "
-                f"has already started"
+                "Can't start .play() once the {game_node_type} has already started"
             ),
+            game_node_type=self.__class__.__name__,
         )
 
         # noinspection PyArgumentList
@@ -136,7 +137,8 @@ class GameNode(metaclass=abc.ABCMeta):
             "started",
             self.started,
             equals=False,
-            help_msg=f"The {self.__class__.__name__} has already started",
+            help_msg="The {game_node_type} has already started",
+            game_node_type=self.__class__.__name__,
         )
 
     @abc.abstractmethod
@@ -150,13 +152,15 @@ class GameNode(metaclass=abc.ABCMeta):
             "started",
             self.started,
             equals=True,
-            help_msg=f"The {self.__class__.__name__} hasn't started yet",
+            help_msg="The {game_node_type} hasn't started yet",
+            game_node_type=self.__class__.__name__,
         )
         valid8.validate(
             "ended",
             self.ended,
             equals=False,
-            help_msg=f"The {self.__class__.__name__} has already ended",
+            help_msg="The {game_node_type} has already ended",
+            game_node_type=self.__class__.__name__,
         )
         self.state: IntermediateState
         intermediate_name = self.state.name
@@ -164,7 +168,8 @@ class GameNode(metaclass=abc.ABCMeta):
             intermediate_name,
             self.state,
             custom=lambda s: s.can_advance,
-            help_msg=f"Can't advance {intermediate_name} before previous one has ended",
+            help_msg="Can't advance {state_type} before previous one has ended",
+            state_type=intermediate_name,
         )
         return self.state
 

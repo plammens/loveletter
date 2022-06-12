@@ -195,7 +195,7 @@ class Round(GameNode):
             "player",
             player,
             is_in=self.players,
-            help_msg=f"Can't deal card to outside player",
+            help_msg="Can't deal card to outside player",
         )
         player.give(card := self.deck.take())
         return card
@@ -303,7 +303,8 @@ class Turn(RoundState, IntermediateState):
             "turn.stage",
             self.stage,
             equals=Turn.Stage.START,
-            help_msg=f"Can't start another move; turn is already {self.stage.name}",
+            help_msg="Can't start another move; turn is already {turn.stage.name}",
+            turn=self,
         )
         self._set_stage(Turn.Stage.IN_PROGRESS)
 

@@ -33,14 +33,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class UnhandledExceptionOptions(enum.Enum):
-    RESTART = enum.auto()
-    QUIT = enum.auto()
+    RESTART = "restart"
+    QUIT = "quit"
 
 
 class GameEndOptions(enum.Enum):
-    PLAY_AGAIN = enum.auto()
-    RESTART = enum.auto()
-    QUIT = enum.auto()
+    PLAY_AGAIN = "play_again"
+    RESTART = "restart"
+    QUIT = "quit"
 
 
 def show_version():

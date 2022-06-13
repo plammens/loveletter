@@ -124,7 +124,7 @@ class Game(GameNode):
 
     def start(self):
         super().start()
-        first_round = Round(self.num_players)
+        first_round = self._create_round()
         self.state = state = PlayingRound(
             round=first_round, round_no=1, first_player=None
         )
@@ -140,7 +140,7 @@ class Game(GameNode):
         if self._reached_end():
             return self._finalize()
 
-        new_round = Round(self.num_players)
+        new_round = self._create_round()
         new_round_no = self.state.round_no + 1
         # the game should always be finished by this number of rounds
         assert new_round_no <= self.num_players * (self.points_threshold - 1) + 1
@@ -188,6 +188,10 @@ class Game(GameNode):
     @classmethod
     def _make_init_state(cls):
         return InitGameState()
+
+    def _create_round(self) -> Round:
+        """Subclasses can override this to customise round creation."""
+        return Round(self.num_players)
 
     def _reached_end(self) -> bool:
         """Whether this game has reached to an end."""

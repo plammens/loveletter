@@ -323,7 +323,8 @@ class Countess(Card):
             "card",
             card_type,
             custom=lambda t: t not in disallowed,
-            help_msg=f"Can't play a {card_type.name.title()} with a Countess in hand",
+            help_msg="Can't play a {card_type} with a Countess in hand",
+            card_type=card_type.name.title(),
         )
 
 

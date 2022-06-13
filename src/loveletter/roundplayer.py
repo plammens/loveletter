@@ -129,7 +129,8 @@ class RoundPlayer:
             "turn",
             turn.current_player,
             custom=lambda p: p is self,
-            help_msg=f"It's not {self}'s turn",
+            help_msg="It's not {player}'s turn",
+            player=self,
         )
         valid8.validate(
             "card",

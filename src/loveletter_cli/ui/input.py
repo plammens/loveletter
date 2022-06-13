@@ -36,7 +36,7 @@ def _ask_valid_input_parse_args(
     default: _T = _DEFAULT,
     choices: enum.EnumMeta = None,
     error_message: str = "Not valid: {choice!r} ({error})",
-    validation_errors: Tuple[Type[Exception]] = (ValueError,),
+    validation_errors: Tuple[Type[Exception]] = (valid8.ValidationError, ValueError),
 ):
     """
     :param prompt: Prompt string to use with input().
@@ -120,11 +120,17 @@ async def _parse_input(raw_input: str, parser, error_message, validation_errors)
     raw_input = raw_input.strip()
     try:
         return parser(raw_input)
-    except valid8.ValidationError as exc:
-        await aprint(error_message.format(choice=raw_input, error=exc.get_help_msg()))
-        raise
     except validation_errors as exc:
-        await aprint(error_message.format(choice=raw_input, error=exc))
+        if isinstance(exc, valid8.ValidationError):
+            try:
+                error_text = exc.get_help_msg()
+            except valid8.base.HelpMsgFormattingException:
+                # failsafe in case of a help message formatting error (avoid crashing)
+                error_text = exc
+        else:
+            error_text = exc
+
+        await aprint(error_message.format(choice=raw_input, error=error_text))
         raise
 
 

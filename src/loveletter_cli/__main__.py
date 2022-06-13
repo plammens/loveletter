@@ -173,7 +173,7 @@ async def host_game(user: UserInfo, show_server_logs: bool):
         session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
         await session.manage()
 
-        play_again = ask_play_again()
+        play_again = await ask_play_again()
 
 
 async def ask_port_for_hosting() -> int:
@@ -202,7 +202,7 @@ async def join_game(user: UserInfo):
         session = GuestCLISession(user, address)
         await session.manage()
 
-        play_again = ask_play_again()
+        play_again = await ask_play_again()
 
 
 async def ask_address_for_joining() -> Address:

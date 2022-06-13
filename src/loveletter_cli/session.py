@@ -599,9 +599,9 @@ class GuestCLISession(CommandLineSession):
 
     async def _connect_to_server(self) -> asyncio.Task:
         class ConnectionErrorOptions(enum.Enum):
-            RETRY = enum.auto()
-            RESTART = enum.auto()
-            QUIT = enum.auto()
+            RETRY = "retry"
+            RESTART = "restart"
+            QUIT = "quit"
 
         while True:
             try:

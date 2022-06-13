@@ -8,13 +8,13 @@ class UserInfo:
 
 
 class PlayMode(enum.Enum):
-    HOST = enum.auto()  #: host a game
-    JOIN = enum.auto()  #: join an existing game
+    HOST = "host"  #: host a game
+    JOIN = "join"  #: join an existing game
 
 
 class HostVisibility(enum.Enum):
-    LOCAL = enum.auto()  #: local network only
-    PUBLIC = enum.auto()  #: visible from the internet
+    LOCAL = "local"  #: local network only
+    PUBLIC = "public"  #: visible from the internet
 
 
 class MoveChoice(enum.Enum):

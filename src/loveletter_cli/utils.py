@@ -4,6 +4,7 @@ import sys
 from functools import lru_cache
 
 import more_itertools as mitt
+import netifaces
 
 
 @lru_cache
@@ -19,7 +20,25 @@ def get_public_ip() -> ipaddress.IPv4Address:
 
 
 def get_local_ip() -> ipaddress.IPv4Address:
-    return ipaddress.ip_address(socket.gethostbyname(socket.getfqdn()))
+    return ipaddress.ip_address(_get_local_ip())
+
+
+def _get_local_ip() -> str:
+    try:
+        default_gateway_ip = netifaces.gateways()["default"][netifaces.AF_INET][0]
+    except KeyError:
+        return "127.0.0.1"
+
+    # get the IP by simulating connecting to the default gateway
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        s.connect((default_gateway_ip, 1))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 
 def is_valid_ipv4(ip: str) -> bool:

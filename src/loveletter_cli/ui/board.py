@@ -2,6 +2,7 @@ import functools
 import itertools
 import math
 import textwrap
+import unicodedata
 from typing import Literal, Optional, Sequence, Tuple, Union
 
 import more_itertools
@@ -16,7 +17,10 @@ from loveletter_multiplayer import RemoteGameShadowCopy
 from .misc import pluralize, printable_width
 
 
-TRANSPARENT = "\0"  # character that indicates transparency
+# Can't be empty because we use format() in write_string() to align strings, and we
+# need a non-empty filler character for that.
+# Here we're using an unused codepoint from the end of the basic multilingual plane.
+TRANSPARENT = "\uFFFF"  #: character that indicates transparency
 COLS_PER_ROW_RATIO = 2.8  #: approximate terminal character aspect ratio
 CARD_ASPECT = 3 / 5  #: card aspect ratio
 DEFAULT_CARD_HEIGHT = DEFAULT_CARD_SIZE = 8  #: card size in row units
@@ -512,6 +516,36 @@ def write_string(
 # ------------------------------------- utilities -------------------------------------
 
 
+def adjust_wide_characters(string: str) -> str:
+    """
+    Consider wide characters as taking up two regular monospaced characters.
+
+    This is done by skipping (deleting) the character following a wide character
+    (the fat character is taking the space of the next character too).
+
+    Mainly intended for emoji.
+
+    :param string: The string potentially containing wide characters.
+    :return: An adjusted string that should be roughly the same visual width
+        (when printed) than any ASCII string with the same number of characters
+        as the original string.
+    """
+    characters = []
+
+    skip_next = False
+    for character in string:
+        if skip_next:
+            skip_next = False
+            continue
+
+        if unicodedata.east_asian_width(character) in ("W", "F"):
+            skip_next = True
+
+        characters.append(character)
+
+    return "".join(characters)
+
+
 async def print_canvas(
     canvas: np.ndarray, align="", width: Optional[int] = None
 ) -> None:
@@ -528,4 +562,4 @@ async def print_canvas(
         width = canvas.shape[1]
     fmt = f"{align}{width}"
     for row in canvas:
-        await aprint(format(as_string(row), fmt))
+        await aprint(format(adjust_wide_characters(as_string(row)), fmt))

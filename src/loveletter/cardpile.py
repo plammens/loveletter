@@ -26,6 +26,9 @@ STANDARD_DECK_COUNTS: Counter[CardType] = collections.Counter(
     }
 )
 
+# noinspection PyTypeChecker
+_T = TypeVar("_T", bound="CardPile")
+
 
 class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     """
@@ -39,13 +42,17 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     def __init__(self, cards: Sequence[Card]):
         self.stack: List[Card] = list(cards)
 
-    # noinspection PyTypeChecker
-    _T = TypeVar("_T", bound="CardPile")
-
     @classmethod
-    def from_counts(cls: Type[_T], counts: Counter[CardType] = None) -> _T:
-        if counts is None:
-            counts = STANDARD_DECK_COUNTS
+    def from_counts(cls: Type[_T], counts: Counter[CardType]) -> _T:
+        """
+        Create a new card pile with the given number of copies of each card.
+
+        The cards are shuffled (the order is random).
+
+        :param counts: A counter indicating the number of copies for each type of card
+            that the card pile should have.
+        :return: The new card pile.
+        """
         cards = list(
             itt.chain.from_iterable(
                 mitt.repeatfunc(card_type.card_class, count)
@@ -58,8 +65,6 @@ class CardPile(collections.abc.Collection, metaclass=abc.ABCMeta):
     @classmethod
     def from_cards(cls: Type[_T], cards) -> _T:
         return cls(cards)
-
-    del _T
 
     def __len__(self) -> int:
         return len(self.stack)
@@ -101,6 +106,13 @@ class Deck(CardPile):
     def __init__(self, cards: Sequence[Card], set_aside: Optional[Card]):
         super().__init__(cards)
         self.set_aside: Optional[Card] = set_aside
+
+    # noinspection PyDefaultArgument
+    @classmethod
+    def from_counts(
+        cls: Type[_T], counts: Counter[CardType] = STANDARD_DECK_COUNTS
+    ) -> _T:
+        return super().from_counts(counts)
 
     @classmethod
     def from_cards(cls, cards):
@@ -150,3 +162,6 @@ class DiscardPile(CardPile):
 
     def place(self, card: Card) -> None:
         super(DiscardPile, self).place(card)
+
+
+del _T

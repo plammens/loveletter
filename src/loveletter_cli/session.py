@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 
 import more_itertools as mitt
 import valid8
-from aioconsole import ainput
+from aioconsole import ainput, aprint
 from multimethod import multimethod
 
 import loveletter.game
@@ -72,7 +72,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                         game_input = await handle(event)
                         event = await generator.asend(game_input)
                     except valid8.ValidationError as exc:
-                        print(exc)
+                        await aprint(exc)
             except StopAsyncIteration:
                 break
 
@@ -87,7 +87,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         # ----------------------------- Game node stages -----------------------------
         @handle.register
         async def handle(e: loveletter.game.PlayingRound) -> None:
-            print_header(f"ROUND {e.round_no}", filler="#")
+            await print_header(f"ROUND {e.round_no}", filler="#")
 
         @handle.register
         async def handle(e: rnd.Turn) -> None:
@@ -97,18 +97,18 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             is_client = player is game.client_player
 
             possessive = "Your" if is_client else f"{player.username}'s"
-            print_header(f"{possessive} turn", filler="—")
-            draw_game(game)
+            await print_header(f"{possessive} turn", filler="—")
+            await draw_game(game)
             if is_client:
-                print(">>>>> It's your turn! <<<<<")
+                await aprint(">>>>> It's your turn! <<<<<")
             else:
-                print(f"It's {player.username}'s turn.")
+                await aprint(f"It's {player.username}'s turn.")
 
         @handle.register
         async def handle(e: rnd.PlayingCard) -> None:
             player, card = game.get_player(e.player), e.card
             is_client = player is game.client_player
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} chosen to play a {card.name}."
             )
@@ -118,14 +118,14 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             get_username = lambda p: game.get_player(p).username  # noqa
 
             await pause()  # give a chance to see what's happened before the round end
-            print_header("Round end", filler="—")
-            draw_game(game, reveal=True)
+            await print_header("Round end", filler="—")
+            await draw_game(game, reveal=True)
 
-            print(">>>>> The round has ended! <<<<<")
+            await aprint(">>>>> The round has ended! <<<<<")
             if e.reason == rnd.RoundEnd.Reason.EMPTY_DECK:
-                print("There are no cards remaining in the deck.")
+                await aprint("There are no cards remaining in the deck.")
                 if len(e.tie_contenders) == 1:
-                    print(
+                    await aprint(
                         f"{get_username(e.winner)} wins with a {e.winner.hand.card}, "
                         f"which is the highest card among those remaining."
                     )
@@ -137,8 +137,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                         if len(contenders) == 2
                         else f"Each of {', '.join(contenders[:-1])} and {contenders[-1]}"
                     )
-                    print(f"{contenders_str} have the highest card: a {card}.")
-                    print(
+                    await aprint(f"{contenders_str} have the highest card: a {card}.")
+                    await aprint(
                         f"But {get_username(e.winner)} has a higher sum of discarded"
                         f" values, so they win."
                         if len(e.winners) == 1
@@ -147,7 +147,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                         f" in a tie."
                     )
             elif e.reason == rnd.RoundEnd.Reason.ONE_PLAYER_STANDING:
-                print(
+                await aprint(
                     f"{get_username(e.winner)} is the only player still alive, "
                     f"so they win the round."
                 )
@@ -155,18 +155,18 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         @handle.register
         async def handle(e: loveletter.game.PointsUpdate) -> None:
             # print updates from last round
-            print("Points gained:")
+            await aprint("Points gained:")
             for player, delta in (+e.points_update).items():
-                print(f"    {player.username}: {delta:+}")
-            print()
-            print("Leaderboard:")
+                await aprint(f"    {player.username}: {delta:+}")
+            await aprint()
+            await aprint("Leaderboard:")
             width = max(map(len, (p.username for p in game.players))) + 2
             for i, (player, points) in enumerate(game.points.most_common(), start=1):
-                print(
+                await aprint(
                     f"\t{i}. {player.username:{width}}"
                     f"\t{points} {pluralize('token', points)} of affection"
                 )
-            print()
+            await aprint()
             await pause()  # before going on to next round
 
         # ------------------------------ Remote events -------------------------------
@@ -176,7 +176,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             if isinstance(e.wrapped, mv.MoveStep):
                 name = e.wrapped.__class__.__name__
                 message += f" ({camel_to_phrase(name)})"
-            print(message)
+            await aprint(message)
 
         # ----------------------------- Pre-move choices -----------------------------
         @handle.register
@@ -230,7 +230,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             names = [CardType(c).name.title() for c in e.options]
             options_members = {CardType(c).name: c for c in e.options}
 
-            print(
+            await aprint(
                 f"You draw {num_drawn} {pluralize('card', num_drawn)}; "
                 f"you now have these cards in your hand: {', '.join(names)}"
             )
@@ -247,8 +247,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 return e
 
             fmt = ", ".join(f"{i}: {CardType(c).name}" for i, c in enumerate(e.cards))
-            print(f"Leftover cards: {fmt}")
-            print(
+            await aprint(f"Leftover cards: {fmt}")
+            await aprint(
                 "You can choose which order to place these cards at the bottom of the "
                 "deck. Use the numbers shown above to refer to each of the cards."
             )
@@ -261,8 +261,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                     "nums",
                     set(nums),
                     equals=set(idx_range),
-                    help_msg=f"Each number in {set(idx_range)} should appear exactly "
-                    f"once, and nothing else.",
+                    help_msg="Each number in {numbers} should appear exactly"
+                    " once, and nothing else.",
+                    numbers=set(idx_range),
                 )
                 return nums
 
@@ -285,7 +286,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             is_client = player is game.client_player
             target_is_client = opponent is game.client_player
             possessive = "your" if target_is_client else f"{opponent.username}'s"
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} correctly guessed "
                 f"{possessive} {e.guess.name.title()}!"
             )
@@ -294,18 +295,18 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.WrongCardGuess) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
             if player is game.client_player:
-                print(
+                await aprint(
                     f"You played a Guard against {opponent.username} and guessed a "
                     f"{e.guess.name.title()}, but {opponent.username} doesn't have "
                     f"that card."
                 )
             elif opponent is game.client_player:
-                print(
+                await aprint(
                     f"{player.username} played a Guard against you and guessed a "
                     f"{e.guess.name.title()}, but you don't have that card."
                 )
             else:
-                print(
+                await aprint(
                     f"{player.username} played a Guard against {opponent.username} "
                     f"and guessed a {e.guess.name.title()}, but {opponent.username} "
                     f"doesn't have that card."
@@ -321,38 +322,40 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             )
             if not is_client:
                 message += f" They had a {e.eliminated_card.name}."
-            print(message)
+            await aprint(message)
 
         @handle.register
         async def handle(e: mv.ShowOpponentCard) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
             if player is game.client_player:
-                print(
+                await aprint(
                     f"{opponent.username} shows their card to you, "
                     f"revealing a {e.card_shown.name}."
                 )
             elif opponent is game.client_player:
-                print(f"You show your {e.card_shown.name} to {player.username}.")
+                await aprint(f"You show your {e.card_shown.name} to {player.username}.")
             else:
-                print(f"{opponent.username} shows their card to {player.username}.")
+                await aprint(
+                    f"{opponent.username} shows their card to {player.username}."
+                )
 
         @handle.register
         async def handle(e: mv.CardComparison) -> None:
             player, opponent = map(game.get_player, (e.player, e.opponent))
             if player is game.client_player:
-                print(
+                await aprint(
                     f"You and {opponent.username} compare your cards: "
                     f"you have a {e.player_card.name}, "
                     f"they have a {e.opponent_card.name}."
                 )
             elif opponent is game.client_player:
-                print(
+                await aprint(
                     f"{player.username} compares their hand with yours: "
                     f"they have a {e.player_card.name}, "
                     f"you have a {e.opponent_card.name}."
                 )
             else:
-                print(
+                await aprint(
                     f"{player.username} and {opponent.username} "
                     f"compare their cards in secret."
                 )
@@ -361,7 +364,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.CardDiscarded) -> None:
             player = game.get_player(e.target)
             is_client = player is game.client_player
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} "
                 f"discard{'s' if not is_client else ''} a {e.discarded.name}."
             )
@@ -370,26 +373,26 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.CardDealt) -> None:
             player = game.get_player(e.target)
             is_client = player is game.client_player
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} "
                 f"{'are' if is_client else 'is'} dealt another card from the deck."
             )
             if is_client:
-                print(f"You get a {e.card_dealt.name}.")
+                await aprint(f"You get a {e.card_dealt.name}.")
 
         @handle.register
         async def handle(e: mv.CardChosen) -> None:
             player = game.get_player(e.player)
             if player is game.client_player:
-                print(f"You have chosen to keep the {e.choice.name}.")
+                await aprint(f"You have chosen to keep the {e.choice.name}.")
             else:
-                print(f"{player.username} has chosen a card to keep.")
+                await aprint(f"{player.username} has chosen a card to keep.")
 
         @handle.register
         async def handle(e: mv.CardsPlacedBottomOfDeck) -> None:
             player = game.get_player(e.player)
             is_client = player is game.client_player
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} placed back the other "
                 f"{len(e.cards)} {pluralize('card', len(e.cards))} "
@@ -400,7 +403,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
         async def handle(e: mv.ImmunityGranted) -> None:
             player = game.get_player(e.player)
             is_client = player is game.client_player
-            print(
+            await aprint(
                 f"{'You' if is_client else player.username} "
                 f"{'have' if is_client else 'has'} been granted immunity."
             )
@@ -410,11 +413,15 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             king_player, target = map(game.get_player, (e.player, e.opponent))
             if game.client_player in (king_player, target):
                 opponent = target if game.client_player is king_player else king_player
-                print(f"You and {opponent.username} swap your cards.")
-                print(f"You give a {opponent.round_player.hand.card.name}.")
-                print(f"You get a {game.client_player.round_player.hand.card.name}.")
+                await aprint(f"You and {opponent.username} swap your cards.")
+                await aprint(f"You give a {opponent.round_player.hand.card.name}.")
+                await aprint(
+                    f"You get a {game.client_player.round_player.hand.card.name}."
+                )
             else:
-                print(f"{king_player.username} and {target.username} swap their cards.")
+                await aprint(
+                    f"{king_player.username} and {target.username} swap their cards."
+                )
 
         # --------------------------------- Helpers ----------------------------------
         async def _player_choice(
@@ -434,7 +441,9 @@ class CommandLineSession(metaclass=abc.ABCMeta):
                 choice = await async_ask_valid_input(prompt, choices=choices)
                 return choice.value
             else:
-                print("There are no valid targets, playing this card has no effect.")
+                await aprint(
+                    "There are no valid targets, playing this card has no effect."
+                )
                 # TODO: allow cancel
                 return mv.OpponentChoice.NO_TARGET
 
@@ -448,12 +457,12 @@ class CommandLineSession(metaclass=abc.ABCMeta):
     @staticmethod
     async def _show_game_end(game: RemoteGameShadowCopy):
         assert game.ended
-        print_header("GAME OVER", filler="#")
+        await print_header("GAME OVER", filler="#")
         end: loveletter.game.GameEnd = game.state  # noqa
         try:
             winner = end.winner
         except ValueError:
-            print_centered("There were multiple winners!")
+            await print_centered("There were multiple winners!")
             winner_message = (
                 f"{', '.join(p.username for p in end.winners)} all won in a tie."
             )
@@ -463,8 +472,8 @@ class CommandLineSession(metaclass=abc.ABCMeta):
             else:
                 winner_message = f"{winner.username} wins!"
 
-        print_centered(f"🏆🏆🏆 {winner_message} 🏆🏆🏆")
-        print()
+        await print_centered(f"🏆🏆🏆 {winner_message} 🏆🏆🏆")
+        await aprint()
 
 
 class HostCLISession(CommandLineSession):
@@ -500,22 +509,26 @@ class HostCLISession(CommandLineSession):
         await super().manage()
         self._host_has_joined_server = asyncio.Event()
 
-        print_header(
+        await print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
-        server_process = ServerProcess.new(
-            hosts=self.hosts,
-            port=self.port,
-            host_user=self.user,
-            show_logs=self.show_server_logs,
-        )
+        server_process = self._configure_server_process()
         with server_process:
-            print("Joining the server...", end=" ")  # see _player_joined()
+            await aprint("Joining the server...", end=" ")  # see _player_joined()
             connection_task = await self._connect_localhost()
             await self._host_has_joined_server.wait()
             await watch_connection(
                 connection_task, main_task=self._manage_after_connection_established()
             )
+
+    def _configure_server_process(self) -> ServerProcess:
+        """Subclasses can override this to customise the server process."""
+        return ServerProcess.new(
+            hosts=self.hosts,
+            port=self.port,
+            host_user=self.user,
+            show_logs=self.show_server_logs,
+        )
 
     async def _manage_after_connection_established(self):
         game = await self._ready_to_play()
@@ -537,7 +550,7 @@ class HostCLISession(CommandLineSession):
             raise error
 
     async def _ready_to_play(self) -> RemoteGameShadowCopy:
-        print("Waiting for other players to join the server.")
+        await aprint("Waiting for other players to join the server.")
         game = None
         while game is None:
             await ainput("Enter anything when ready to play...\n")
@@ -545,24 +558,24 @@ class HostCLISession(CommandLineSession):
             try:
                 game = await self.client.wait_for_game()
             except RemoteValidationError as e:
-                print(e.help_message, end="\n\n")
+                await aprint(e.help_message, end="\n\n")
             except RemoteException as e:
-                print("Error in server while creating game:")
-                print_exception(e)
+                await aprint("Error in server while creating game:")
+                await print_exception(e)
 
         return game
 
     async def _player_joined(self, message: msg.PlayerJoined):
         if message.username == self.user.username:
-            print("Done.")  # see manage()
+            await aprint("Done.")  # see manage()
             self._host_has_joined_server.set()
         else:
             await self._host_has_joined_server.wait()  # synchronize prints
-            print(f"{message.username} joined the server")
+            await aprint(f"{message.username} joined the server")
 
     @staticmethod
     async def _player_left(message: msg.PlayerDisconnected):
-        print(f"{message.username} left the server")
+        await aprint(f"{message.username} left the server")
 
 
 class GuestCLISession(CommandLineSession):
@@ -578,7 +591,7 @@ class GuestCLISession(CommandLineSession):
     async def manage(self):
         await super().manage()
         address = self.server_address
-        print_header(f"Joining game @ {address.host}:{address.port}")
+        await print_header(f"Joining game @ {address.host}:{address.port}")
         connection_task = await self._connect_to_server()
         await watch_connection(
             connection_task, main_task=self._manage_after_connection_established()
@@ -590,38 +603,42 @@ class GuestCLISession(CommandLineSession):
 
     async def _connect_to_server(self) -> asyncio.Task:
         class ConnectionErrorOptions(enum.Enum):
-            RETRY = enum.auto()
-            RESTART = enum.auto()
-            QUIT = enum.auto()
+            RETRY = "retry"
+            RESTART = "restart"
+            QUIT = "quit"
 
-        connection = None
-        while connection is None:
+        while True:
             try:
                 connection = await self.client.connect(*self.server_address)
-            except (ConnectionError, LogonError) as e:
-                print("Error while trying to connect to the server:")
-                print_exception(e)
-                choice = await async_ask_valid_input(
-                    "What would you like to do? ("
-                    "RETRY: retry connecting to this server; "
-                    "RESTART: restart Love Letter CLI (go back to username selection); "
-                    "QUIT: quit Love Letter CLI"
-                    ")",
-                    choices=ConnectionErrorOptions,
-                    default=ConnectionErrorOptions.RETRY,
-                )
-                if choice == ConnectionErrorOptions.RETRY:
-                    continue
-                elif choice == ConnectionErrorOptions.RESTART:
-                    raise Restart from None
-                elif choice == ConnectionErrorOptions.QUIT:
-                    sys.exit(1)
-                else:
-                    assert False
+                break
+            except asyncio.exceptions.TimeoutError:
+                await aprint("Connection attempt timed out.", end="\n\n")
+            except (OSError, LogonError) as e:
+                await aprint("Error while trying to connect to the server:")
+                await print_exception(e)
 
-        print("Successfully connected to the server.")
+            choice = await async_ask_valid_input(
+                "What would you like to do? ("
+                "RETRY: retry connecting to this server; "
+                "RESTART: restart Love Letter CLI (go back to username selection); "
+                "QUIT: quit Love Letter CLI"
+                ")",
+                choices=ConnectionErrorOptions,
+                default=ConnectionErrorOptions.RETRY,
+            )
+            if choice == ConnectionErrorOptions.RETRY:
+                continue
+            elif choice == ConnectionErrorOptions.RESTART:
+                raise Restart from None
+            elif choice == ConnectionErrorOptions.QUIT:
+                sys.exit(1)
+            else:
+                assert False
+
+        await aprint("Successfully connected to the server.")
+        # noinspection PyUnboundLocalVariable
         return connection
 
     async def _wait_for_game(self) -> RemoteGameShadowCopy:
-        print("Waiting for the host to start the game...")
+        await aprint("Waiting for the host to start the game...")
         return await self.client.wait_for_game()

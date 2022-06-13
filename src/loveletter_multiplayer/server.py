@@ -669,7 +669,7 @@ class LoveletterPartyServer:
                         session.client_info.username
                         for session in self._client_sessions
                     ]
-                self.game = self._deserializer.game = loveletter.game.Game(usernames)
+                self.game = self._deserializer.game = self._create_game(usernames)
                 break
             except Exception as e:
                 LOGGER.warning("Exception while trying to create game", exc_info=e)
@@ -688,6 +688,10 @@ class LoveletterPartyServer:
         )
         await asyncio.gather(*tasks)
         asyncio.create_task(self._play_game(), name="play_game")
+
+    def _create_game(self, usernames: List[str]) -> loveletter.game.Game:
+        """Subclasses can override this to customise game creation."""
+        return loveletter.game.Game(usernames)
 
     async def _play_game(self):
         """This coroutine manages the central (server's) copy of the game."""

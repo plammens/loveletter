@@ -29,8 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install flake8 black pytest
           pip install -r requirements.txt --source-dir=vendored  # avoid installation in src
 
       - name: Setup environment
@@ -96,8 +94,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
           pip install -r requirements.txt --source-dir=vendored
 
       - name: Create version file
@@ -109,7 +105,10 @@ jobs:
           SEP=$(python -c "import os; print(os.pathsep)")
           pyinstaller --onefile -p src -n loveletter_cli src/loveletter_cli/__main__.py --add-data __version__.txt$SEP.
           ARTIFACT_PATH_ORIGINAL=$(find dist -type f -name "loveletter_cli*")
-          ARTIFACT_PATH=${ARTIFACT_NAME}.exe
+          ARTIFACT_PATH=$(echo $ARTIFACT_NAME | sed 's/\./_/g')  # escape dots as underscores
+          if [[ ${{ runner.os }} == 'Windows' ]]; then
+            ARTIFACT_PATH=$ARTIFACT_PATH.exe
+          fi
           mv $ARTIFACT_PATH_ORIGINAL $ARTIFACT_PATH
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash
@@ -118,6 +117,16 @@ jobs:
         # this is to check the executable starts without errors,
         # mainly checking that all modules can be imported OK (to catch PyInstaller mistakes)
         run: ./$ARTIFACT_PATH --version
+        shell: bash
+
+      - name: Put executable in a tarball
+        if: ${{ runner.os == 'macOS' || runner.os == 'Linux' }}
+        run: |
+          TAR_PATH=$ARTIFACT_PATH.tar
+          chmod +x $ARTIFACT_PATH
+          tar -cvf $TAR_PATH $ARTIFACT_PATH
+          ARTIFACT_PATH=$TAR_PATH
+          echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
         shell: bash
 
       - name: Upload artifact to workflow

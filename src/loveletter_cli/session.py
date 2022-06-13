@@ -512,12 +512,7 @@ class HostCLISession(CommandLineSession):
         await print_header(
             f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
         )
-        server_process = ServerProcess.new(
-            hosts=self.hosts,
-            port=self.port,
-            host_user=self.user,
-            show_logs=self.show_server_logs,
-        )
+        server_process = self._configure_server_process()
         with server_process:
             await aprint("Joining the server...", end=" ")  # see _player_joined()
             connection_task = await self._connect_localhost()
@@ -525,6 +520,15 @@ class HostCLISession(CommandLineSession):
             await watch_connection(
                 connection_task, main_task=self._manage_after_connection_established()
             )
+
+    def _configure_server_process(self) -> ServerProcess:
+        """Subclasses can override this to customise the server process."""
+        return ServerProcess.new(
+            hosts=self.hosts,
+            port=self.port,
+            host_user=self.user,
+            show_logs=self.show_server_logs,
+        )
 
     async def _manage_after_connection_established(self):
         game = await self._ready_to_play()

@@ -1,7 +1,7 @@
 # main requirements
 multimethod~=1.4
 aioconsole~=0.4.1
-numpy~=1.19.0,<=1.19.3
+numpy~=1.23.0
 netifaces~=0.11.0
 
 # development requirements

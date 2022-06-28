@@ -35,6 +35,7 @@ from loveletter_multiplayer.utils import (
     close_stream_at_exit,
     format_exception,
     import_from_qualname,
+    watch_task,
 )
 
 
@@ -62,9 +63,11 @@ class LoveletterPartyServer:
         self,
         host,
         port,
+        *,
         party_host_username: str,
         max_clients: int = loveletter.game.Game.MAX_PLAYERS,
         allow_duplicate_usernames: bool = False,
+        host_join_timeout: Optional[float] = None,
     ):
         """
         Initialize a new server instance.
@@ -76,12 +79,15 @@ class LoveletterPartyServer:
         :param max_clients: Maximum number of clients allowed to log onto the server.
         :param allow_duplicate_usernames: Whether clients are allowed to connect if
             their username is already taken by another client connected to the server.
+        :param host_join_timeout: How long to wait for the host to join when the server
+            starts up, in seconds. ``None`` indicates no timeout.
         """
         self.host = host[0] if not isinstance(host, str) and len(host) == 1 else host
         self.port = port
 
         self.max_clients = max_clients
         self.allow_duplicate_usernames = allow_duplicate_usernames
+        self.host_join_timeout = host_join_timeout
 
         self._client_sessions: List[LoveletterPartyServer._ClientSessionManager] = []
         self._party_host_username = party_host_username
@@ -121,6 +127,7 @@ class LoveletterPartyServer:
         LOGGER.debug(f"Created socket server bound to {self.host}:{self.port}")
         self._sessions_lock = asyncio.Lock()
         self._ready_to_play = asyncio.Event()
+        self._host_joined = asyncio.Event()
 
     # ------------------------- Properties and public methods -------------------------
 
@@ -175,18 +182,20 @@ class LoveletterPartyServer:
         Starts the connection server and lasts until the server shuts down.
 
         Can only be called once per instance.
+
+        :raises asyncio.TimeoutError: if waiting for the host to join times out.
         """
         if self._connection_server_task is not None:
             raise RuntimeError("run_server can only be called once")
         self._connection_server_task = asyncio.current_task()
         await self._init_async()
         async with self._server:
-            asyncio.create_task(
+            game_task = asyncio.create_task(
                 self._start_game_when_ready(), name="start_game_when_ready"
             )
             try:
                 LOGGER.info("Starting socket server")
-                await self._server.serve_forever()
+                await watch_task(game_task, main_task=self._server.serve_forever())
             except asyncio.CancelledError:
                 pass  # exiting gracefully
             finally:
@@ -346,9 +355,14 @@ class LoveletterPartyServer:
         address = session.client_info.address
         if address in (s.client_info.address for s in self._client_sessions):
             raise RuntimeError("There is already a session for %s", address)
+
         object.__setattr__(session.client_info, "id", len(self._client_sessions))
         self._client_sessions.append(session)
         session._attached = True
+
+        if session.client_info.is_host:
+            self._host_joined.set()
+
         return session
 
     def _detach(self, session: "LoveletterPartyServer._ClientSessionManager"):
@@ -676,6 +690,16 @@ class LoveletterPartyServer:
             )
 
     async def _start_game_when_ready(self):
+        # Wait for the host to join, with a timeout (to avoid an orphan server process).
+        try:
+            await asyncio.wait_for(
+                self._host_joined.wait(),
+                timeout=self.host_join_timeout,
+            )
+        except asyncio.TimeoutError:
+            LOGGER.error("Timed out while waiting for host to join")
+            raise
+
         while True:
             try:
                 await self._ready_to_play.wait()

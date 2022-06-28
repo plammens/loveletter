@@ -232,11 +232,13 @@ class LoveletterPartyServer:
             async with self._sessions_lock:
                 # Note: if we refuse the connection now, there is no need to wait for
                 # the logon message since we would have rejected in any case.
+
                 if self.num_connected_clients >= self.max_clients:
                     return await self._refuse_connection(
                         writer,
                         reason=f"Maximum capacity ({self.max_clients} players) reached",
                     )
+
                 if self._ready_to_play.is_set():
                     return await self._refuse_connection(
                         writer,
@@ -246,9 +248,10 @@ class LoveletterPartyServer:
                 LOGGER.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
-                except (LogonError, ProtocolError, asyncio.TimeoutError):
-                    # already handled by _receive_logon
+                except (LogonError, ProtocolError, asyncio.TimeoutError) as e:
+                    await self._refuse_connection(writer, reason=str(e))
                     return
+
                 # noinspection PyArgumentList
                 session = self._ClientSessionManager(client_info, reader, writer)
                 # attach before releasing the lock:
@@ -278,6 +281,20 @@ class LoveletterPartyServer:
         writer.write_eof()
 
     async def _receive_logon(self, reader, writer) -> "ClientInfo":
+        """
+        Receive the logon info from the given peer and validate it.
+
+        If the logon succeeds, this also sends an OK reply to the peer that sent it.
+
+        :param reader: StreamReader corresponding to the new connection.
+        :param writer: StreamWriter corresponding to the new connection.
+
+        :return: The client info of the newly connected player if logon was successful.
+        :raises asyncio.TimeoutError: If the logon message doesn't arrive after a while.
+        :raises ProtocolError: If the peer doesn't abide by the logon protocol.
+        :raises LogonError: If the logon is invalid for some logical reason
+            (e.g. duplicate username).
+        """
         address = Address(*writer.get_extra_info("peername"))
 
         try:
@@ -300,18 +317,12 @@ class LoveletterPartyServer:
                 address,
                 message,
             )
-            await self._refuse_connection(
-                writer, reason="Didn't receive the expected logon message"
-            )
             raise UnexpectedMessageError(expected=msg.Logon, actual=message)
 
         # check for duplicate username
         if not self.allow_duplicate_usernames and message.username in (
             c.client_info.username for c in self._client_sessions
         ):
-            await self._refuse_connection(
-                writer, reason=f"The username {message.username!r} is already in use"
-            )
             raise LogonError(f"Username already in use: {message.username!r}")
 
         client_info = ClientInfo(
@@ -324,9 +335,6 @@ class LoveletterPartyServer:
         else:
             # Check that the host is present when guests arrive.
             if self.party_host is None:
-                await self._refuse_connection(
-                    writer, reason=f"This server's host hasn't connected yet."
-                )
                 raise LogonError("This server's host hasn't connected yet.")
 
         await self._reply_ok(writer)

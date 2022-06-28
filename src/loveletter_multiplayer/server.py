@@ -409,6 +409,7 @@ class LoveletterPartyServer:
             return f"<session manager for {self.client_info}>"
 
         async def __aenter__(self):
+            """Attach this session to the server."""
             async with self.server._sessions_lock:
                 if self not in self.server._client_sessions:
                     self.server._attach(self)
@@ -418,6 +419,10 @@ class LoveletterPartyServer:
             return self
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
+            """Detach this session from the server, make sure the socket is closed."""
+            self.writer.close()
+            await self.writer.wait_closed()
+
             async with self.server._sessions_lock:
                 self.server._detach(self)
 

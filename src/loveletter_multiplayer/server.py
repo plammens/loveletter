@@ -456,9 +456,9 @@ class LoveletterPartyServer:
                     )
                     continue
 
-        async def close(self):
+        async def end(self):
             """
-            Gracefully close this session.
+            Gracefully end this session.
 
             This involves:
               - Closing the underlying socket, writing EOF first if possible.
@@ -469,7 +469,7 @@ class LoveletterPartyServer:
             due to the context manager use the session will also be
             automatically detached from the server.
             """
-            LOGGER.debug("Closing session for: %s", self.client_info)
+            LOGGER.debug("Ending session for: %s", self.client_info)
             current_task = asyncio.current_task()
 
             try:
@@ -492,7 +492,7 @@ class LoveletterPartyServer:
         async def abort(self):
             """Abort this session."""
             LOGGER.warning("Aborting session with %s", self.client_info)
-            await self.close()
+            await self.end()
 
         @multimethod
         async def game_input_request(self, request: gev.ChoiceEvent) -> gev.ChoiceEvent:
@@ -871,7 +871,7 @@ class LoveletterPartyServer:
         LOGGER.debug("Server's _shutdown called")
         if not self.game_ended:
             raise RuntimeError("Game hasn't been finished yet")
-        await asyncio.gather(*(s.close() for s in self._client_sessions))
+        await asyncio.gather(*(s.end() for s in self._client_sessions))
         self._connection_server_task.cancel()
 
     # -------------------------------- Utility methods --------------------------------

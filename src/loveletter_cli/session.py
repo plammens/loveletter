@@ -40,8 +40,8 @@ from loveletter_multiplayer import (
     RemoteGameShadowCopy,
     RemoteValidationError,
 )
-from loveletter_multiplayer.client import LoveletterClient, watch_connection
-from loveletter_multiplayer.utils import Address
+from loveletter_multiplayer.client import LoveletterClient
+from loveletter_multiplayer.utils import Address, watch_task
 
 
 LOGGER = logging.getLogger(__name__)
@@ -517,7 +517,7 @@ class HostCLISession(CommandLineSession):
             await aprint("Joining the server...", end=" ")  # see _player_joined()
             connection_task = await self._connect_localhost()
             await self._host_has_joined_server.wait()
-            await watch_connection(
+            await watch_task(
                 connection_task, main_task=self._manage_after_connection_established()
             )
 
@@ -593,7 +593,7 @@ class GuestCLISession(CommandLineSession):
         address = self.server_address
         await print_header(f"Joining game @ {address.host}:{address.port}")
         connection_task = await self._connect_to_server()
-        await watch_connection(
+        await watch_task(
             connection_task, main_task=self._manage_after_connection_established()
         )
 

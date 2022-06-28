@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Coroutine, Dict, Optional, Type, TypeVar, Union
+from typing import Awaitable, Callable, Dict, Optional, Type, TypeVar
 
 import valid8
 from multimethod import multimethod
@@ -29,7 +29,6 @@ from loveletter_multiplayer.utils import (
     Address,
     InnerClassMeta,
     attrgetter,
-    cancel_and_await,
 )
 
 
@@ -616,36 +615,3 @@ class GuestClient(LoveletterClient):
 @dataclass(frozen=True)
 class ServerInfo:
     address: Address
-
-
-async def watch_connection(
-    connection_task: asyncio.Task, main_task: Union[asyncio.Task, Coroutine]
-):
-    """
-    Utility to watch a client connection while running some other main task.
-
-    Called from a coroutine that manages a :class:`LoveletterClient` on the result of
-    :meth:`LoveletterClient.connect` to set up a task that does something while
-    "keeping an eye" on the connection: i.e. if the connection terminates with an
-    exception, it stops the main task and propagates said exception to the caller.
-    If no exception occurs, waits for both tasks to terminate normally.
-
-    :param connection_task: Connection task to watch, as returned by
-        :meth:`LoveletterClient.connect`.
-    :param main_task: Main task to run while watching the connection task.
-        Can be given as a coroutine object, in which case it will be wrapped
-        in a task with the same name as the current task.
-    """
-    if asyncio.iscoroutine(main_task):
-        main_task = asyncio.create_task(
-            main_task, name=asyncio.current_task().get_name()
-        )
-
-    done, pending = await asyncio.wait(
-        [connection_task, main_task], return_when=asyncio.FIRST_EXCEPTION
-    )
-    # if stopped early due to an exception, cancel the main task
-    await cancel_and_await(*pending)
-    # propagate the exception (if any)
-    for task in done:
-        task.result()  # this raises if the task terminated with an exception

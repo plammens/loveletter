@@ -321,6 +321,13 @@ class LoveletterPartyServer:
         )
         if self._is_host(client_info):
             client_info = dataclasses.replace(client_info, is_host=True)
+        else:
+            # Check that the host is present when guests arrive.
+            if self.party_host is None:
+                await self._refuse_connection(
+                    writer, reason=f"This server's host hasn't connected yet."
+                )
+                raise LogonError("This server's host hasn't connected yet.")
 
         await self._reply_ok(writer)
         return client_info

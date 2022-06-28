@@ -6,6 +6,7 @@ import socket
 from dataclasses import dataclass
 from typing import Iterator, List, Optional, Tuple, Union
 
+import more_itertools as mitt
 import valid8
 from multimethod import multimethod
 
@@ -139,15 +140,11 @@ class LoveletterPartyServer:
     @property
     def party_host(self) -> Optional["ClientInfo"]:
         """Get the ClientInfo corresponding to the host of this party, if present."""
-        it = (session.client_info for session in self._client_sessions)
-        result = None
-        for c in it:
-            if c.is_host:
-                result = c
-                break
-        for c in it:
-            assert not c.is_host, "More than one party host"
-        return result
+        return mitt.only(
+            client
+            for session in self._client_sessions
+            if (client := session.client_info).is_host
+        )
 
     @property
     def party_host_session(

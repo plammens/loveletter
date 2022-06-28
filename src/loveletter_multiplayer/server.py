@@ -395,7 +395,9 @@ class LoveletterPartyServer:
             async with self.server._sessions_lock:
                 self.server._detach(self)
 
-            await self.server._announce_player_disconnected(self)
+            # if waiting for the game to start, announce the disconnection politely
+            if not self.server._ready_to_play.is_set():
+                await self.server._announce_player_disconnected(self)
 
         # --------------------- "Public" methods (for the server) ---------------------
 
@@ -652,7 +654,8 @@ class LoveletterPartyServer:
         )
 
     async def _announce_player_disconnected(self, player: _ClientSessionManager):
-        if not self._ready_to_play.is_set():
+        # Can't announce anything to the host if the host themselves disconnected.
+        if not player.client_info.is_host:
             await self.party_host_session.send_message(
                 msg.PlayerDisconnected(player.client_info.username)
             )

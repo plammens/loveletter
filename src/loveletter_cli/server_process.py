@@ -70,7 +70,7 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
                 "Timed out while waiting for server process to end;"
                 " killing the process"
             )
-            self.kill()
+            self.terminate()
 
         LOGGER.info("Server process ended")
 
@@ -95,8 +95,8 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def kill(self):
-        """Kill the running process, blocking until it dies."""
+    def terminate(self):
+        """Terminate the running process, blocking until it dies."""
         pass
 
     def _post_start(self):
@@ -150,8 +150,8 @@ class NewConsoleServerProcess(ServerProcess):
             # convert to builtin TimeoutError
             raise TimeoutError from None
 
-    def kill(self):
-        self._process.kill()
+    def terminate(self):
+        self._process.terminate()
         self._process.wait()
 
 
@@ -195,7 +195,7 @@ class MultiprocessingServerProcess(ServerProcess):
             raise TimeoutError
         self._process.close()
 
-    def kill(self):
-        self._process.kill()
+    def terminate(self):
+        self._process.terminate()
         self._process.join()
         self._process.close()

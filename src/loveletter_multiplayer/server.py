@@ -452,12 +452,27 @@ class LoveletterPartyServer:
                     continue
 
         async def close(self):
-            """Gracefully close this session."""
+            """
+            Gracefully close this session.
+
+            This involves:
+              - Closing the underlying socket, writing EOF first if possible.
+              - Cancelling any long-term tasks related to this session,
+                such as the receive loop.
+
+            When the manage() task (started in _connection_handler) is cancelled,
+            due to the context manager use the session will also be
+            automatically detached from the server.
+            """
             LOGGER.debug("Closing session for: %s", self.client_info)
             current_task = asyncio.current_task()
 
-            self.writer.write_eof()
-            await self.writer.drain()
+            try:
+                self.writer.write_eof()
+                await self.writer.drain()
+            except OSError:
+                # The connection might have already been closed by the other end.
+                pass
             self.writer.close()
 
             tasks = [self.writer.wait_closed()]

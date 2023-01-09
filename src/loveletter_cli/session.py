@@ -98,7 +98,7 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
             possessive = "Your" if is_client else f"{player.username}'s"
             await print_header(f"{possessive} turn", filler="—")
-            await draw_game(game)
+            await draw_game(game, reveal=game.client_player.round_player.alive)
             if is_client:
                 await aprint(">>>>> It's your turn! <<<<<")
             else:

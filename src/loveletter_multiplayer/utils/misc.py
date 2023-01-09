@@ -12,7 +12,7 @@ import types
 import typing
 from collections import namedtuple
 from functools import lru_cache
-from typing import Any, ClassVar, Dict, Optional, Union
+from typing import Any, ClassVar, Coroutine, Dict, Optional, Union
 
 
 LOGGER = logging.getLogger(__name__)
@@ -239,3 +239,34 @@ async def cancel_and_await(*tasks: asyncio.Task):
         task.cancel()
     # use return_exceptions=True to suppress CancelledError
     await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def watch_task(
+    side_task: asyncio.Task, main_task: Union[asyncio.Task, Coroutine]
+):
+    """
+    Utility to watch for exceptions in an ancillary task while running a main task.
+
+    This coroutine runs the main task while "keeping an eye" on the side task: i.e.
+    if the latter terminates with an exception, it stops the main task and propagates
+    said exception to the caller.
+    If no exception occurs, it waits for both tasks to terminate normally.
+
+    :param side_task: Task to watch.
+    :param main_task: Main task to run while watching the side task.
+        Can be given as a coroutine object, in which case it will be wrapped
+        in a task with the same name as the current task.
+    """
+    if asyncio.iscoroutine(main_task):
+        main_task = asyncio.create_task(
+            main_task, name=asyncio.current_task().get_name()
+        )
+
+    done, pending = await asyncio.wait(
+        [side_task, main_task], return_when=asyncio.FIRST_EXCEPTION
+    )
+    # if stopped early due to an exception, cancel the main task
+    await cancel_and_await(*pending)
+    # propagate the exception (if any)
+    for task in done:
+        task.result()  # this raises if the task terminated with an exception

@@ -6,6 +6,7 @@ import socket
 from dataclasses import dataclass
 from typing import Iterator, List, Optional, Tuple, Union
 
+import more_itertools as mitt
 import valid8
 from multimethod import multimethod
 
@@ -35,6 +36,7 @@ from loveletter_multiplayer.utils import (
     close_stream_at_exit,
     format_exception,
     import_from_qualname,
+    watch_task,
 )
 
 
@@ -62,9 +64,11 @@ class LoveletterPartyServer:
         self,
         host,
         port,
+        *,
         party_host_username: str,
         max_clients: int = loveletter.game.Game.MAX_PLAYERS,
         allow_duplicate_usernames: bool = False,
+        host_join_timeout: Optional[float] = None,
     ):
         """
         Initialize a new server instance.
@@ -76,12 +80,15 @@ class LoveletterPartyServer:
         :param max_clients: Maximum number of clients allowed to log onto the server.
         :param allow_duplicate_usernames: Whether clients are allowed to connect if
             their username is already taken by another client connected to the server.
+        :param host_join_timeout: How long to wait for the host to join when the server
+            starts up, in seconds. ``None`` indicates no timeout.
         """
         self.host = host[0] if not isinstance(host, str) and len(host) == 1 else host
         self.port = port
 
         self.max_clients = max_clients
         self.allow_duplicate_usernames = allow_duplicate_usernames
+        self.host_join_timeout = host_join_timeout
 
         self._client_sessions: List[LoveletterPartyServer._ClientSessionManager] = []
         self._party_host_username = party_host_username
@@ -121,6 +128,7 @@ class LoveletterPartyServer:
         LOGGER.debug(f"Created socket server bound to {self.host}:{self.port}")
         self._sessions_lock = asyncio.Lock()
         self._ready_to_play = asyncio.Event()
+        self._host_joined = asyncio.Event()
 
     # ------------------------- Properties and public methods -------------------------
 
@@ -132,15 +140,11 @@ class LoveletterPartyServer:
     @property
     def party_host(self) -> Optional["ClientInfo"]:
         """Get the ClientInfo corresponding to the host of this party, if present."""
-        it = (session.client_info for session in self._client_sessions)
-        result = None
-        for c in it:
-            if c.is_host:
-                result = c
-                break
-        for c in it:
-            assert not c.is_host, "More than one party host"
-        return result
+        return mitt.only(
+            client
+            for session in self._client_sessions
+            if (client := session.client_info).is_host
+        )
 
     @property
     def party_host_session(
@@ -175,18 +179,20 @@ class LoveletterPartyServer:
         Starts the connection server and lasts until the server shuts down.
 
         Can only be called once per instance.
+
+        :raises asyncio.TimeoutError: if waiting for the host to join times out.
         """
         if self._connection_server_task is not None:
             raise RuntimeError("run_server can only be called once")
         self._connection_server_task = asyncio.current_task()
         await self._init_async()
         async with self._server:
-            asyncio.create_task(
+            game_task = asyncio.create_task(
                 self._start_game_when_ready(), name="start_game_when_ready"
             )
             try:
                 LOGGER.info("Starting socket server")
-                await self._server.serve_forever()
+                await watch_task(game_task, main_task=self._server.serve_forever())
             except asyncio.CancelledError:
                 pass  # exiting gracefully
             finally:
@@ -232,11 +238,13 @@ class LoveletterPartyServer:
             async with self._sessions_lock:
                 # Note: if we refuse the connection now, there is no need to wait for
                 # the logon message since we would have rejected in any case.
+
                 if self.num_connected_clients >= self.max_clients:
                     return await self._refuse_connection(
                         writer,
                         reason=f"Maximum capacity ({self.max_clients} players) reached",
                     )
+
                 if self._ready_to_play.is_set():
                     return await self._refuse_connection(
                         writer,
@@ -246,9 +254,10 @@ class LoveletterPartyServer:
                 LOGGER.info(f"Received connection from %s", address)
                 try:
                     client_info = await self._receive_logon(reader, writer)
-                except (LogonError, ProtocolError, asyncio.TimeoutError):
-                    # already handled by _receive_logon
+                except (LogonError, ProtocolError, asyncio.TimeoutError) as e:
+                    await self._refuse_connection(writer, reason=str(e))
                     return
+
                 # noinspection PyArgumentList
                 session = self._ClientSessionManager(client_info, reader, writer)
                 # attach before releasing the lock:
@@ -278,6 +287,20 @@ class LoveletterPartyServer:
         writer.write_eof()
 
     async def _receive_logon(self, reader, writer) -> "ClientInfo":
+        """
+        Receive the logon info from the given peer and validate it.
+
+        If the logon succeeds, this also sends an OK reply to the peer that sent it.
+
+        :param reader: StreamReader corresponding to the new connection.
+        :param writer: StreamWriter corresponding to the new connection.
+
+        :return: The client info of the newly connected player if logon was successful.
+        :raises asyncio.TimeoutError: If the logon message doesn't arrive after a while.
+        :raises ProtocolError: If the peer doesn't abide by the logon protocol.
+        :raises LogonError: If the logon is invalid for some logical reason
+            (e.g. duplicate username).
+        """
         address = Address(*writer.get_extra_info("peername"))
 
         try:
@@ -300,18 +323,12 @@ class LoveletterPartyServer:
                 address,
                 message,
             )
-            await self._refuse_connection(
-                writer, reason="Didn't receive the expected logon message"
-            )
             raise UnexpectedMessageError(expected=msg.Logon, actual=message)
 
         # check for duplicate username
         if not self.allow_duplicate_usernames and message.username in (
             c.client_info.username for c in self._client_sessions
         ):
-            await self._refuse_connection(
-                writer, reason=f"The username {message.username!r} is already in use"
-            )
             raise LogonError(f"Username already in use: {message.username!r}")
 
         client_info = ClientInfo(
@@ -321,6 +338,10 @@ class LoveletterPartyServer:
         )
         if self._is_host(client_info):
             client_info = dataclasses.replace(client_info, is_host=True)
+        else:
+            # Check that the host is present when guests arrive.
+            if self.party_host is None:
+                raise LogonError("This server's host hasn't connected yet.")
 
         await self._reply_ok(writer)
         return client_info
@@ -331,9 +352,14 @@ class LoveletterPartyServer:
         address = session.client_info.address
         if address in (s.client_info.address for s in self._client_sessions):
             raise RuntimeError("There is already a session for %s", address)
+
         object.__setattr__(session.client_info, "id", len(self._client_sessions))
         self._client_sessions.append(session)
         session._attached = True
+
+        if session.client_info.is_host:
+            self._host_joined.set()
+
         return session
 
     def _detach(self, session: "LoveletterPartyServer._ClientSessionManager"):
@@ -383,6 +409,7 @@ class LoveletterPartyServer:
             return f"<session manager for {self.client_info}>"
 
         async def __aenter__(self):
+            """Attach this session to the server."""
             async with self.server._sessions_lock:
                 if self not in self.server._client_sessions:
                     self.server._attach(self)
@@ -392,10 +419,16 @@ class LoveletterPartyServer:
             return self
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
+            """Detach this session from the server, make sure the socket is closed."""
+            self.writer.close()
+            await self.writer.wait_closed()
+
             async with self.server._sessions_lock:
                 self.server._detach(self)
 
-            await self.server._announce_player_disconnected(self)
+            # if waiting for the game to start, announce the disconnection politely
+            if not self.server._ready_to_play.is_set():
+                await self.server._announce_player_disconnected(self)
 
         # --------------------- "Public" methods (for the server) ---------------------
 
@@ -423,13 +456,28 @@ class LoveletterPartyServer:
                     )
                     continue
 
-        async def close(self):
-            """Gracefully close this session."""
-            LOGGER.debug("Closing session for: %s", self.client_info)
+        async def end(self):
+            """
+            Gracefully end this session.
+
+            This involves:
+              - Closing the underlying socket, writing EOF first if possible.
+              - Cancelling any long-term tasks related to this session,
+                such as the receive loop.
+
+            When the manage() task (started in _connection_handler) is cancelled,
+            due to the context manager use the session will also be
+            automatically detached from the server.
+            """
+            LOGGER.debug("Ending session for: %s", self.client_info)
             current_task = asyncio.current_task()
 
-            self.writer.write_eof()
-            await self.writer.drain()
+            try:
+                self.writer.write_eof()
+                await self.writer.drain()
+            except OSError:
+                # The connection might have already been closed by the other end.
+                pass
             self.writer.close()
 
             tasks = [self.writer.wait_closed()]
@@ -444,7 +492,7 @@ class LoveletterPartyServer:
         async def abort(self):
             """Abort this session."""
             LOGGER.warning("Aborting session with %s", self.client_info)
-            await self.close()
+            await self.end()
 
         @multimethod
         async def game_input_request(self, request: gev.ChoiceEvent) -> gev.ChoiceEvent:
@@ -652,12 +700,23 @@ class LoveletterPartyServer:
         )
 
     async def _announce_player_disconnected(self, player: _ClientSessionManager):
-        if not self._ready_to_play.is_set():
+        # Can't announce anything to the host if the host themselves disconnected.
+        if not player.client_info.is_host:
             await self.party_host_session.send_message(
                 msg.PlayerDisconnected(player.client_info.username)
             )
 
     async def _start_game_when_ready(self):
+        # Wait for the host to join, with a timeout (to avoid an orphan server process).
+        try:
+            await asyncio.wait_for(
+                self._host_joined.wait(),
+                timeout=self.host_join_timeout,
+            )
+        except asyncio.TimeoutError:
+            LOGGER.error("Timed out while waiting for host to join")
+            raise
+
         while True:
             try:
                 await self._ready_to_play.wait()
@@ -812,7 +871,7 @@ class LoveletterPartyServer:
         LOGGER.debug("Server's _shutdown called")
         if not self.game_ended:
             raise RuntimeError("Game hasn't been finished yet")
-        await asyncio.gather(*(s.close() for s in self._client_sessions))
+        await asyncio.gather(*(s.end() for s in self._client_sessions))
         self._connection_server_task.cancel()
 
     # -------------------------------- Utility methods --------------------------------

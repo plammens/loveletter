@@ -31,6 +31,13 @@ def define_cli() -> argparse.ArgumentParser:
     parser.add_argument("port", type=int)
     parser.add_argument("party_host_username")
     parser.add_argument(
+        "--timeout",
+        dest="host_join_timeout",
+        type=float,
+        default=None,
+        help="Timeout to wait for the host to join. Default is none.",
+    )
+    parser.add_argument(
         "--logging", type=int, default=argparse.SUPPRESS, dest="logging_level"
     )
     parser.add_argument("--show-logs", action="store_true")

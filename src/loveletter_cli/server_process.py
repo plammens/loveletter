@@ -30,6 +30,8 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
     - ``show_logs``: Whether to show the server's logs. If True,
         it will try to spawn a separate console window, and default to showing
         the logs in the same console as the parent process otherwise.
+    - ``host_joint_timeout``: How long to wait for the host to join before aborting
+        the server (to avoid an orphaned server process).
     """
 
     @staticmethod
@@ -50,6 +52,7 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
     port: int
     host_user: UserInfo
     show_logs: bool = False
+    host_join_timeout: float = 3.0
 
     def __enter__(self):
         self.start()
@@ -70,7 +73,7 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
                 "Timed out while waiting for server process to end;"
                 " killing the process"
             )
-            self.kill()
+            self.terminate()
 
         LOGGER.info("Server process ended")
 
@@ -95,8 +98,8 @@ class ServerProcess(contextlib.AbstractContextManager, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def kill(self):
-        """Kill the running process, blocking until it dies."""
+    def terminate(self):
+        """Terminate the running process, blocking until it dies."""
         pass
 
     def _post_start(self):
@@ -130,6 +133,7 @@ class NewConsoleServerProcess(ServerProcess):
                 *self.hosts,
                 str(self.port),
                 self.host_user.username,
+                "--timeout", str(self.host_join_timeout),
                 "--logging", str(min(LOGGER.getEffectiveLevel(), logging.INFO)),
                 "--show-logs",
             ],
@@ -150,8 +154,8 @@ class NewConsoleServerProcess(ServerProcess):
             # convert to builtin TimeoutError
             raise TimeoutError from None
 
-    def kill(self):
-        self._process.kill()
+    def terminate(self):
+        self._process.terminate()
         self._process.wait()
 
 
@@ -171,11 +175,12 @@ class MultiprocessingServerProcess(ServerProcess):
         self._process = multiprocessing.Process(
             target=loveletter_cli.server_script.main,
             kwargs=dict(
-                show_logs=show_logs,
-                logging_level=logging_level,
                 host=self.hosts,
                 port=self.port,
                 party_host_username=self.host_user.username,
+                host_join_timeout=self.host_join_timeout,
+                show_logs=show_logs,
+                logging_level=logging_level,
             ),
             daemon=True,
         )
@@ -195,7 +200,7 @@ class MultiprocessingServerProcess(ServerProcess):
             raise TimeoutError
         self._process.close()
 
-    def kill(self):
-        self._process.kill()
+    def terminate(self):
+        self._process.terminate()
         self._process.join()
         self._process.close()

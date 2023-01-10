@@ -27,7 +27,6 @@ if hasattr(os, "set_blocking"):
         os.set_blocking(sys.stdin.fileno(), True)
         return result
 
-
     @functools.wraps(aioconsole.ainput)
     async def aprint(*args, **kwargs):
         result = await aioconsole.aprint(*args, **kwargs)
@@ -190,10 +189,4 @@ Ask for user input until it satisfies a given validator.
 
 
 async def pause() -> None:
-    # Using ainput() instead of regular input() sometimes causes trouble:
-    # the user has to enter twice before input is detected;
-    # but the asynchronous nature is needed to ensure other events are handled in time
-    # (e.g. when the connection is lost).
-    # Also caused trouble on Linux and Unix regarding the O_NONBLOCK flag
-    # (see #17 and #19) but this has been fixed.
-    await ainput("Enter something to continue... ")
+    input("Enter something to continue... ")

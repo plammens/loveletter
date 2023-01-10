@@ -548,9 +548,10 @@ class LoveletterPartyServer:
                     asyncio.create_task(
                         self._handle_message(message), name="handle_message"
                     )
-            except ConnectionResetError:
+            except OSError:
                 LOGGER.warning(
-                    "Connection forcibly closed by client: %s", self.client_info
+                    "Connection failed or forcibly closed by client: %s",
+                    self.client_info,
                 )
                 asyncio.create_task(
                     self._connection_closed_by_client(),

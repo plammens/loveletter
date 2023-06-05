@@ -1,17 +1,54 @@
 import enum
 import functools
+import os
+import sys
 import textwrap
 from typing import Callable, Tuple, Type, TypeVar
 
+import aioconsole
 import more_itertools
 import valid8
-from aioconsole import ainput, aprint
 
 from .misc import printable_width
 
 
 _T = TypeVar("_T")
 _DEFAULT = object()
+
+
+# Define ainput() based on OS: if the OS uses the O_NONBLOCK flag, we have to
+# clear it after every call to ainput() to ensure compatibility with blocking
+# IO such as print() and input().
+if hasattr(os, "set_blocking"):
+
+    @functools.wraps(aioconsole.ainput)
+    async def ainput(*args, **kwargs):
+        result = await aioconsole.ainput(*args, **kwargs)
+        os.set_blocking(sys.stdin.fileno(), True)
+        return result
+
+    @functools.wraps(aioconsole.ainput)
+    async def aprint(*args, **kwargs):
+        result = await aioconsole.aprint(*args, **kwargs)
+        os.set_blocking(sys.stdin.fileno(), True)
+        return result
+
+else:
+    ainput = aioconsole.ainput
+    aprint = aioconsole.aprint
+
+
+def ask_valid_input(*args, **kwargs) -> _T:
+    error_message, parser, prompt, validation_errors = _ask_valid_input_parse_args(
+        *args, **kwargs
+    )
+
+    while True:
+        raw_input = input(prompt)
+        try:
+            return _parse_input(raw_input, parser, error_message, validation_errors)
+        except (valid8.ValidationError, *validation_errors):
+            continue
 
 
 async def async_ask_valid_input(*args, **kwargs):
@@ -152,8 +189,4 @@ Ask for user input until it satisfies a given validator.
 
 
 async def pause() -> None:
-    # Using ainput() instead of regular input() sometimes causes trouble:
-    # the user has to enter twice before input is detected;
-    # but the asynchronous nature is needed to ensure other events are handled in time
-    # (e.g. when the connection is lost).
-    await ainput("Enter something to continue... ")
+    input("Enter something to continue... ")

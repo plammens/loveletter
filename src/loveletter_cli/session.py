@@ -477,57 +477,31 @@ class CommandLineSession(metaclass=abc.ABCMeta):
 
 
 class HostCLISession(CommandLineSession):
-
-    hosts: Tuple[str, ...]
-    port: int
+    server_address: Address
     client: HostClient
 
     def __init__(
         self,
         user: UserInfo,
-        hosts: Tuple[str],
-        port: int,
-        show_server_logs: bool = False,
+        server_address: Address,
     ):
         super().__init__(user)
-        self.hosts = hosts
-        self.port = port
         self.client = HostClient(
             user.username,
             player_joined_callback=self._player_joined,
             player_left_callback=self._player_left,
         )
-        self.show_server_logs = show_server_logs
-
+        self.server_address = server_address
         self._host_has_joined_server: Optional[asyncio.Event] = None
-
-    @property
-    def server_addresses(self) -> Tuple[Address, ...]:
-        return tuple(Address(h, self.port) for h in self.hosts)
 
     async def manage(self):
         await super().manage()
         self._host_has_joined_server = asyncio.Event()
-
-        await print_header(
-            f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
-        )
-        server_process = self._configure_server_process()
-        with server_process:
-            await aprint("Joining the server...", end=" ")  # see _player_joined()
-            connection_task = await self._connect_localhost()
-            await self._host_has_joined_server.wait()
-            await watch_task(
-                connection_task, main_task=self._manage_after_connection_established()
-            )
-
-    def _configure_server_process(self) -> ServerProcess:
-        """Subclasses can override this to customise the server process."""
-        return ServerProcess.new(
-            hosts=self.hosts,
-            port=self.port,
-            host_user=self.user,
-            show_logs=self.show_server_logs,
+        await aprint("Joining the server...", end=" ")  # see _player_joined()
+        connection_task = await self._connect()
+        await self._host_has_joined_server.wait()
+        await watch_task(
+            connection_task, main_task=self._manage_after_connection_established()
         )
 
     async def _manage_after_connection_established(self):
@@ -535,12 +509,12 @@ class HostCLISession(CommandLineSession):
         await self.play_game(game)
         await self.client.send_shutdown()
 
-    async def _connect_localhost(self) -> asyncio.Task:
+    async def _connect(self) -> asyncio.Task:
         # give the server process enough time to start up
         backoff = 0.25  # time in seconds between attempts
         for attempt in range(3):
             try:
-                return await self.client.connect("127.0.0.1", self.port)
+                return await self.client.connect(*self.server_address)
             except ConnectionRefusedError as e:
                 error = e
                 await asyncio.sleep(backoff)
@@ -576,6 +550,43 @@ class HostCLISession(CommandLineSession):
     @staticmethod
     async def _player_left(message: msg.PlayerDisconnected):
         await aprint(f"{message.username} left the server")
+
+
+class HostWithLocalServerCLISession(HostCLISession):
+    hosts: Tuple[str, ...]
+    port: int
+
+    def __init__(
+        self,
+        user: UserInfo,
+        hosts: Tuple[str],
+        port: int,
+        show_server_logs: bool = False,
+    ):
+        super().__init__(user, Address("127.0.0.1", port))
+        self.hosts = hosts
+        self.port = port
+        self.show_server_logs = show_server_logs
+
+    @property
+    def server_addresses(self) -> Tuple[Address, ...]:
+        return tuple(Address(h, self.port) for h in self.hosts)
+
+    async def manage(self):
+        await print_header(
+            f"Hosting game on {', '.join(f'{h}:{p}' for h, p in self.server_addresses)}"
+        )
+        with self._configure_server_process():
+            return await super().manage()
+
+    def _configure_server_process(self) -> ServerProcess:
+        """Subclasses can override this to customise the server process."""
+        return ServerProcess.new(
+            hosts=self.hosts,
+            port=self.port,
+            host_user=self.user,
+            show_logs=self.show_server_logs,
+        )
 
 
 class GuestCLISession(CommandLineSession):

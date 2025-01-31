@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import enum
 import functools
 import logging
 import multiprocessing
@@ -12,11 +11,12 @@ import traceback
 
 from aioconsole import aprint
 
-from loveletter_cli.data import HostVisibility, PlayMode, UserInfo
+from loveletter_cli.data import *
 from loveletter_cli.exceptions import Restart
 from loveletter_cli.session import (
     GuestCLISession,
     HostCLISession,
+    HostWithLocalServerCLISession,
 )
 from loveletter_cli.ui import async_ask_valid_input, print_exception, print_header
 from loveletter_cli.utils import (
@@ -149,28 +149,50 @@ async def ask_play_mode() -> PlayMode:
 
 async def host_game(user: UserInfo, show_server_logs: bool):
     await print_header("Hosting a game")
-    mode = await async_ask_valid_input(
-        "Choose the server_addresses's visibility:",
-        choices=HostVisibility,
-        default=HostVisibility.PUBLIC,
+
+    server_location = await async_ask_valid_input(
+        "Do you want to use an external server or host one locally?",
+        choices=ServerLocation,
+        default=ServerLocation.LOCAL,
     )
-    addresses = {"local": get_local_ip()}
-    if mode == HostVisibility.PUBLIC:
-        addresses["public"] = get_public_ip()
-        hosts = ("",)
+
+    if server_location == ServerLocation.LOCAL:
+        visibility = await async_ask_valid_input(
+            "Choose the server's visibility:",
+            choices=HostVisibility,
+            default=HostVisibility.PUBLIC,
+        )
+        addresses = {"local": get_local_ip()}
+        if visibility == HostVisibility.PUBLIC:
+            addresses["public"] = get_public_ip()
+            hosts = ("",)
+        else:
+            hosts = (
+                "127.0.0.1",
+                str(addresses["local"]),
+            )  # allow either localhost or local net.
+        await aprint(
+            f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}"
+        )
+        port = await ask_port_for_hosting()
+
+        def create_session():
+            return HostWithLocalServerCLISession(
+                user, hosts, port, show_server_logs=show_server_logs
+            )
+
+    elif server_location == ServerLocation.EXTERNAL:
+        address = await ask_address_for_joining()
+
+        def create_session():
+            return HostCLISession(user, address)
+
     else:
-        hosts = (
-            "127.0.0.1",
-            str(addresses["local"]),
-        )  # allow either localhost or local net.
-    await aprint(
-        f"Your address: {' | '.join(f'{v} ({k})' for k, v in addresses.items())}"
-    )
-    port = await ask_port_for_hosting()
+        assert False, f"Unhandled server location: {server_location}"
 
     play_again = True
     while play_again:
-        session = HostCLISession(user, hosts, port, show_server_logs=show_server_logs)
+        session = create_session()
         await session.manage()
 
         play_again = await ask_play_again()
@@ -207,7 +229,8 @@ async def join_game(user: UserInfo):
 
 async def ask_address_for_joining() -> Address:
     def parser(s: str) -> Address:
-        host, port = s.split(":")
+        host, port = s.rsplit(":", maxsplit=1)
+        port = int(port)
         with valid8.validation("host", host, help_msg="Invalid host"):
             host = socket.gethostbyname(host)
         port = int(port)

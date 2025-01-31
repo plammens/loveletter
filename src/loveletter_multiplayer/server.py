@@ -2,7 +2,6 @@ import asyncio
 import dataclasses
 import itertools
 import logging
-import socket
 from dataclasses import dataclass
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -210,10 +209,7 @@ class LoveletterPartyServer:
         """
         if self.party_host is not None:
             return False  # we already have a host; only one host
-        return (
-            socket.gethostbyname(client.address.host) == "127.0.0.1"
-            and client.username == self._party_host_username
-        )
+        return client.username == self._party_host_username
 
     # ------------------------ Connection and session handling ------------------------
 
